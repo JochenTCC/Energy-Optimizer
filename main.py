@@ -1,254 +1,33 @@
-from ftplib import FTP
-import os
-import requests
-from requests.auth import HTTPBasicAuth
+import time
 from datetime import datetime
-import pandas as pd
-import config
 
-# ==============================================================================
-# 1. LIVE-ABFRAGEN (Loxone & Awattar)
-# ==============================================================================
-
-def fetch_awattar_prices():
-    """Holt die aktuellen Marktpreise von Awattar."""
-    try:
-        response = requests.get(config.AWATTAR_URL)
-        response.raise_for_status()
-        data = response.json()
-        
-        prices = []
-        for entry in data['data']:
-            dt = datetime.fromtimestamp(entry['start_timestamp'] / 1000)
-            price_cent = entry['marketprice'] / 10
-            prices.append({
-                "timestamp": dt,
-                "hour": dt.hour,
-                "price_buy": round(price_cent, 2)
-            })
-        return prices
-    except Exception as e:
-        print(f"🚨 Fehler beim Abrufen der Awattar-Preise: {e}")
-        return None
-
-def fetch_loxone_soc():
-    """Holt den aktuellen Batterie-SoC live aus dem Loxone Miniserver."""
-    url = f"http://{config.LOXONE_IP}/jdev/sps/io/{config.LOXONE_SOC_NAME}"
-    
-    try:
-        response = requests.get(
-            url, 
-            auth=HTTPBasicAuth(config.LOXONE_USER, config.LOXONE_PASS),
-            timeout=5
-        )
-        response.raise_for_status()
-        data = response.json()
-        
-        raw_value = data['LL']['value']
-        clean_value = raw_value.replace('%', '').strip()
-        return float(clean_value)
-        
-    except Exception as e:
-        print(f"🚨 Fehler beim Abrufen des Loxone SoC ({config.LOXONE_SOC_NAME}): {e}")
-        return None
-
-def send_loxone_value(input_name, value):
-    """Sendet einen berechneten Wert an einen Virtuellen Eingang in Loxone."""
-    url = f"http://{config.LOXONE_IP}/dev/sps/io/{input_name}/{value}"
-    
-    try:
-        response = requests.get(
-            url,
-            auth=HTTPBasicAuth(config.LOXONE_USER, config.LOXONE_PASS),
-            timeout=5
-        )
-        response.raise_for_status()
-        print(f"   ↳ {input_name} erfolgreich auf {value} gesetzt.")
-        return True
-    except Exception as e:
-        print(f"🚨 Fehler beim Senden an Loxone ({input_name}): {e}")
-        return False
-
-# ==============================================================================
-# 2. AUTOMATISCHES PROFIL-UPDATE (Einmalig pro Monat)
-# ==============================================================================
-
-def fetch_loxone_csv_file(local_path='live_consumption.csv'):
-    """Lädt die CSV-Logdatei über das echte FTP-Protokoll vom Miniserver herunter."""
-    # Verwendet jetzt standardmäßig 'Verbrauch.csv'
-    remote_filename = getattr(config, 'LOXONE_LOG_FILENAME', 'Verbrauch.csv')
-    
-    print(f"🌐 FTP-Aktualisierung gestartet: Verbinde mit Miniserver ({config.LOXONE_IP})...")
-    try:
-        ftp = FTP(config.LOXONE_IP, timeout=10)
-        ftp.login(user=config.LOXONE_USER, passwd=config.LOXONE_PASS)
-        ftp.cwd('log')
-        
-        print(f"📥 Downloade '{remote_filename}' via FTP...")
-        with open(local_path, 'wb') as f:
-            ftp.retrbinary(f"RETR {remote_filename}", f.write)
-            
-        ftp.quit()
-        print("✅ FTP-Download erfolgreich abgeschlossen.")
-        return local_path
-        
-    except Exception as e:
-        print(f"🚨 Fehler beim Loxone-FTP-Download: {e}")
-        return None
-
-def generate_consumption_profile():
-    """Lädt aktuelle Logdaten (neues Format) und berechnet die Profil-CSV neu."""
-    local_csv = fetch_loxone_csv_file()
-    if not local_csv or not os.path.exists(local_csv):
-        print("⚠️ Profil-Update abgebrochen: Logdatei konnte nicht geladen werden.")
-        return False
-
-    try:
-        df = pd.read_csv(
-            local_csv, 
-            sep=';', 
-            names=['timestamp', 'label', 'value'], 
-            header=None
-        )
-        
-        df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
-        df.dropna(subset=['timestamp', 'value'], inplace=True)
-
-        df['Month'] = df['timestamp'].dt.month
-        df['Weekday'] = df['timestamp'].dt.weekday
-        df['Hour'] = df['timestamp'].dt.hour
-        
-        profile = df.groupby(['Month', 'Weekday', 'Hour'])['value'].mean().reset_index()
-        profile.rename(columns={'value': 'Consumption'}, inplace=True)
-        profile['Consumption'] = profile['Consumption'].round(3)
-        
-        profile.to_csv('consumption_profiles.csv', index=False, sep=';')
-        print("✅ 'consumption_profiles.csv' erfolgreich für diesen Monat neu berechnet!")
-        return True
-    except Exception as e:
-        print(f"🚨 Fehler bei der Profilberechnung: {e}")
-        return False
-
-def check_and_update_profile_if_new_month():
-    """Prüft das Alter des Profils und triggert bei Monatswechsel ein Update."""
-    profile_path = 'consumption_profiles.csv'
-    now = datetime.now()
-    should_update = False
-    
-    if not os.path.exists(profile_path):
-        print("ℹ️ Kein Verbrauchsprofil gefunden. Initialer Download...")
-        should_update = True
-    else:
-        mtime = os.path.getmtime(profile_path)
-        file_date = datetime.fromtimestamp(mtime)
-        
-        if file_date.month != now.month or file_date.year != now.year:
-            print(f"📅 Neuer Monat erkannt (Letztes Profil von: {file_date.strftime('%d.%m.%Y')}).")
-            should_update = True
-            
-    if should_update:
-        generate_consumption_profile()
-
-# ==============================================================================
-# 3. PROFIL-AUSLESUNG & OPTIMIERUNG
-# ==============================================================================
-
-def get_forecast_vectors():
-    """Lädt das passende historische Verbrauchsprofil für das heutige Datum."""
-    profile_path = 'consumption_profiles.csv'
-    try:
-        now = datetime.now()
-        current_month = now.month
-        current_weekday = now.weekday()
-        
-        df_profiles = pd.read_csv(profile_path, sep=';')
-        
-        filtered = df_profiles[(df_profiles['Month'] == current_month) & (df_profiles['Weekday'] == current_weekday)].sort_values(by='Hour')
-        
-        if filtered.empty:
-            filtered = df_profiles[df_profiles['Month'] == current_month].groupby('Hour')['Consumption'].mean().reset_index()
-            
-        if filtered.empty:
-            filtered = df_profiles.groupby('Hour')['Consumption'].mean().reset_index()
-            
-        forecast_consumption = filtered['Consumption'].tolist()
-        
-        if len(forecast_consumption) < 24:
-            forecast_consumption = forecast_consumption + [0.5] * (24 - len(forecast_consumption))
-            
-        mock_pv = [0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.5, 1.2, 2.5, 4.0, 5.2, 5.8, 
-                   5.5, 4.8, 3.5, 2.1, 1.0, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-                   
-        return forecast_consumption[:24], mock_pv
-        
-    except Exception as e:
-        print(f"⚠️ Fehler beim Laden des Verbrauchsprofils ({e}). Nutze statische Fallback-Werte.")
-        return [0.5] * 24, [0.0] * 24
-
-def heuristic_optimizer(matrix, current_hour, current_soc):
-    """Berechnet den Modus und die Ladeleistung basierend auf Preisschwellenwerten."""
-    all_prices = sorted([row['k_act'] for row in matrix])
-    if not all_prices:
-        return 0, 0.0
-        
-    k_avg = sum(all_prices) / len(all_prices)
-    cutoff_low = all_prices[4]   # Günstigste ~20%
-    cutoff_high = all_prices[-5] # Teuerste ~20%
-    
-    current_row = next((row for row in matrix if row['hour'] == current_hour), None)
-    if not current_row:
-        return 0, 0.0
-        
-    current_price = current_row['k_act']
-    mode = 0
-    target_power = 0.0
-    
-    print(f"\n--- Optimierungs-Entscheidung für {current_hour}:00 Uhr ---")
-    print(f"Aktueller Preis: {current_price} Cent/kWh | Tag-Schnitt: {k_avg:.2f} Cent/kWh")
-    print(f"Aktueller Live-SoC: {current_soc}%")
-    
-    if current_price <= cutoff_low and current_soc < 90:
-        mode = 1
-        target_power = 2.5
-        print("-> Entscheidung: ZWANGSLADEN")
-    elif current_price < k_avg and current_soc < 60:
-        future_rows = [row for row in matrix if current_hour < row['hour'] <= current_hour + 6]
-        incoming_spike = any(row['k_act'] >= cutoff_high for row in future_rows)
-        if incoming_spike:
-            mode = 2
-            target_power = 0.0
-            print("-> Entscheidung: ENTLADESPERRE")
-    else:
-        print("-> Entscheidung: AUTOMATIK")
-        
-    return mode, target_power
-
-# ==============================================================================
-# 4. MAIN ORCHESTRIERUNG
-# ==============================================================================
+# Import der eigenen Sub-Module
+import awattar_client
+import loxone_client
+import profile_manager
+import optimizer
 
 def main():
     print("--- Energy Optimizer Live-Abfrage ---")
     
-    # 1. Prüfen, ob ein neues Verbrauchsprofil vom Miniserver geholt werden muss
-    check_and_update_profile_if_new_month()
+    # 1. Monats-Profil prüfen/aktualisieren
+    profile_manager.check_and_update_profile_if_new_month()
     
-    # 2. Aktuellen SoC aus Loxone holen
-    current_soc = fetch_loxone_soc()
+    # 2. Live-Werte von Loxone & Awattar laden
+    current_soc = loxone_client.fetch_loxone_soc()
     if current_soc is None:
         print("Optimierung abgebrochen: Kein Zugriff auf Loxone SoC.")
         return
 
-    # 3. Awattar Preise holen
-    market_data = fetch_awattar_prices()
+    market_data = awattar_client.fetch_awattar_prices()
     if not market_data:
         print("Optimierung abgebrochen: Keine Awattar-Preise empfangen.")
         return
         
-    # 4. Prognose-Vektoren laden
-    forecast_consumption, forecast_pv = get_forecast_vectors()
+    # 3. Prognose-Vektoren (Verbrauch & PV) laden
+    forecast_consumption, forecast_pv = profile_manager.get_forecast_vectors()
     
-    # Matrix aufbauen
+    # 4. Matrix aufbauen
     optimization_matrix = []
     for item in market_data[:24]:
         hour = item['hour']
@@ -259,22 +38,18 @@ def main():
             "expected_p_pv": forecast_pv[hour]
         })
 
-    # 5. Aktuelle Stunde ermitteln
+    # 5. Optimierung berechnen
     current_hour = datetime.now().hour
-    
-    # 6. Optimierung ausführen
-    mode, target_power = heuristic_optimizer(optimization_matrix, current_hour, current_soc)
+    mode, target_power = optimizer.heuristic_optimizer(optimization_matrix, current_hour, current_soc)
     
     print("\n--- Berechnete Werte für Loxone ---")
-    print(f"MODE: {mode}")
-    print(f"TARGET_POWER: {target_power} kW")
+    print(f"MODE: {mode} | TARGET_POWER: {target_power} kW")
     
-    # 7. Werte aktiv an Loxone übertragen
+    # 6. Werte aktiv an Loxone übertragen
     print("\n📤 Sende Werte an Loxone...")
-    send_loxone_value("Ernie_Mode", mode)
-    send_loxone_value("Ernie_Ziel_Leistung", target_power)
+    loxone_client.send_loxone_value("Ernie_Mode", mode)
+    loxone_client.send_loxone_value("Ernie_Ziel_Leistung", target_power)
 
-import time
 
 if __name__ == "__main__":
     print("🚀 Optimizer-Dauerlauf gestartet (Intervall: 5 Minuten)...")
@@ -285,4 +60,4 @@ if __name__ == "__main__":
             print(f"💥 Kritischer Fehler im Hauptlauf: {e}")
             
         print("\n💤 Warte 5 Minuten bis zum nächsten Durchlauf...\n" + "="*40)
-        time.sleep(300)  # 300 Sekunden = 5 Minuten
+        time.sleep(300)
