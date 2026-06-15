@@ -1,3 +1,4 @@
+from ftplib import FTP
 import os
 import requests
 from requests.auth import HTTPBasicAuth
@@ -44,7 +45,6 @@ def fetch_loxone_soc():
         data = response.json()
         
         raw_value = data['LL']['value']
-        # Bereinigung des Loxone-Formats (z.B. "99.0 %" -> "99.0")
         clean_value = raw_value.replace('%', '').strip()
         return float(clean_value)
         
@@ -52,43 +52,50 @@ def fetch_loxone_soc():
         print(f"🚨 Fehler beim Abrufen des Loxone SoC ({config.LOXONE_SOC_NAME}): {e}")
         return None
 
+def send_loxone_value(input_name, value):
+    """Sendet einen berechneten Wert an einen Virtuellen Eingang in Loxone."""
+    url = f"http://{config.LOXONE_IP}/dev/sps/io/{input_name}/{value}"
+    
+    try:
+        response = requests.get(
+            url,
+            auth=HTTPBasicAuth(config.LOXONE_USER, config.LOXONE_PASS),
+            timeout=5
+        )
+        response.raise_for_status()
+        print(f"   ↳ {input_name} erfolgreich auf {value} gesetzt.")
+        return True
+    except Exception as e:
+        print(f"🚨 Fehler beim Senden an Loxone ({input_name}): {e}")
+        return False
+
 # ==============================================================================
 # 2. AUTOMATISCHES PROFIL-UPDATE (Einmalig pro Monat)
 # ==============================================================================
 
-from ftplib import FTP
-import os
-import config
-
 def fetch_loxone_csv_file(local_path='live_consumption.csv'):
     """Lädt die CSV-Logdatei über das echte FTP-Protokoll vom Miniserver herunter."""
-    # Nutzt 'Verbrauch.csv' als Standard, falls nicht anders in der config.py definiert
+    # Verwendet jetzt standardmäßig 'Verbrauch.csv'
     remote_filename = getattr(config, 'LOXONE_LOG_FILENAME', 'Verbrauch.csv')
     
     print(f"🌐 FTP-Aktualisierung gestartet: Verbinde mit Miniserver ({config.LOXONE_IP})...")
     try:
-        # FTP-Verbindung aufbauen
         ftp = FTP(config.LOXONE_IP, timeout=10)
         ftp.login(user=config.LOXONE_USER, passwd=config.LOXONE_PASS)
-        
-        # In den log-Ordner auf der SD-Karte wechseln
         ftp.cwd('log')
         
-        # Datei binär herunterladen
         print(f"📥 Downloade '{remote_filename}' via FTP...")
         with open(local_path, 'wb') as f:
             ftp.retrbinary(f"RETR {remote_filename}", f.write)
             
-        # Verbindung sauber trennen
         ftp.quit()
         print("✅ FTP-Download erfolgreich abgeschlossen.")
         return local_path
         
     except Exception as e:
         print(f"🚨 Fehler beim Loxone-FTP-Download: {e}")
-        print("💡 Hinweis: Prüfe, ob die IP, der FTP-Port (21) im Netzwerk offen ist und die FTP-Rechte für den User aktiv sind.")
         return None
-    
+
 def generate_consumption_profile():
     """Lädt aktuelle Logdaten (neues Format) und berechnet die Profil-CSV neu."""
     local_csv = fetch_loxone_csv_file()
@@ -97,8 +104,6 @@ def generate_consumption_profile():
         return False
 
     try:
-        # ANPASSUNG AN NEUE SYNTAX:
-        # Keine Header-Zeile (header=None), Punkt als Dezimaltrenner, Namen manuell vergeben
         df = pd.read_csv(
             local_csv, 
             sep=';', 
@@ -106,23 +111,17 @@ def generate_consumption_profile():
             header=None
         )
         
-        # Zeitstempel konvertieren (Format YYYY-MM-DD HH:MM:SS wird automatisch erkannt)
         df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
-        
-        # Zeilen löschen, die kein gültiges Datum oder keinen Wert haben (z.B. Leerzeilen)
         df.dropna(subset=['timestamp', 'value'], inplace=True)
 
-        # Zeit-Features extrahieren
         df['Month'] = df['timestamp'].dt.month
         df['Weekday'] = df['timestamp'].dt.weekday
         df['Hour'] = df['timestamp'].dt.hour
         
-        # Aggregation auf Stunden-Mittelwerte basierend auf der Spalte 'value'
         profile = df.groupby(['Month', 'Weekday', 'Hour'])['value'].mean().reset_index()
         profile.rename(columns={'value': 'Consumption'}, inplace=True)
         profile['Consumption'] = profile['Consumption'].round(3)
         
-        # Profil lokal speichern
         profile.to_csv('consumption_profiles.csv', index=False, sep=';')
         print("✅ 'consumption_profiles.csv' erfolgreich für diesen Monat neu berechnet!")
         return True
@@ -140,11 +139,9 @@ def check_and_update_profile_if_new_month():
         print("ℹ️ Kein Verbrauchsprofil gefunden. Initialer Download...")
         should_update = True
     else:
-        # Änderungsdatum der lokalen Profil-CSV prüfen
         mtime = os.path.getmtime(profile_path)
         file_date = datetime.fromtimestamp(mtime)
         
-        # Wenn Datei aus einem anderen Monat/Jahr stammt -> Update
         if file_date.month != now.month or file_date.year != now.year:
             print(f"📅 Neuer Monat erkannt (Letztes Profil von: {file_date.strftime('%d.%m.%Y')}).")
             should_update = True
@@ -166,24 +163,19 @@ def get_forecast_vectors():
         
         df_profiles = pd.read_csv(profile_path, sep=';')
         
-        # 1. Versuch: Exakter Monat + exakter Wochentag
         filtered = df_profiles[(df_profiles['Month'] == current_month) & (df_profiles['Weekday'] == current_weekday)].sort_values(by='Hour')
         
-        # Fallback 1: Falls Wochentag im Monat fehlt -> Durchschnitt des aktuellen Monats
         if filtered.empty:
             filtered = df_profiles[df_profiles['Month'] == current_month].groupby('Hour')['Consumption'].mean().reset_index()
             
-        # Fallback 2: Am Monatsanfang -> Nimm den Gesamtschnitt aller verfügbaren Daten
         if filtered.empty:
             filtered = df_profiles.groupby('Hour')['Consumption'].mean().reset_index()
             
         forecast_consumption = filtered['Consumption'].tolist()
         
-        # Fallback auf Standardwerte, falls die Liste unvollständig ist
         if len(forecast_consumption) < 24:
             forecast_consumption = forecast_consumption + [0.5] * (24 - len(forecast_consumption))
             
-        # PV-Erzeugung (Vorläufiger Mock-Wert)
         mock_pv = [0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.5, 1.2, 2.5, 4.0, 5.2, 5.8, 
                    5.5, 4.8, 3.5, 2.1, 1.0, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
                    
@@ -253,7 +245,7 @@ def main():
         print("Optimierung abgebrochen: Keine Awattar-Preise empfangen.")
         return
         
-    # 4. Prognose-Vektoren laden (jetzt dynamisch aus dem berechneten Profil)
+    # 4. Prognose-Vektoren laden
     forecast_consumption, forecast_pv = get_forecast_vectors()
     
     # Matrix aufbauen
@@ -276,6 +268,21 @@ def main():
     print("\n--- Berechnete Werte für Loxone ---")
     print(f"MODE: {mode}")
     print(f"TARGET_POWER: {target_power} kW")
+    
+    # 7. Werte aktiv an Loxone übertragen
+    print("\n📤 Sende Werte an Loxone...")
+    send_loxone_value("Ernie_Mode", mode)
+    send_loxone_value("Ernie_Ziel_Leistung", target_power)
+
+import time
 
 if __name__ == "__main__":
-    main()
+    print("🚀 Optimizer-Dauerlauf gestartet (Intervall: 5 Minuten)...")
+    while True:
+        try:
+            main()
+        except Exception as e:
+            print(f"💥 Kritischer Fehler im Hauptlauf: {e}")
+            
+        print("\n💤 Warte 5 Minuten bis zum nächsten Durchlauf...\n" + "="*40)
+        time.sleep(300)  # 300 Sekunden = 5 Minuten
