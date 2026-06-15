@@ -1,16 +1,25 @@
 # pv_forecast.py
 import requests
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Optional
 import config
 import pv_tuner  # Importieren des neuen Moduls für das PV-Tuning
+
+# =========================================================================
+# GLOBALE CACHE-VARIABLEN (Für Rate-Limiting & API-Schonung)
+# =========================================================================
+_LAST_API_CALL: Optional[datetime] = None
+_CACHED_HOURLY_WATTS: Optional[dict] = None
 
 def get_hourly_pv_forecast() -> List[float]:
     """
     Holt die stündliche PV-Prognose für die nächsten 24 Stunden (ab der aktuellen Stunde).
     Gibt eine Liste mit exakt 24 Float-Werten (in kW) zurück.
     Erlaubt tagübergreifende Daten (heute/morgen), um die Nacht- und Folgetags-Optimierung zu sichern.
+    Schützt die forecast.solar API durch ein integriertes 15-Minuten-Caching.
     """
+    global _LAST_API_CALL, _CACHED_HOURLY_WATTS
+
     # Parameter aus der config laden
     lat = getattr(config, 'LATITUDE', 47.41)
     lon = getattr(config, 'LONGITUDE', 9.74)
@@ -27,17 +36,42 @@ def get_hourly_pv_forecast() -> List[float]:
     
     # Resultat-Vektor mit 0.0 kW vorinitialisieren
     pv_vector = [0.0] * 24
+    
+    hourly_watts = None
+    now_time = datetime.now()
 
-    try:
-        # Robustes Timeout aus config nutzen
-        response = requests.get(url, timeout=config.GLOBAL_TIMEOUT)
-        response.raise_for_status()
-        data = response.json()
-        
-        # Das Feld 'watts' enthält die stündlichen Leistungswerte
-        # Key-Format der API: "2026-06-15 08:00:00"
-        hourly_watts = data.get('result', {}).get('watts', {})
-        
+    # =========================================================================
+    # RATE-LIMIT & CACHE-LOGIK
+    # =========================================================================
+    if _LAST_API_CALL and (now_time - _LAST_API_CALL) < timedelta(minutes=15):
+        print("⏳ forecast.solar-Schutz: Letzter API-Aufruf vor weniger als 15 min. Nutze lokalen Cache.")
+        hourly_watts = _CACHED_HOURLY_WATTS
+    else:
+        try:
+            # Zeitstempel SOFORT setzen, um parallele/überlappende Requests abzufangen
+            _LAST_API_CALL = now_time
+            
+            # Robustes Timeout aus config nutzen
+            response = requests.get(url, timeout=config.GLOBAL_TIMEOUT)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Das Feld 'watts' enthält die stündlichen Leistungswerte
+            # Key-Format der API: "2026-06-15 08:00:00"
+            hourly_watts = data.get('result', {}).get('watts', {})
+            _CACHED_HOURLY_WATTS = hourly_watts  # Cache erfolgreich aktualisieren
+            
+        except requests.exceptions.Timeout:
+            print(f"🚨 Timeout beim PV-Forecast ({config.GLOBAL_TIMEOUT}s überschritten). Nutze Fallback.")
+        except requests.exceptions.HTTPError as http_err:
+            print(f"🚨 HTTP-Fehler beim PV-Forecast-Abruf: {http_err}. Nutze Fallback.")
+        except Exception as e:
+            print(f"🚨 Unerwarteter Fehler beim PV-Forecast: {e}. Nutze Fallback.")
+
+    # =========================================================================
+    # DATEN-MAPPING (Egal ob frisch von API oder aus dem Speicher-Cache)
+    # =========================================================================
+    if hourly_watts:
         success_count = 0
         for idx, target_dt in enumerate(target_hours):
             # Formatieren, um den passenden Key im API-Response zu finden
@@ -50,17 +84,10 @@ def get_hourly_pv_forecast() -> List[float]:
                 success_count += 1
         
         if success_count > 0:
-            print(f"✅ PV-Ertragsprognose live abgerufen ({success_count}/24 Stunden gemappt. Max: {max(pv_vector)} kW).")
+            print(f"✅ PV-Ertragsprognose erfolgreich bereitgestellt ({success_count}/24 Stunden gemappt. Max: {max(pv_vector)} kW).")
             return pv_vector
         else:
-            print("⚠️ API-Daten empfangen, aber keine passenden Zeitstempel für die nächsten 24h gefunden. Nutze Fallback.")
-            
-    except requests.exceptions.Timeout:
-        print(f"🚨 Timeout beim PV-Forecast ({config.GLOBAL_TIMEOUT}s überschritten). Nutze Fallback.")
-    except requests.exceptions.HTTPError as http_err:
-        print(f"🚨 HTTP-Fehler beim PV-Forecast-Abruf: {http_err}. Nutze Fallback.")
-    except Exception as e:
-        print(f"🚨 Unerwarteter Fehler beim PV-Forecast: {e}. Nutze Fallback.")
+            print("⚠️ API-/Cache-Daten empfangen, aber keine passenden Zeitstempel für die nächsten 24h gefunden. Nutze Fallback.")
 
     # =========================================================================
     # ROBUSTER FALLBACK-ALGORITHMUS (Saisonal angepasst)
@@ -103,6 +130,3 @@ if __name__ == "__main__":
     res = get_hourly_pv_forecast()
     print(f"Vektor-Länge: {len(res)} Elemente.")
     print(f"Vektor-Werte (nächste 24h ab jetzt): {res}")
-
-    # In pv_forecast.py anpassen:
-

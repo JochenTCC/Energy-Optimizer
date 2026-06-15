@@ -10,9 +10,43 @@ import loxone_client
 import profile_manager
 import optimizer
 import pv_tuner
+import os
+import csv
 
 # Logger für dieses spezifische Modul instanziieren
 logger = logging.getLogger("main")
+
+# ... deine bisherigen Imports ...
+
+def log_to_csv(soc, price, pv_forecast, cons_forecast, mode, target_power):
+    """Schreibt die Systemzustände und Loxone-Ausgangswerte in eine strukturierte CSV-Datei."""
+    file_name = "system_history_log.csv"
+    file_exists = os.path.exists(file_name)
+    
+    # Datenzeile vorbereiten
+    row = [
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        soc,
+        round(price, 4),
+        round(pv_forecast, 3),
+        round(cons_forecast, 3),
+        mode,
+        round(target_power, 3)
+    ]
+    
+    try:
+        with open(file_name, mode="a", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                # Header schreiben, falls Datei nagelneu ist
+                writer.writerow([
+                    "Timestamp", "SoC_%", "Awattar_Price", 
+                    "PV_Forecast_kW", "Consumption_Forecast_kW", 
+                    "Ernie_Mode", "Target_Power_kW"
+                ])
+            writer.writerow(row)
+    except Exception as e:
+        logger.error(f"Fehler beim Schreiben in die CSV-Historie: {e}")
 
 def main():
     # 0. Logging-System starten
@@ -61,6 +95,16 @@ def main():
     mode, target_power = optimizer.heuristic_optimizer(optimization_matrix, current_hour, current_soc)
     
     logger.info("Berechnete Werte für Loxone -> MODE: %s | TARGET_POWER: %s kW", mode, target_power)
+
+    current_market_item = market_data[0] # Aktuelle Stunde
+    log_to_csv(
+        soc=current_soc,
+        price=current_market_item['price_buy'],
+        pv_forecast=forecast_pv[current_hour],
+        cons_forecast=forecast_consumption[current_hour],
+        mode=mode,
+        target_power=target_power
+    )
     
     # 6. Werte aktiv an Loxone übertragen
     logger.info("📤 Sende Werte an Loxone...")
@@ -80,4 +124,4 @@ if __name__ == "__main__":
             print("🔄 Skript läuft weiter. Nächster Versuch in 60 Sekunden...")
         
         # Warte exakt 60 Sekunden bis zum nächsten Durchlauf
-        time.sleep(30)
+        time.sleep(900)
