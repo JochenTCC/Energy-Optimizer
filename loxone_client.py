@@ -5,6 +5,9 @@ from typing import Optional
 import requests
 from requests.auth import HTTPBasicAuth
 import config
+import logging
+
+logger = logging.getLogger(__name__)
 
 def fetch_loxone_soc() -> Optional[float]:
     """
@@ -123,13 +126,10 @@ def fetch_loxone_csv_file(local_path: str = 'live_consumption.csv') -> Optional[
                     pass  # Fail-silent beim Schließen der Verbindung
     return None
 
-# In loxone_client.py hinzufügen:
-
-# In loxone_client.py ergänzen:
-
 def fetch_loxone_pv_counter() -> Optional[float]:
     """
     Holt den aktuellen kumulierten PV-Gesamtertrag (Zählerstand in kWh) live aus dem Loxone Miniserver.
+    Säubert den String von Einheiten wie 'kWh', um einen validen Float zurückzugeben.
     """
     url = f"http://{config.LOXONE_IP}/jdev/sps/io/{config.LOXONE_PV_COUNTER_NAME}"
     timeout_val = getattr(config, 'GLOBAL_TIMEOUT', 5)
@@ -144,11 +144,20 @@ def fetch_loxone_pv_counter() -> Optional[float]:
         data = response.json()
         raw_value = data.get('LL', {}).get('value', '')
         
-        if raw_value == '':
+        if not raw_value:  # Erreicht so auch None oder leere Strings sauberer
             print(f"⚠️ Loxone-Warnung: Keine Daten im 'value'-Feld für {config.LOXONE_PV_COUNTER_NAME} gefunden.")
             return None
             
-        return float(raw_value)
-    except Exception as e:
-        print(f"🚨 Loxone-Fehler beim Abrufen des PV-Zählerstands: {e}")
-        return None
+        # Bereinigung: Entfernt 'kWh' und schneidet überschüssige Leerzeichen ab
+        clean_value = raw_value.replace('kWh', '').strip()
+        
+        return float(clean_value)
+        
+    except requests.exceptions.Timeout:
+        print(f"🚨 Loxone-Fehler: Timeout ({timeout_val}s) beim Abrufen des PV-Zählerstands ({config.LOXONE_PV_COUNTER_NAME}).")
+    except requests.exceptions.RequestException as e:
+        print(f"🚨 Loxone-Fehler: Netzwerkfehler beim REST-Abruf des PV-Zählerstands: {e}")
+    except (ValueError, KeyError, TypeError) as e:
+        print(f"🚨 Loxone-Fehler: Parsing-Fehler des PV-Zählerstands (Rohwert: '{raw_value}'): {e}")
+        
+    return None

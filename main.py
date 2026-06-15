@@ -1,6 +1,5 @@
 # main.py
-import os
-import json
+import time
 from datetime import datetime
 import logging
 
@@ -70,4 +69,15 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    while True:
+        try:
+            # Führe die oben definierte Routine aus
+            main()
+            
+        except Exception as e:
+            # Verhindert den Absturz des Skripts bei API-Fehlern oder Timeouts
+            print(f"🚨 Fehler während des Durchlaufs: {e}")
+            print("🔄 Skript läuft weiter. Nächster Versuch in 60 Sekunden...")
+        
+        # Warte exakt 60 Sekunden bis zum nächsten Durchlauf
+        time.sleep(30)

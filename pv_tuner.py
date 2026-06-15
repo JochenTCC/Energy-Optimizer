@@ -1,10 +1,52 @@
 # pv_tuner.py (Neu erstellen)
+import json
+import logging
 import os
 import pandas as pd
 from datetime import datetime, timedelta
 import config
+import loxone_client
+
+logger = logging.getLogger(__name__)
 
 LOG_FILE = getattr(config, 'PV_TUNING_LOG_FILE', 'pv_accuracy_log.csv')
+
+# pv_tuner.py
+import json
+import logging
+import os
+import pandas as pd
+from datetime import datetime, timedelta
+import config
+import loxone_client
+
+logger = logging.getLogger(__name__)
+
+LOG_FILE = getattr(config, 'PV_TUNING_LOG_FILE', 'pv_accuracy_log.csv')
+STATE_FILE = "pv_counter_state.json"
+
+def _save_state_atomic(file_path: str, data: dict):
+    """
+    Schreibt Daten atomar in eine JSON-Datei, um Datenverlust durch abgebrochene
+    Schreibvorgänge zu verhindern. Schreibt zuerst in eine .tmp Datei und 
+    benennt diese nach erfolgreichem Schreiben per os.replace() um.
+    """
+    temp_path = f"{file_path}.tmp"
+    try:
+        # 1. Zuerst vollständig in die temporäre Datei schreiben
+        with open(temp_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4)
+        
+        # 2. Erst nach Erfolg atomar auf Betriebssystemebene umbenennen
+        os.replace(temp_path, file_path)
+    except Exception as e:
+        # Falls beim Schreiben ein Fehler auftrat, temporäre Datei aufräumen
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
+        raise e
 
 def log_pv_comparison(forecasted_kw: float, actual_kw: float):
     """
@@ -12,7 +54,6 @@ def log_pv_comparison(forecasted_kw: float, actual_kw: float):
     """
     now = datetime.now().replace(minute=0, second=0, microsecond=0)
     
-    # Datenzeile vorbereiten
     data = {
         "Timestamp": [now.strftime("%Y-%m-%d %H:%M:%S")],
         "Hour": [now.hour],
@@ -21,9 +62,62 @@ def log_pv_comparison(forecasted_kw: float, actual_kw: float):
     }
     df_new = pd.DataFrame(data)
     
-    # Falls Datei noch nicht existiert, mit Header schreiben, sonst anhängen
     file_exists = os.path.exists(LOG_FILE)
     df_new.to_csv(LOG_FILE, mode='a', index=False, sep=';', header=not file_exists)
+
+def get_pv_delta_and_update() -> Optional[float]:
+    """
+    Holt den aktuellen PV-Zählerstand, berechnet das Delta zur vorherigen Stunde
+    und aktualisiert den Zustand atomar.
+    """
+    current_total_pv = loxone_client.fetch_loxone_pv_counter()
+    if current_total_pv is None:
+        logger.error("🚨 Fehler beim Abrufen des PV-Zählerstands von Loxone. Tuning ausgesetzt.")
+        return None
+
+    # Falls die Datei nicht existiert oder leer (0 Bytes) ist, initialisieren
+    if not os.path.exists(STATE_FILE) or os.path.getsize(STATE_FILE) == 0:
+        initial_state = {
+            "last_total_pv": current_total_pv,
+            "last_updated": datetime.now().isoformat()
+        }
+        try:
+            _save_state_atomic(STATE_FILE, initial_state)
+            logger.info("⏳ Erststart-Wert erfolgreich atomar gesichert. Das Feintuning wird für diese Stunde ausgesetzt.")
+        except Exception as e:
+            logger.exception(f"🚨 Fehler beim Erstellen der State-Datei: {e}")
+        return None
+
+    # Bestehenden Zustand laden
+    try:
+        with open(STATE_FILE, "r", encoding="utf-8") as f:
+            state = json.load(f)
+    except Exception as e:
+        logger.exception(f"🚨 Fehler beim Lesen von pv_counter_state.json: {e}")
+        return None
+
+    last_total_pv = state.get("last_total_pv", current_total_pv)
+    
+    # Delta (realer Stundenertrag) berechnen
+    pv_delta = current_total_pv - last_total_pv
+    
+    # Plausibilitätsprüfung
+    if pv_delta < 0:
+        logger.warning(f"⚠️ Negatives PV-Delta festgestellt ({pv_delta:.3f} kWh). Setze Zustand zurück.")
+        pv_delta = 0.0
+
+    # Zustand für die nächste Stunde aktualisieren
+    state["last_total_pv"] = current_total_pv
+    state["last_updated"] = datetime.now().isoformat()
+    
+    # Zustand atomar zurückspeichern
+    try:
+        _save_state_atomic(STATE_FILE, state)
+        logger.info(f"💾 PV-Zustand erfolgreich atomar aktualisiert. Delta: {pv_delta:.3f} kWh")
+    except Exception as e:
+        logger.exception(f"🚨 Fehler beim Aktualisieren der State-Datei: {e}")
+        
+    return pv_delta
 
 def calculate_tuning_factor(days_back: int = 14) -> float:
     """
@@ -67,65 +161,3 @@ def calculate_tuning_factor(days_back: int = 14) -> float:
         print(f"⚠️ Fehler bei der Berechnung des PV-Tuning-Faktors: {e}")
         return 1.0
     
-STATE_FILE = "pv_counter_state.json"
-
-def get_pv_delta_and_update() -> float | None:
-    """
-    Liest den aktuellen Gesamtzählerstand der PV-Anlage aus Loxone,
-    vergleicht ihn mit dem gespeicherten Wert aus der vorherigen Stunde,
-    berechnet das reale Ertrags-Delta und aktualisiert den Zustand 
-    persistent in der pv_counter_state.json.
-    
-    Returns:
-        Optional[float]: Das berechnete Ertrags-Delta in kWh oder None beim Erststart/Fehler.
-    """
-    # Live-Zählerstand über das loxone_client-Modul abrufen
-    current_total_pv = loxone_client.fetch_loxone_pv_counter()
-    if current_total_pv is None:
-        logger.warning("⚠️ Abbruch des PV-Abgleichs: Gesamtzählerstand konnte nicht von Loxone geladen werden.")
-        return None
-
-    # Falls die State-Datei noch nicht existiert (Erststart des Features)
-    if not os.path.exists(STATE_FILE):
-        logger.info("ℹ️ Keine 'pv_counter_state.json' gefunden. Initialisiere Zustand für den Erststart...")
-        initial_state = {
-            "last_total_pv": current_total_pv,
-            "last_timestamp": datetime.now().isoformat()
-        }
-        try:
-            with open(STATE_FILE, "w", encoding="utf-8") as f:
-                json.dump(initial_state, f, indent=4)
-            logger.info("⏳ Erststart-Wert erfolgreich gesichert. Das Feintuning wird für diese Stunde ausgesetzt.")
-        except Exception as e:
-            logger.error(f"🚨 Fehler beim Erstellen der State-Datei: {e}")
-        return None
-
-    # Bestehenden Zustand laden
-    try:
-        with open(STATE_FILE, "r", encoding="utf-8") as f:
-            state = json.load(f)
-    except Exception as e:
-        logger.error(f"🚨 Fehler beim Lesen von pv_counter_state.json: {e}")
-        return None
-
-    last_total_pv = state.get("last_total_pv", current_total_pv)
-    
-    # Delta (realer Stundenertrag) berechnen
-    pv_delta = current_total_pv - last_total_pv
-    
-    # Plausibilitätsprüfung (Abfang bei Wechselrichter-Reset oder Zählertausch)
-    if pv_delta < 0:
-        logger.warning(f"⚠️ Negatives PV-Delta festgestellt ({pv_delta:.3f} kWh). Setze Zustand zurück.")
-        pv_delta = 0.0
-
-    # Zustand für die nächste Stunde aktualisieren
-    state["last_total_pv"] = current_total_pv
-    state["last_timestamp"] = datetime.now().isoformat()
-    
-    try:
-        with open(STATE_FILE, "w", encoding="utf-8") as f:
-            json.dump(state, f, indent=4)
-    except Exception as e:
-        logger.error(f"🚨 Fehler beim Schreiben der pv_counter_state.json: {e}")
-
-    return pv_delta
