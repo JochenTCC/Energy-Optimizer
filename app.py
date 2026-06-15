@@ -52,7 +52,6 @@ def update_config_file(kwp, tilt, azimuth, k_push):
         else:
             new_lines.append(line)
             
-    # Sicherheitsnetz falls Variablen noch nicht existierten
     if "PV_KWP" not in updated_keys: new_lines.append(f"PV_KWP = {kwp}\n")
     if "PV_TILT" not in updated_keys: new_lines.append(f"PV_TILT = {tilt}\n")
     if "PV_AZIMUTH" not in updated_keys: new_lines.append(f"PV_AZIMUTH = {azimuth}\n")
@@ -61,7 +60,6 @@ def update_config_file(kwp, tilt, azimuth, k_push):
     with open(config_path, "w", encoding="utf-8") as f:
         f.writelines(new_lines)
         
-    # Erzwingt das Neuladen des Config-Moduls im aktuellen Python-Prozess
     importlib.reload(config)
     return True
 
@@ -71,7 +69,6 @@ def update_config_file(kwp, tilt, azimuth, k_push):
 st.sidebar.title("⚙️ Anlagen-Konfiguration")
 st.sidebar.markdown("Justiere hier die Kernparameter deiner PV-Anlage. Ein Klick auf Speichern berechnet die Prognose-Vektoren sofort neu.")
 
-# Dynamisches Laden der aktuellen Werte direkt aus der config.py
 current_kwp = float(getattr(config, 'PV_KWP', 6.0))
 current_tilt = int(getattr(config, 'PV_TILT', 18))
 current_azimuth = int(getattr(config, 'PV_AZIMUTH', 28))
@@ -89,7 +86,6 @@ st.sidebar.markdown("---")
 if st.sidebar.button("💾 Parameter speichern & anwenden", type="primary"):
     if update_config_file(ui_kwp, ui_tilt, ui_azimuth, ui_k_push):
         st.sidebar.success("✅ config.py erfolgreich aktualisiert!")
-        # Trigger einen Rerun, um die Daten neu von den APIs zu ziehen
         st.rerun()
 
 # ==============================================================================
@@ -98,7 +94,6 @@ if st.sidebar.button("💾 Parameter speichern & anwenden", type="primary"):
 st.title("🔋 Ernie Energy Control Center")
 st.markdown("### Interaktiver 24h-Optimierungsfahrplan (Testbetrieb)")
 
-# 1. Datenbeschaffung über bestehende Clients
 with st.spinner("⏳ Aktualisiere Live-Daten von Loxone, aWATTar und Forecast.Solar..."):
     current_soc = loxone_client.fetch_loxone_soc()
     if current_soc is None:
@@ -111,17 +106,8 @@ with st.spinner("⏳ Aktualisiere Live-Daten von Loxone, aWATTar und Forecast.So
 if not market_data:
     st.error("🚨 Fehler: Es konnten keine Marktdaten von aWATTar geladen werden. Dashboard-Erstellung abgebrochen.")
 else:
-    current_hour = datetime.now().hour
-    
-    # 2. Synchronisierte Matrix aufbauen & Zeithorizont berechnen
+    # Synchronisierte Basis-Matrix aufbauen
     optimization_matrix = []
-    chart_rows = []
-    
-    # Für den Chart simulieren wir den voraussichtlichen Speicherverlauf (SoC) im Zeitverlauf
-    sim_soc = current_soc
-    battery_capacity_kwh = config.BATTERY_CAPACITY_KWH
-    
-    # Sortieren nach tatsächlicher chronologischer Abfolge ab "Jetzt"
     for i, item in enumerate(market_data[:24]):
         optimization_matrix.append({
             "hour": item['hour'], 
@@ -130,53 +116,17 @@ else:
             "expected_p_pv": forecast_pv[i]
         })
 
-    # Durchlauf zur Ermittlung des Fahrplans & SoC-Verlaufs
-    for row in optimization_matrix:
-        h = row['hour']
-        # Nutzt den echten Optimierungs-Algorithmus aus optimizer.py
-        mode, target_power = optimizer.heuristic_optimizer(optimization_matrix, h, sim_soc)
-        
-        # Batterie-Aktion in kW übersetzen (Positiv = Laden aus Netz, Negativ = Entladen/Nutzen)
-        if mode == 1:
-            batt_action = target_power
-            action_text = f"Zwangsladen ({target_power} kW)"
-        elif mode == 2:
-            batt_action = -target_power
-            action_text = "Speichernutzung freigegeben"
-        else:
-            batt_action = 0.0
-            action_text = "Standby / Normalbetrieb"
-            
-        # Einfache SoC-Fortschreibung für die Visualisierung (Leistung * 1h)
-        # Effizienzverluste vernachlässigen wir im heuristischen Testbetrieb
-        old_soc = sim_soc
-        sim_soc += (batt_action / battery_capacity_kwh) * 100
-        sim_soc = max(5.0, min(100.0, sim_soc)) # Begrenzung auf physikalische Grenzen
-        
-        chart_rows.append({
-            "Uhrzeit": f"{h:02d}:00",
-            "Strompreis (Cent/kWh)": row['k_act'],
-            "PV-Prognose (kW)": row['expected_p_pv'],
-            "Verbrauch-Prognose (kW)": row['expected_p_act'],
-            "Geplante Batterie-Aktion (kW)": batt_action,
-            "Simulierter SoC (%)": round(old_soc, 1),
-            "Steuerbefehl": action_text
-        })
-    
+    # --- ZENTRALE SIMULATION UND FAHRPLAN-GENERIERUNG ---
+    chart_rows = optimizer.simulate_24h_horizon(optimization_matrix, current_soc)
     df = pd.DataFrame(chart_rows)
     
     # --- METRIKEN (TOP BANNER) ---
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Aktueller Batterie-SoC", f"{current_soc} %")
     
-    # Finde aktuellen Preis
     current_price_row = df.iloc[0]
     col2.metric("Aktueller Börsenpreis", f"{current_price_row['Strompreis (Cent/kWh)']} Cnt/kWh")
-    
-    # Heutiges PV-Maximum
     col3.metric("PV-Ertragsspitze (Heute)", f"{df['PV-Prognose (kW)'].max():.2f} kW")
-    
-    # Nächster Steuerbefehl
     col4.metric("Nächster System-Befehl", current_price_row['Steuerbefehl'])
     
     st.markdown("---")
@@ -184,7 +134,6 @@ else:
     # --- INTERAKTIVES PLOTLY CHART ---
     fig = go.Figure()
     
-    # Balken für die Batterie-Bewegung (Laden/Entladen)
     fig.add_trace(go.Bar(
         x=df["Uhrzeit"], 
         y=df["Geplante Batterie-Aktion (kW)"], 
@@ -193,7 +142,6 @@ else:
         yaxis="y1"
     ))
     
-    # PV-Ertrag als Fläche
     fig.add_trace(go.Scatter(
         x=df["Uhrzeit"], 
         y=df["PV-Prognose (kW)"], 
@@ -203,7 +151,6 @@ else:
         yaxis="y1"
     ))
     
-    # Verbrauch als Linie
     fig.add_trace(go.Scatter(
         x=df["Uhrzeit"], 
         y=df["Verbrauch-Prognose (kW)"], 
@@ -212,7 +159,6 @@ else:
         yaxis="y1"
     ))
     
-    # Strompreis auf der rechten Y-Achse
     fig.add_trace(go.Scatter(
         x=df["Uhrzeit"], 
         y=df["Strompreis (Cent/kWh)"], 
@@ -221,7 +167,6 @@ else:
         yaxis="y2"
     ))
     
-    # Simulierter SoC als gepunktete Linie auf der rechten Achse (da 0-100% gut zum Preis passt)
     fig.add_trace(go.Scatter(
         x=df["Uhrzeit"], 
         y=df["Simulierter SoC (%)"], 
@@ -230,7 +175,6 @@ else:
         yaxis="y2"
     ))
     
-    # Layout-Konfiguration für die zwei Achsen
     fig.update_layout(
         title="Synchronisierter 24-Stunden-Zeithorizont (Leistung vs. Preis & SoC)",
         xaxis=dict(title="Uhrzeit (Stunden-Slots)"),
@@ -241,11 +185,11 @@ else:
         height=600
     )
     
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     
     # --- TABELLEN-ANSICHT ---
     with st.expander("🔍 Rohe Berechnungs-Matrix einsehen (Datenbasis für Loxone)"):
         st.dataframe(
             df.set_index("Uhrzeit"), 
-            use_container_width=True
+            width="stretch"
         )
