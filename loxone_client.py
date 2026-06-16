@@ -161,3 +161,30 @@ def fetch_loxone_pv_counter() -> Optional[float]:
         print(f"🚨 Loxone-Fehler: Parsing-Fehler des PV-Zählerstands (Rohwert: '{raw_value}'): {e}")
         
     return None
+
+def send_huawei_modbus_states(mode: int, target_power_kw: float, target_soc: float):
+    """
+    Übersetzt die Ernie-Optimierungsmodi in die vier exakten Huawei-Modbus-Steuerwerte
+    und überträgt sie an die virtuellen Eingänge des Loxone Miniservers.
+    """
+    # 2. Modus-Übersetzung anwenden
+    if mode == 1:  # Zwangsladen aus dem Netz
+        forced_power_kw = target_power_kw  
+        control_cmd = 1    # 1 = Charge (Laden)
+
+    elif mode == 2:  # Entladesperre (Entladen blockieren, PV-Laden erlauben)
+        forced_power_kw = 0 # 0 Watt Netzbezug erzwingen
+        control_cmd = 1    # Laden mit 0W sperrt das Entladen, lässt aber PV-Überschuss zu
+    else:
+        forced_power_kw = 0 # Im Automatikmodus wird die Leistung dynamisch durch den Miniserver geregelt
+        control_cmd = 0    # 0 = Automatikbetrieb (Miniserver entscheidet basierend auf Echtzeitdaten)  
+
+    # 3. Werte aktiv an Loxone übertragen
+    logger.info(
+        "Sending Modbus Mapping -> SoC: %d, Power: %d W, Cmd: %d",
+        target_soc, forced_power_kw, control_cmd
+    )
+
+    send_loxone_value("Ernie_Ziel_SoC", target_soc)
+    send_loxone_value("Ernie_Ziel_Leistung", forced_power_kw)
+    send_loxone_value("Ernie_Steuerbefehl", control_cmd)

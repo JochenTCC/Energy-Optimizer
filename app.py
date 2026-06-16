@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 from datetime import datetime
 import importlib
 import os
+import time  # NEU: Für das Refresh-Intervall benötigt
 
 # Bestehende Projektmodule importieren
 import config
@@ -196,3 +197,16 @@ else:
     st.subheader("📋 Simulations-Details (Nächste 24 Stunden)")
     st.markdown("Hier sind die exakten mathematischen Stundenslots aufgelistet, die als Grundlage für den Chart dienen:")
     st.dataframe(df, width='stretch')
+
+# ==============================================================================
+# NEU: AUTOMATISCHER INTERVALL-REFRESH
+# ==============================================================================
+# Unabhängig davon, ob aWATTar-Daten geladen werden konnten oder nicht, 
+# wird das Intervall gestartet, um bei Fehlern einen erneuten Versuch zu wagen.
+st.markdown("---")
+refresh_minutes = int(config.LOOP_TIMEOUT / 60)
+st.caption(f"🔄 Automatischer Daten-Refresh aktiv. Nächste Aktualisierung in {refresh_minutes} Minuten...")
+
+# Skript pausieren lassen und danach einen vollständigen Rerun triggern
+time.sleep(config.LOOP_TIMEOUT)
+st.rerun()

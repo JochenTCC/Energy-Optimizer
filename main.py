@@ -2,8 +2,7 @@
 import time
 from datetime import datetime
 import logging
-
-# Import der eigenen Sub-Module
+import config
 import logger_config
 import awattar_client
 import loxone_client
@@ -16,7 +15,7 @@ import csv
 # Logger für dieses spezifische Modul instanziieren
 logger = logging.getLogger("main")
 
-def log_to_csv(soc, price, pv_forecast, cons_forecast, mode, target_power):
+def log_to_csv(soc, price, pv_forecast, cons_forecast, mode, target_power, target_soc):
     """Schreibt die Systemzustände und Loxone-Ausgangswerte in eine strukturierte CSV-Datei."""
     file_name = "system_history_log.csv"
     file_exists = os.path.exists(file_name)
@@ -29,7 +28,8 @@ def log_to_csv(soc, price, pv_forecast, cons_forecast, mode, target_power):
         round(pv_forecast, 3),
         round(cons_forecast, 3),
         mode,
-        round(target_power, 3)
+        round(target_power, 3),
+        round(target_soc, 0)
     ]
     
     try:
@@ -40,7 +40,7 @@ def log_to_csv(soc, price, pv_forecast, cons_forecast, mode, target_power):
                 writer.writerow([
                     "Timestamp", "SoC_%", "Awattar_Price", 
                     "PV_Forecast_kW", "Consumption_Forecast_kW", 
-                    "Ernie_Mode", "Target_Power_kW"
+                    "Ernie_Mode", "Target_Power_kW", "Target_SoC_%"
                 ])
             writer.writerow(row)
     except Exception as e:
@@ -79,9 +79,9 @@ def main():
     
     # 4. Optimierung berechnen
     current_hour = datetime.now().hour
-    mode, target_power = optimizer.heuristic_optimizer(optimization_matrix, current_hour, current_soc)
+    mode, target_power, target_soc = optimizer.heuristic_optimizer(optimization_matrix, current_hour, current_soc)
     
-    logger.info("Berechnete Werte für Loxone -> MODE: %s | TARGET_POWER: %s kW", mode, target_power)
+    logger.info("Berechnete Werte für Loxone -> MODE: %s | TARGET_POWER: %s kW | TARGET_SOC: %s", mode, target_power, target_soc)
 
     current_market_item = market_data[0] # Aktuelle Stunde
     log_to_csv(
@@ -90,14 +90,12 @@ def main():
         pv_forecast=forecast_pv[0],
         cons_forecast=forecast_consumption[0],
         mode=mode,
-        target_power=target_power
+        target_power=target_power,
+        target_soc=target_soc
     )
     
-    # 6. Werte aktiv an Loxone übertragen
-    logger.info("📤 Sende Werte an Loxone...")
-    loxone_client.send_loxone_value("Ernie_Mode", mode)
-    loxone_client.send_loxone_value("Ernie_Ziel_Leistung", target_power)
-
+    logger.info("📤 Sende gemappte Huawei-Modbus-Werte an Loxone...")
+    loxone_client.send_huawei_modbus_states(mode, target_power, target_soc)
 
 if __name__ == "__main__":
     # Da die Schleife primär für Testzwecke dient, halten wir die Taktung pragmatisch und robust:
@@ -107,8 +105,9 @@ if __name__ == "__main__":
             main()
             
             # Nach einem erfolgreichen Durchlauf warten wir standardmäßig 15 Minuten (900 Sekunden)
-            logger.info("✅ Durchlauf erfolgreich beendet. Schlafe für 15 Minuten...")
-            time.sleep(900)
+            logger.info("✅ Durchlauf erfolgreich beendet. Schlafe für 12 Minuten...")
+            loop_timeout = getattr(config, 'LOOP_TIMEOUT', 12*60)  # Fallback auf 12 Minuten, falls nicht in config definiert
+            time.sleep(loop_timeout)  # 12 Minuten Schlafzeit, um die meisten Stundenwechsel zu erfassen, aber schneller als 15 Min für Tests
             
         except Exception as e:
             # Verhindert den Absturz des Skripts bei API-Fehlern, Timeouts oder Netzwerkabrissen

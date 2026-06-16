@@ -60,6 +60,7 @@ def heuristic_optimizer(matrix: List[Dict[str, Any]], current_hour: int, current
 
     mode = 0
     target_power = 0.0
+    target_soc = 99.0  # Standard-Ziel-SoC
     
     print(f"\n--- Optimierungs-Entscheidung für {current_hour}:00 Uhr ---")
     print(f"Aktueller Preis   : {current_price:.2f} Cent/kWh (Schnitt: {k_avg:.2f} Cent/kWh)")
@@ -74,6 +75,7 @@ def heuristic_optimizer(matrix: List[Dict[str, Any]], current_hour: int, current
     if current_price <= cutoff_low and current_soc < max_soc_for_grid_charge:
         mode = 1
         target_power = 2.5  # Standard-Ladeleistung in kW
+        target_soc = min(max_soc_for_grid_charge, 100.0)  # Ziel-SoC für das Zwangsladen
         print(f"-> Entscheidung: ZWANGSLADEN (Preis {current_price:.2f} <= Schwelle {cutoff_low:.2f} Cent/kWh)")
         
     # Regel 2: ENTLADESPERRE (Preis ist unterdurchschnittlich, aber ein massiver Spike kommt bald)
@@ -88,6 +90,7 @@ def heuristic_optimizer(matrix: List[Dict[str, Any]], current_hour: int, current
             if total_future_pv < total_future_con:
                 mode = 2
                 target_power = 0.0
+                target_soc = 100  # 100% Soll-SoC 
                 print("-> Entscheidung: ENTLADESPERRE (Schütze Akku-Kapazität für kommende Preisspitze)")
             else:
                 print("-> Entscheidung: AUTOMATIK (Preisspike droht zwar, kommende PV deckt aber den Verbrauch)")
@@ -98,7 +101,7 @@ def heuristic_optimizer(matrix: List[Dict[str, Any]], current_hour: int, current
     else:
         print("-> Entscheidung: AUTOMATIK (Normaler Mischbetrieb)")
         
-    return mode, target_power
+    return mode, target_power, target_soc
 
 def simulate_24h_horizon(optimization_matrix: list, initial_soc: float) -> list:
     """
@@ -118,7 +121,7 @@ def simulate_24h_horizon(optimization_matrix: list, initial_soc: float) -> list:
         h = row['hour']
         
         # Matrix-Slice übergeben, damit die zu simulierende Stunde auf Index 0 liegt
-        mode, target_power = heuristic_optimizer(optimization_matrix[i:], h, sim_soc)
+        mode, target_power, target_soc = heuristic_optimizer(optimization_matrix[i:], h, sim_soc)
         
         pv = row['expected_p_pv']
         con = row['expected_p_act']

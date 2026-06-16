@@ -15,6 +15,7 @@ AWATTAR_URL = "https://api.awattar.at/v1/marketdata"
 
 # Globaler HTTP-Timeout in Sekunden für alle API-Anfragen
 GLOBAL_TIMEOUT = 10
+LOOP_TIMEOUT = 12*60  # 12 Minuten Taktung für die Hauptschleife
 
 # Loxone Konfiguration (Sensible Daten und Infrastruktur kommen aus der .env)
 LOXONE_IP = os.getenv("LOXONE_IP", "192.168.178.1")
