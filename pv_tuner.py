@@ -14,25 +14,14 @@ STATE_FILE = "pv_counter_state.json"
 
 def _save_state_atomic(file_path: str, data: dict):
     """
-    Schreibt Daten atomar in eine JSON-Datei, um Datenverlust durch abgebrochene
-    Schreibvorgänge zu verhindern. Schreibt zuerst in eine .tmp Datei und 
-    benennt diese nach erfolgreichem Schreiben per os.replace() um.
+    Schreibt Daten direkt in die JSON-Datei (Docker Bind-Mount kompatibel).
+    Nutzt das direkte Überschreiben ('w'), damit die Inode für Docker intakt bleibt.
     """
-    temp_path = f"{file_path}.tmp"
     try:
-        # 1. Zuerst vollständig in die temporäre Datei schreiben
-        with open(temp_path, "w", encoding="utf-8") as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4)
-        
-        # 2. Erst nach Erfolg atomar auf Betriebssystemebene umbenennen
-        os.replace(temp_path, file_path)
     except Exception as e:
-        # Falls beim Schreiben ein Fehler auftrat, temporäre Datei aufräumen
-        if os.path.exists(temp_path):
-            try:
-                os.remove(temp_path)
-            except OSError:
-                pass
+        logger.error(f"🚨 Fehler beim Schreiben der State-Datei {file_path}: {e}")
         raise e
 
 def log_pv_comparison(forecasted_kw: float, actual_kw: float):

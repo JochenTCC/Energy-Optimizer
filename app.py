@@ -23,9 +23,8 @@ st.set_page_config(
 )
 
 def update_config_file(kwp, tilt, azimuth, k_push):
-    """Schreibt Parameter atomar in eine JSON-Datei statt den Python-Code zu manipulieren."""
+    """Schreibt Parameter direkt in die JSON-Datei (Docker Bind-Mount kompatibel)."""
     settings_path = "runtime_settings.json"
-    temp_path = f"{settings_path}.tmp"
     
     data = {
         "PV_KWP": float(kwp),
@@ -35,19 +34,12 @@ def update_config_file(kwp, tilt, azimuth, k_push):
     }
     
     try:
-        # Erst in temporäre Datei schreiben
-        with open(temp_path, "w", encoding="utf-8") as f:
+        with open(settings_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4)
-        
-        # Atomares Ersetzen auf OS-Ebene (verhindert Datei-Korruption bei Absturz)
-        os.replace(temp_path, settings_path)
-        st.success("✅ Einstellungen erfolgreich und sicher gespeichert!")
-        return True
+        st.success("✅ Parameter erfolgreich in 'runtime_settings.json' gespeichert!")
+        importlib.reload(config)
     except Exception as e:
-        st.error(f"🚨 Fehler beim Speichern der Einstellungen: {e}")
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-        return False
+        st.error(f"🚨 Fehler beim Speichern der Konfiguration: {e}")
 
 # ==============================================================================
 # SIDEBAR: EINSTELLUNGEN & TUNING-ANZEIGE
