@@ -81,13 +81,13 @@ def main():
     
     # 4. Matrix aufbauen
     optimization_matrix = []
-    for item in market_data[:24]:
+    for i, item in enumerate(market_data[:24]):    
         hour = item['hour']
         optimization_matrix.append({
             "hour": hour,
             "k_act": item['price_buy'],
-            "expected_p_act": forecast_consumption[hour],
-            "expected_p_pv": forecast_pv[hour]
+            "expected_p_act": forecast_consumption[i],
+            "expected_p_pv": forecast_pv[i]
         })
 
     # 5. Optimierung berechnen
