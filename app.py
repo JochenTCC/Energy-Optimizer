@@ -125,20 +125,9 @@ if not market_data:
     st.error("🚨 Fehler: Börsenstrompreise von aWATTar konnten nicht geladen werden. Abbruch der Simulation.")
 else:
     # 3. Prognose-Vektoren laden (Hier fließt das Tuning im Hintergrund bereits ein!)
-    forecast_consumption, forecast_pv = profile_manager.get_forecast_vectors()
-    
-    # 4. Matrix für den Simulations-Horizont aufbauen
-    optimization_matrix = []
-    for i, item in enumerate(market_data[:24]):    
-        hour = item['hour']
-        optimization_matrix.append({
-            "hour": hour,
-            "k_act": item['price_buy'],
-            "expected_p_act": forecast_consumption[i],
-            "expected_p_pv": forecast_pv[i]
-        })
+    forecast_consumption, forecast_pv, optimization_matrix = profile_manager.get_forecast_vectors(market_data)
         
-    # 5. 24h-Horizont-Simulation anstoßen
+    # 4. 24h-Horizont-Simulation anstoßen
     df = pd.DataFrame(optimizer.simulate_24h_horizon(optimization_matrix, current_soc))
     
     # ==============================================================================

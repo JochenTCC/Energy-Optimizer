@@ -77,20 +77,9 @@ def main():
     logger.info("📊 Tatsächlicher PV-Ertrag der letzten Stunde: %.3f kWh", pv_delta)
     
     # 3. Prognose-Vektoren (Verbrauch & PV) laden
-    forecast_consumption, forecast_pv = profile_manager.get_forecast_vectors()
+    forecast_consumption, forecast_pv, optimization_matrix = profile_manager.get_forecast_vectors(market_data)
     
-    # 4. Matrix aufbauen
-    optimization_matrix = []
-    for i, item in enumerate(market_data[:24]):    
-        hour = item['hour']
-        optimization_matrix.append({
-            "hour": hour,
-            "k_act": item['price_buy'],
-            "expected_p_act": forecast_consumption[i],
-            "expected_p_pv": forecast_pv[i]
-        })
-
-    # 5. Optimierung berechnen
+    # 4. Optimierung berechnen
     current_hour = datetime.now().hour
     mode, target_power = optimizer.heuristic_optimizer(optimization_matrix, current_hour, current_soc)
     
@@ -100,8 +89,8 @@ def main():
     log_to_csv(
         soc=current_soc,
         price=current_market_item['price_buy'],
-        pv_forecast=forecast_pv[current_hour],
-        cons_forecast=forecast_consumption[current_hour],
+        pv_forecast=forecast_pv[0],
+        cons_forecast=forecast_consumption[0],
         mode=mode,
         target_power=target_power
     )

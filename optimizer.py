@@ -100,8 +100,6 @@ def heuristic_optimizer(matrix: List[Dict[str, Any]], current_hour: int, current
         
     return mode, target_power
 
-# optimizer.py (Unten anhängen)
-
 def simulate_24h_horizon(optimization_matrix: list, initial_soc: float) -> list:
     """
     Simuliert den 24-Stunden-Verlauf des SoC und der Batterie-Aktionen

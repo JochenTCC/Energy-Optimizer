@@ -54,13 +54,13 @@ def check_and_update_profile_if_new_month() -> None:
     if should_update:
         generate_consumption_profile()
 
-def get_forecast_vectors() -> Tuple[List[float], List[float]]:
+def get_forecast_vectors(market_data) -> Tuple[List[float], List[float], List[dict]]:
     """
     Lädt das passende historische Verbrauchsprofil und die PV-Prognose 
     für die NÄCHSTEN 24 STUNDEN (rollierender Horizont ab der aktuellen Stunde).
     
     Returns:
-        Tuple[List[float], List[float]]: (Verbrauchs_Vektor, PV_Vektor) jeweils exakt 24 Elemente.
+        Tuple[List[float], List[float], List[dict]]: (Verbrauchs_Vektor, PV_Vektor, Optimierungs_Matrix) jeweils exakt 24 Elemente.
     """
     profile_path = 'consumption_profiles.csv'
     
@@ -101,6 +101,17 @@ def get_forecast_vectors() -> Tuple[List[float], List[float]]:
 
     # Live PV-Prognose abrufen (liefert bereits die nächsten 24h relativ ab 'now')
     forecast_pv = pv_forecast.get_hourly_pv_forecast()
+
+    # Matrix für den Simulations-Horizont aufbauen
+    optimization_matrix = []
+    for i, item in enumerate(market_data[:24]):    
+        hour = item['hour']
+        optimization_matrix.append({
+            "hour": hour,
+            "k_act": item['price_buy'],
+            "expected_p_act": forecast_consumption[i],
+            "expected_p_pv": forecast_pv[i]
+        })
     
     # Sicherheits-Slicing auf exakt 24 Elemente
-    return forecast_consumption[:24], forecast_pv[:24]
+    return forecast_consumption[:24], forecast_pv[:24], optimization_matrix[:24]
