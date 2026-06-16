@@ -12,6 +12,10 @@ load_dotenv()
 
 # API Konfiguration Awattar
 AWATTAR_URL = "https://api.awattar.at/v1/marketdata"
+# Awattar HOURLY AT Preisbestandteile
+AWATTAR_FIX_AUFSCHLAG = 0.015       # Fixer Aufschlag in €/kWh (1,5 Cent)
+AWATTAR_NETZVERLUST_FAKTOR = 1.03  # 3% Aufschlag auf den reinen EPEX-Preis
+MWST_AUSTRIA_FAKTOR = 1.20          # 20% Umsatzsteuer in Österreich
 
 # Globaler HTTP-Timeout in Sekunden für alle API-Anfragen
 GLOBAL_TIMEOUT = 10
@@ -26,6 +30,13 @@ LOXONE_SOC_NAME = "B004-Battery_SOC"
 LOXONE_PV_COUNTER_NAME = "48 - Accumulated energy yield"  
 LOXONE_LOG_FILENAME = 'Verbrauch.csv'
 PV_TUNING_LOG_FILE = "pv_accuracy_log.csv"
+
+# HIER ZU DEN STATISCHEN PARAMETERN HINZUFÜGEN:
+BATTERY_MAX_POWER_KW = 2.5       # Maximale Lade-/Entladeleistung des Wechselrichters/Akkus
+BATTERY_EFFICIENCY = 0.97        # Wirkungsgrad (97% entspricht 0.97)
+BATTERY_CAPACITY_KWH = 10.0      # (Falls noch nicht vorhanden, deine Netto-Kapazität)
+BATTERY_MIN_SOC = 10.0           # Minimaler SoC in %
+BATTERY_MAX_SOC = 100.0          # Maximaler SoC in %
 
 # PV-ANLAGEN PARAMETER (Statischer Teil)
 LATITUDE = 47.404          

@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from typing import List, Tuple
 import loxone_client
 import pv_forecast
+import config
 
 def generate_consumption_profile() -> bool:
     """Lädt aktuelle Logdaten und berechnet die Profil-CSV neu."""
@@ -102,13 +103,32 @@ def get_forecast_vectors(market_data) -> Tuple[List[float], List[float], List[di
     # Live PV-Prognose abrufen (liefert bereits die nächsten 24h relativ ab 'now')
     forecast_pv = pv_forecast.get_hourly_pv_forecast()
 
-    # Matrix für den Simulations-Horizont aufbauen
+# Matrix für den Simulations-Horizont aufbauen
     optimization_matrix = []
+    
+    # Parameter für die Bruttoberechnung aus config laden
+    fix_aufschlag = getattr(config, 'AWATTAR_FIX_AUFSCHLAG_CENT', 1.5)
+    netzverlust = getattr(config, 'AWATTAR_NETZVERLUST_FAKTOR', 1.03)
+    mwst_faktor = getattr(config, 'MWST_AUSTRIA_FAKTOR', 1.20)
+
     for i, item in enumerate(market_data[:24]):    
         hour = item['hour']
+        
+        # Sicherung gegen potenzielle fehlerhafte Datentypen aus der API
+        try:
+            epex_price_cent = float(item['price_buy'])
+            # Offizielle Awattar AT Formel angewendet auf Cent/kWh:
+            # (EPEX-Cent * 1.03 + 1.5 Cent) * 1.20
+            brutto_price_cent = (epex_price_cent * netzverlust + fix_aufschlag) * mwst_faktor
+            brutto_price_cent = round(brutto_price_cent, 4)
+        except (TypeError, ValueError) as e:
+            # Fallback auf den Rohwert, falls die Konvertierung fehlschlägt (Robustheit)
+            print(f"🚨 Fehler bei Brutto-Berechnung für Stunde {hour}: {e}. Nutze Rohwert.")
+            brutto_price_cent = item['price_buy']
+
         optimization_matrix.append({
             "hour": hour,
-            "k_act": item['price_buy'],
+            "k_act": brutto_price_cent,  # Jetzt der echte Brutto-Bezugspreis in Cent/kWh
             "expected_p_act": forecast_consumption[i],
             "expected_p_pv": forecast_pv[i]
         })
