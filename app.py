@@ -222,12 +222,22 @@ def add_price_soc_traces(fig, df):
     ))
 
 
-def render_optimization_chart(df):
+def render_optimization_chart(df, baseline_df=None):
     """Zeichnet Leistungen (PV, Verbrauch, Batterie) und Preise/SoC über zwei Y-Achsen."""
     bar_colors = get_bar_colors(df)
     fig = go.Figure()
 
     add_power_traces(fig, df, bar_colors)
+    if baseline_df is not None and not baseline_df.empty:
+        fig.add_trace(go.Scatter(
+            x=baseline_df["Uhrzeit"],
+            y=baseline_df["Simulierter SoC (%)"],
+            name="Baseline SoC (%)",
+            mode="lines",
+            line=dict(color="darkgrey", width=2.5, dash="dash"),
+            yaxis="y2"
+        ))
+
     add_price_soc_traces(fig, df)
 
     fig.update_layout(
@@ -243,64 +253,53 @@ def render_optimization_chart(df):
     st.plotly_chart(fig, width='stretch')
 
 
+def render_savings_metrics(savings: dict):
+    st.subheader("💶 Optimierungs-Einsparungen")
+    baseline_cost = savings.get('baseline_cost_euro', 0.0)
+    optimized_cost = savings.get('optimized_cost_euro', 0.0)
+    savings_euro = savings.get('savings_euro', 0.0)
+    
+    # Berechne Gesamtverbrauch und Kosten ohne PV aus den Reihen
+    optimized_rows = savings.get('optimized_rows', [])
+    total_consumption_kwh = 0.0
+    cost_without_pv_cents = 0.0
+    if optimized_rows:
+        for row in optimized_rows:
+            consumption = row.get("Verbrauch-Prognose (kW)", 0.0)
+            price_cent = row.get("Strompreis (Cent/kWh)", 0.0)
+            total_consumption_kwh += consumption
+            cost_without_pv_cents += consumption * price_cent
+        
+        cost_without_pv_euro = cost_without_pv_cents / 100.0
+        
+        # Hochrechnung auf 24h falls nur weniger als 24h vorhanden
+        num_hours = len(optimized_rows)
+        consumption_24h = total_consumption_kwh * (24 / num_hours) if num_hours > 0 else 0.0
+
+    col1, col2, col3, col4, col5 = st.columns(5)
+    col1.metric("Ohne PV (Netzbe­zug)", f"{cost_without_pv_euro:.2f} €", help="Kosten bei 100% Netzbezug ohne PV-Anlage")
+    col2.metric("Baseline-Kosten", f"{baseline_cost:.2f} €")
+    col3.metric("Optimierte Kosten", f"{optimized_cost:.2f} €")
+
+    if savings_euro >= 0:
+        display_value = f"-{savings_euro:.2f} €"
+        delta_value = f"-{savings_euro:.2f} €"
+        delta_color = "inverse"
+    else:
+        display_value = f"+{abs(savings_euro):.2f} €"
+        delta_value = f"+{abs(savings_euro):.2f} €"
+        delta_color = "normal"
+
+    col4.metric("Ersparnis", display_value, delta=delta_value, delta_color=delta_color)
+    col5.metric("Verbrauch 24h", f"{consumption_24h:.1f} kWh", help=f"Tatsächlich gemessen: {total_consumption_kwh:.1f} kWh über {len(optimized_rows)} Stunden")
+
+
 def fetch_market_data():
     market_data = awattar_client.fetch_awattar_prices()
     if not market_data:
         st.error("🚨 Fehler: Börsenstrompreise von aWATTar konnten nicht geladen werden. Abbruch der Simulation.")
         return None
     return market_data
-
-
-def build_simulation_dataframe(matrix, current_soc):
-    chart_rows = []
-    sim_soc = current_soc
-    battery_capacity_kwh = float(getattr(config, 'BATTERY_CAPACITY_KWH'))
-    max_soc_limit = float(getattr(config, 'BATTERY_MAX_SOC'))
-    min_soc_limit = float(getattr(config, 'BATTERY_MIN_SOC'))
-
-    for i, row in enumerate(matrix):
-        h = row["hour"]
-        price = row["k_act"]
-        p_pv = row["expected_p_pv"]
-        p_cons = row["expected_p_act"]
-        net_pv_surplus = p_pv - p_cons
-
-        mode, target_power, _ = optimizer.heuristic_optimizer(matrix[i:], h, sim_soc)
-
-        if mode == 1:
-            batt_action = target_power
-            action_text = "Zwangsladen active"
-        elif mode == 2:
-            batt_action = max(0.0, net_pv_surplus)
-            action_text = "Entladesperre aktiv"
-        else:
-            batt_action = net_pv_surplus
-            action_text = "Automatikbetrieb"
-
-        old_soc = sim_soc
-        soc_change = (batt_action / battery_capacity_kwh) * 100
-        sim_soc += soc_change
-
-        if sim_soc > max_soc_limit:
-            actual_charge_pct = max_soc_limit - old_soc
-            batt_action = (actual_charge_pct / 100) * battery_capacity_kwh
-            sim_soc = max_soc_limit
-        elif sim_soc < min_soc_limit:
-            actual_discharge_pct = old_soc - min_soc_limit
-            batt_action = -((actual_discharge_pct / 100) * battery_capacity_kwh)
-            sim_soc = min_soc_limit
-
-        chart_rows.append({
-            "Uhrzeit": f"{h:02d}:00",
-            "Geplante Batterie-Aktion (kW)": round(batt_action, 2),
-            "Strompreis (Cent/kWh)": round(price, 2),
-            "Simulierter SoC (%)": round(old_soc, 1),
-            "Steuerbefehl": action_text,
-            "PV-Prognose (kW)": round(p_pv, 2),
-            "Verbrauch-Prognose (kW)": round(p_cons, 2)
-        })
-
-    return pd.DataFrame(chart_rows)
 
 
 def render_simulation_details(df):
@@ -338,10 +337,13 @@ def main():
         return
 
     _, _, matrix = profile_manager.get_forecast_vectors(market_data)
-    df = build_simulation_dataframe(matrix, current_soc)
+    savings_info = optimizer.calculate_optimization_savings(matrix, current_soc)
+    optimized_df = pd.DataFrame(savings_info['optimized_rows'])
+    baseline_df = pd.DataFrame(savings_info['baseline_rows'])
 
-    render_optimization_chart(df)
-    render_simulation_details(df)
+    render_savings_metrics(savings_info)
+    render_optimization_chart(optimized_df, baseline_df)
+    render_simulation_details(optimized_df)
     render_refresh_caption()
 
 if __name__ == "__main__":
