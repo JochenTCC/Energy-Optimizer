@@ -1,5 +1,6 @@
 *.csv
 config.py
+config.json
 *.pyc
 __pycache__/
 pv_counter_state.json

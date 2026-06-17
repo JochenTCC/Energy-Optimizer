@@ -18,12 +18,12 @@ def heuristic_optimizer(matrix: List[Dict[str, Any]], current_hour: int, current
         return 0, 0.0, 99.0
 
     # 1. Parameter sicher aus der Config laden (mit Fallbacks)
-    battery_capacity = float(getattr(config, 'BATTERY_CAPACITY_KWH', 10.0))
-    min_soc = float(getattr(config, 'BATTERY_MIN_SOC', 10.0))
-    max_soc = float(getattr(config, 'BATTERY_MAX_SOC', 100.0))
-    max_power = float(getattr(config, 'BATTERY_MAX_POWER_KW', 2.5))
-    efficiency = float(getattr(config, 'BATTERY_EFFICIENCY', 0.97))
-    k_push = float(getattr(config, 'K_PUSH', 3.7))
+    battery_capacity = float(getattr(config, 'BATTERY_CAPACITY_KWH'))
+    min_soc = float(getattr(config, 'BATTERY_MIN_SOC'))
+    max_soc = float(getattr(config, 'BATTERY_MAX_SOC'))
+    max_power = float(getattr(config, 'BATTERY_MAX_POWER_KW'))
+    efficiency = float(getattr(config, 'BATTERY_EFFICIENCY'))
+    k_push = float(getattr(config, 'K_PUSH_CENT'))
 
     # Planungshorizont bestimmen (maximal 24 Stunden)
     N = min(24, len(matrix))
@@ -137,11 +137,11 @@ def simulate_24h_horizon(optimization_matrix: list, initial_soc: float) -> list:
     chart_rows = []
     sim_soc = initial_soc
     
-    battery_capacity_kwh = float(getattr(config, 'BATTERY_CAPACITY_KWH', 10.0))
-    min_soc_limit = float(getattr(config, 'BATTERY_MIN_SOC', 10.0))
-    max_soc_limit = float(getattr(config, 'BATTERY_MAX_SOC', 100.0))
-    max_power = float(getattr(config, 'BATTERY_MAX_POWER_KW', 2.5))
-    efficiency = float(getattr(config, 'BATTERY_EFFICIENCY', 0.97))
+    battery_capacity_kwh = float(getattr(config, 'BATTERY_CAPACITY_KWH'))
+    min_soc_limit = float(getattr(config, 'BATTERY_MIN_SOC'))
+    max_soc_limit = float(getattr(config, 'BATTERY_MAX_SOC'))
+    max_power = float(getattr(config, 'BATTERY_MAX_POWER_KW'))
+    efficiency = float(getattr(config, 'BATTERY_EFFICIENCY'))
     
     for i, row in enumerate(optimization_matrix[:24]):
         h = row['hour']

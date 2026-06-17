@@ -21,11 +21,11 @@ def get_hourly_pv_forecast() -> List[float]:
     global _LAST_API_CALL, _CACHED_HOURLY_WATTS
 
     # Parameter aus der config laden
-    lat = getattr(config, 'LATITUDE', 47.41)
-    lon = getattr(config, 'LONGITUDE', 9.74)
-    tilt = getattr(config, 'PV_TILT', 18)
-    azimuth = getattr(config, 'PV_AZIMUTH', 28)
-    kwp = getattr(config, 'PV_KWP', 6.0)
+    lat = getattr(config, 'LATITUDE')
+    lon = getattr(config, 'LONGITUDE')
+    tilt = getattr(config, 'PV_TILT')
+    azimuth = getattr(config, 'PV_AZIMUTH')
+    kwp = getattr(config, 'PV_KWP')
 
     # API-URL für die stündliche Abschätzung (Kostenlose Nutzung ohne Key)
     url = f"https://api.forecast.solar/estimate/{lat}/{lon}/{tilt}/{azimuth}/{kwp}"

@@ -98,20 +98,19 @@ def main():
     loxone_client.send_huawei_modbus_states(mode, target_power, target_soc)
 
 if __name__ == "__main__":
-    # Da die Schleife primär für Testzwecke dient, halten wir die Taktung pragmatisch und robust:
     while True:
         try:
             # Führe die oben definierte Routine aus
             main()
             
-            # Nach einem erfolgreichen Durchlauf warten wir standardmäßig 15 Minuten (900 Sekunden)
-            logger.info("✅ Durchlauf erfolgreich beendet. Schlafe für 12 Minuten...")
-            loop_timeout = getattr(config, 'LOOP_TIMEOUT', 12*60)  # Fallback auf 12 Minuten, falls nicht in config definiert
-            time.sleep(loop_timeout)  # 12 Minuten Schlafzeit, um die meisten Stundenwechsel zu erfassen, aber schneller als 15 Min für Tests
+            # Strikter Zugriff auf das konfigurierte Intervall ohne versteckte Defaults
+            loop_timeout = config.LOOP_TIMEOUT
+            
+            logger.info(f"✅ Durchlauf erfolgreich beendet. Schlafe für {loop_timeout} Sekunden...")
+            time.sleep(loop_timeout)
             
         except Exception as e:
             # Verhindert den Absturz des Skripts bei API-Fehlern, Timeouts oder Netzwerkabrissen
-            # Nutzt den Logger (sofern initialisiert) oder Fallback auf Print
             msg = f"🚨 Unerwarteter Fehler während des Durchlaufs: {e}"
             if logger.handlers:
                 logger.exception(msg)
@@ -119,5 +118,4 @@ if __name__ == "__main__":
                 print(msg)
                 
             print("🔄 Skript läuft weiter. Schneller Wiederholungsversuch in 60 Sekunden...")
-            # Bei einem Fehler warten wir nur 60 Sekunden für einen schnellen Retry (statt 15 Min CPU-Saturierung oder ewigem Warten)
             time.sleep(60)

@@ -1,0 +1,31 @@
+{
+    "awattar": {
+        "url": "https://api.awattar.at/v1/marketdata",
+        "fix_aufschlag_cent": 1.5,
+        "netzverlust_faktor": 1.03,
+        "mwst_austria_faktor": 1.20
+    },
+    "system": {
+        "global_timeout": 10,
+        "loop_timeout": 720
+    },
+    "loxone_blocks": {
+        "soc_name": "B004-Battery_SOC",
+        "pv_counter_name": "48 - Accumulated energy yield",
+        "log_filename": "Verbrauch.csv",
+        "pv_tuning_log_file": "pv_accuracy_log.csv"
+    },
+    "runtime_settings": {
+        "k_push_cent": 3.7,
+        "pv_tilt": 25,
+        "pv_azimuth": 0,
+        "pv_kwp": 10,
+        "battery_max_power_kw": 2.5,
+        "battery_efficiency": 0.97,
+        "battery_capacity_kwh": 5.0,
+        "battery_min_soc": 10.0,
+        "battery_max_soc": 100.0,
+        "latitude": 48,
+        "longitude": 10
+    }
+}

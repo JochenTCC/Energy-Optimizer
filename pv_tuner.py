@@ -9,7 +9,7 @@ import loxone_client
 
 logger = logging.getLogger(__name__)
 
-LOG_FILE = getattr(config, 'PV_TUNING_LOG_FILE', 'pv_accuracy_log.csv')
+LOG_FILE = getattr(config, 'PV_TUNING_LOG_FILE')
 STATE_FILE = "pv_counter_state.json"
 
 def _save_state_atomic(file_path: str, data: dict):

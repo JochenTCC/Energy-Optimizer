@@ -89,7 +89,7 @@ def fetch_loxone_csv_file(local_path: str = 'live_consumption.csv') -> Optional[
     Returns:
         Optional[str]: Der lokale Dateipfad bei Erfolg, None bei Fehlern.
     """
-    remote_filename = getattr(config, 'LOXONE_LOG_FILENAME', 'Verbrauch.csv')
+    remote_filename = getattr(config, 'LOXONE_LOG_FILENAME')
     print(f"🌐 FTP-Verbindung: Verbinde mit Miniserver ({config.LOXONE_IP})...")
     
     ftp = None
