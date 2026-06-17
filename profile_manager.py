@@ -90,9 +90,9 @@ def _build_optimization_matrix(market_data: list, forecast_consumption: list, fo
     """Erstellt die Optimierungs-Matrix mit Preis-, Verbrauchs- und PV-Daten."""
     optimization_matrix = []
     
-    fix_aufschlag = getattr(config, 'FIX_AUFSCHLAG_CENT')
-    netzverlust = getattr(config, 'NETZVERLUST_FAKTOR')
-    mwst_faktor = getattr(config, 'MWST_AUSTRIA_FAKTOR')
+    fix_aufschlag = config.get('FIX_AUFSCHLAG_CENT', cast=float)
+    netzverlust = config.get('NETZVERLUST_FAKTOR', cast=float)
+    mwst_faktor = config.get('MWST_AUSTRIA_FAKTOR', cast=float)
 
     for i, item in enumerate(market_data[:24]):    
         hour = item['hour']

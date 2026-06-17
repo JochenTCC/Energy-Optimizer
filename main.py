@@ -104,7 +104,7 @@ if __name__ == "__main__":
             main()
             
             # Strikter Zugriff auf das konfigurierte Intervall ohne versteckte Defaults
-            loop_timeout = config.LOOP_TIMEOUT
+            loop_timeout = config.get('LOOP_TIMEOUT', cast=int)
             
             logger.info(f"✅ Durchlauf erfolgreich beendet. Schlafe für {loop_timeout} Sekunden...")
             time.sleep(loop_timeout)

@@ -16,15 +16,15 @@ def fetch_loxone_soc() -> Optional[float]:
     Returns:
         Optional[float]: Der SoC in % (0.0 bis 100.0) oder None im Fehlerfall.
     """
-    url = f"http://{config.LOXONE_IP}/jdev/sps/io/{config.LOXONE_SOC_NAME}"
+    url = f"http://{config.get('LOXONE_IP')}/jdev/sps/io/{config.get('LOXONE_SOC_NAME')}"
     
     # Timeout aus der Config ziehen, falls vorhanden, sonst Fallback auf 5s
-    timeout_val = getattr(config, 'GLOBAL_TIMEOUT', 5)
+    timeout_val = config.get_global_timeout(default=5)
     
     try:
         response = requests.get(
             url, 
-            auth=HTTPBasicAuth(config.LOXONE_USER, config.LOXONE_PASS),
+            auth=HTTPBasicAuth(config.get('LOXONE_USER'), config.get('LOXONE_PASS')),
             timeout=timeout_val
         )
         response.raise_for_status()
@@ -34,7 +34,7 @@ def fetch_loxone_soc() -> Optional[float]:
         raw_value = data.get('LL', {}).get('value', '')
         
         if not raw_value:
-            print(f"⚠️ Loxone-Warnung: Keine Daten im 'value'-Feld für {config.LOXONE_SOC_NAME} gefunden.")
+            print(f"⚠️ Loxone-Warnung: Keine Daten im 'value'-Feld für {config.get('LOXONE_SOC_NAME')} gefunden.")
             return None
             
         # Bereinigung (Loxone liefert oft Strings wie "85%" oder "85.0")
@@ -42,7 +42,7 @@ def fetch_loxone_soc() -> Optional[float]:
         return float(clean_value)
         
     except requests.exceptions.Timeout:
-        print(f"🚨 Loxone-Fehler: Timeout ({timeout_val}s) beim Abrufen des SoC ({config.LOXONE_SOC_NAME}).")
+        print(f"🚨 Loxone-Fehler: Timeout ({timeout_val}s) beim Abrufen des SoC ({config.get('LOXONE_SOC_NAME')}).")
     except requests.exceptions.RequestException as e:
         print(f"🚨 Loxone-Fehler: Netzwerkfehler beim REST-Abruf des SoC: {e}")
     except (ValueError, KeyError, TypeError) as e:
@@ -60,13 +60,13 @@ def send_loxone_value(input_name: str, value: float) -> bool:
     Returns:
         bool: True bei Erfolg, False bei Fehlern.
     """
-    url = f"http://{config.LOXONE_IP}/dev/sps/io/{input_name}/{value}"
-    timeout_val = getattr(config, 'GLOBAL_TIMEOUT', 5)
+    url = f"http://{config.get('LOXONE_IP')}/dev/sps/io/{input_name}/{value}"
+    timeout_val = config.get_global_timeout(default=5)
     
     try:
         response = requests.get(
             url,
-            auth=HTTPBasicAuth(config.LOXONE_USER, config.LOXONE_PASS),
+            auth=HTTPBasicAuth(config.get('LOXONE_USER'), config.get('LOXONE_PASS')),
             timeout=timeout_val
         )
         response.raise_for_status()
@@ -89,13 +89,13 @@ def fetch_loxone_csv_file(local_path: str = 'live_consumption.csv') -> Optional[
     Returns:
         Optional[str]: Der lokale Dateipfad bei Erfolg, None bei Fehlern.
     """
-    remote_filename = getattr(config, 'LOXONE_LOG_FILENAME')
-    print(f"🌐 FTP-Verbindung: Verbinde mit Miniserver ({config.LOXONE_IP})...")
+    remote_filename = config.get('LOXONE_LOG_FILENAME')
+    print(f"🌐 FTP-Verbindung: Verbinde mit Miniserver ({config.get('LOXONE_IP')})...")
     
     ftp = None
     try:
-        ftp = FTP(config.LOXONE_IP, timeout=15)
-        ftp.login(user=config.LOXONE_USER, passwd=config.LOXONE_PASS)
+        ftp = FTP(config.get('LOXONE_IP'), timeout=15)
+        ftp.login(user=config.get('LOXONE_USER'), passwd=config.get('LOXONE_PASS'))
         ftp.cwd('log')
         
         print(f"📥 FTP-Download: Downloade '{remote_filename}'...")
@@ -131,13 +131,13 @@ def fetch_loxone_pv_counter() -> Optional[float]:
     Holt den aktuellen kumulierten PV-Gesamtertrag (Zählerstand in kWh) live aus dem Loxone Miniserver.
     Säubert den String von Einheiten wie 'kWh', um einen validen Float zurückzugeben.
     """
-    url = f"http://{config.LOXONE_IP}/jdev/sps/io/{config.LOXONE_PV_COUNTER_NAME}"
-    timeout_val = getattr(config, 'GLOBAL_TIMEOUT', 5)
+    url = f"http://{config.get('LOXONE_IP')}/jdev/sps/io/{config.get('LOXONE_PV_COUNTER_NAME')}"
+    timeout_val = config.get_global_timeout(default=5)
     
     try:
         response = requests.get(
             url, 
-            auth=HTTPBasicAuth(config.LOXONE_USER, config.LOXONE_PASS),
+            auth=HTTPBasicAuth(config.get('LOXONE_USER'), config.get('LOXONE_PASS')),
             timeout=timeout_val
         )
         response.raise_for_status()
@@ -145,7 +145,7 @@ def fetch_loxone_pv_counter() -> Optional[float]:
         raw_value = data.get('LL', {}).get('value', '')
         
         if not raw_value:  # Erreicht so auch None oder leere Strings sauberer
-            print(f"⚠️ Loxone-Warnung: Keine Daten im 'value'-Feld für {config.LOXONE_PV_COUNTER_NAME} gefunden.")
+            print(f"⚠️ Loxone-Warnung: Keine Daten im 'value'-Feld für {config.get('LOXONE_PV_COUNTER_NAME')} gefunden.")
             return None
             
         # Bereinigung: Entfernt 'kWh' und schneidet überschüssige Leerzeichen ab
@@ -154,7 +154,7 @@ def fetch_loxone_pv_counter() -> Optional[float]:
         return float(clean_value)
         
     except requests.exceptions.Timeout:
-        print(f"🚨 Loxone-Fehler: Timeout ({timeout_val}s) beim Abrufen des PV-Zählerstands ({config.LOXONE_PV_COUNTER_NAME}).")
+        print(f"🚨 Loxone-Fehler: Timeout ({timeout_val}s) beim Abrufen des PV-Zählerstands ({config.get('LOXONE_PV_COUNTER_NAME')}).")
     except requests.exceptions.RequestException as e:
         print(f"🚨 Loxone-Fehler: Netzwerkfehler beim REST-Abruf des PV-Zählerstands: {e}")
     except (ValueError, KeyError, TypeError) as e:

@@ -24,14 +24,14 @@ def _check_and_fetch_api_data(url: str, kwp: float) -> Optional[dict]:
     
     try:
         _LAST_API_CALL = now_time
-        response = requests.get(url, timeout=config.GLOBAL_TIMEOUT)
+        response = requests.get(url, timeout=config.get_global_timeout())
         response.raise_for_status()
         data = response.json()
         hourly_watts = data.get('result', {}).get('watts', {})
         _CACHED_HOURLY_WATTS = hourly_watts
         return hourly_watts
     except requests.exceptions.Timeout:
-        print(f"🚨 Timeout beim PV-Forecast ({config.GLOBAL_TIMEOUT}s überschritten). Nutze Fallback.")
+        print(f"🚨 Timeout beim PV-Forecast ({config.get_global_timeout()}s überschritten). Nutze Fallback.")
     except requests.exceptions.HTTPError as http_err:
         print(f"🚨 HTTP-Fehler beim PV-Forecast-Abruf: {http_err}. Nutze Fallback.")
     except Exception as e:
@@ -98,11 +98,11 @@ def get_hourly_pv_forecast() -> List[float]:
     Gibt eine Liste mit exakt 24 Float-Werten (in kW) zurück.
     Schützt die forecast.solar API durch ein integriertes 15-Minuten-Caching.
     """
-    lat = getattr(config, 'LATITUDE')
-    lon = getattr(config, 'LONGITUDE')
-    tilt = getattr(config, 'PV_TILT')
-    azimuth = getattr(config, 'PV_AZIMUTH')
-    kwp = getattr(config, 'PV_KWP')
+    lat = config.get('LATITUDE', cast=float)
+    lon = config.get('LONGITUDE', cast=float)
+    tilt = config.get('PV_TILT', cast=float)
+    azimuth = config.get('PV_AZIMUTH', cast=float)
+    kwp = config.get('PV_KWP', cast=float)
 
     url = f"https://api.forecast.solar/estimate/{lat}/{lon}/{tilt}/{azimuth}/{kwp}"
     

@@ -32,16 +32,7 @@ def update_config_file(settings_dict):
         st.error(f"🚨 Fehler beim Speichern der Konfiguration: {e}")
 
 def get_runtime_settings() -> dict:
-    return {
-        'PV_KWP': getattr(config, 'PV_KWP'),
-        'PV_TILT': getattr(config, 'PV_TILT'),
-        'PV_AZIMUTH': getattr(config, 'PV_AZIMUTH'),
-        'K_PUSH_CENT': getattr(config, 'K_PUSH_CENT'),
-        'BATTERY_CAPACITY_KWH': getattr(config, 'BATTERY_CAPACITY_KWH'),
-        'BATTERY_MIN_SOC': getattr(config, 'BATTERY_MIN_SOC'),
-        'BATTERY_MAX_SOC': getattr(config, 'BATTERY_MAX_SOC'),
-        'BATTERY_MAX_POWER_KW': getattr(config, 'BATTERY_MAX_POWER_KW'),
-    }
+    return config.get_runtime_settings()
 
 
 def render_pv_config_inputs(settings: dict):
@@ -310,7 +301,7 @@ def render_simulation_details(df):
 
 def render_refresh_caption():
     st.markdown("---")
-    loop_timeout = getattr(config, 'LOOP_TIMEOUT', 720)
+    loop_timeout = config.get('LOOP_TIMEOUT', default=720, cast=int)
     refresh_minutes = int(loop_timeout / 60) if loop_timeout else 12
     st.caption(f"🔄 Automatischer Daten-Refresh aktiv. Taktung der Hauptschleife beträgt {refresh_minutes} Minuten...")
 

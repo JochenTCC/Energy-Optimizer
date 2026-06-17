@@ -14,7 +14,7 @@ def fetch_awattar_prices() -> Optional[List[Dict[str, Any]]]:
     """
     try:
         # Timeout aus config setzen, um unendliches Blockieren der Schleife zu verhindern
-        response = requests.get(config.AWATTAR_URL, timeout=config.GLOBAL_TIMEOUT)
+        response = requests.get(config.get('AWATTAR_URL'), timeout=config.get_global_timeout())
         response.raise_for_status()
         data = response.json()
         
@@ -43,7 +43,7 @@ def fetch_awattar_prices() -> Optional[List[Dict[str, Any]]]:
         return prices
 
     except requests.exceptions.Timeout:
-        print(f"🚨 Timeout beim Abrufen der Awattar-Preise ({config.GLOBAL_TIMEOUT}s überschritten).")
+        print(f"🚨 Timeout beim Abrufen der Awattar-Preise ({config.get_global_timeout()}s überschritten).")
         return None
     except requests.exceptions.HTTPError as http_err:
         print(f"🚨 HTTP-Fehler beim Abrufen der Awattar-Preise: {http_err}")

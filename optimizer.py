@@ -3,6 +3,32 @@ from typing import List, Dict, Any, Tuple
 import pulp
 import config  # Lokaler Import der Konfiguration
 
+
+def _clamp_power(value: float, max_power: float) -> float:
+    return max(-max_power, min(value, max_power))
+
+
+def _apply_soc_change(old_soc: float, batt_action: float, battery_capacity_kwh: float, efficiency: float, min_soc_limit: float, max_soc_limit: float) -> tuple[float, float]:
+    if batt_action >= 0:
+        energy_change = batt_action * efficiency
+    else:
+        energy_change = batt_action / efficiency
+
+    soc_change = (energy_change / battery_capacity_kwh) * 100
+    new_soc = old_soc + soc_change
+
+    if new_soc > max_soc_limit:
+        new_soc = max_soc_limit
+        actual_energy = ((max_soc_limit - old_soc) / 100) * battery_capacity_kwh
+        batt_action = actual_energy / efficiency if actual_energy >= 0 else actual_energy * efficiency
+    elif new_soc < min_soc_limit:
+        new_soc = min_soc_limit
+        actual_energy = ((min_soc_limit - old_soc) / 100) * battery_capacity_kwh
+        batt_action = actual_energy * efficiency if actual_energy < 0 else actual_energy / efficiency
+
+    return new_soc, batt_action
+
+
 def heuristic_optimizer(matrix: List[Dict[str, Any]], current_hour: int, current_soc: float) -> Tuple[int, float, float]:
     """
     Berechnet den optimalen Betriebsmodus und die Ziel-Leistung für den Loxone Miniserver.
@@ -18,12 +44,13 @@ def heuristic_optimizer(matrix: List[Dict[str, Any]], current_hour: int, current
         return 0, 0.0, 99.0
 
     # 1. Parameter sicher aus der Config laden (mit Fallbacks)
-    battery_capacity = float(getattr(config, 'BATTERY_CAPACITY_KWH'))
-    min_soc = float(getattr(config, 'BATTERY_MIN_SOC'))
-    max_soc = float(getattr(config, 'BATTERY_MAX_SOC'))
-    max_power = float(getattr(config, 'BATTERY_MAX_POWER_KW'))
-    efficiency = float(getattr(config, 'BATTERY_EFFICIENCY'))
-    k_push = float(getattr(config, 'K_PUSH_CENT'))
+    battery_params = config.get_battery_params()
+    battery_capacity = battery_params['battery_capacity_kwh']
+    min_soc = battery_params['min_soc']
+    max_soc = battery_params['max_soc']
+    max_power = battery_params['max_power_kw']
+    efficiency = battery_params['efficiency']
+    k_push = config.get_push_price_cent()
 
     # Planungshorizont bestimmen (maximal 24 Stunden)
     N = min(24, len(matrix))
@@ -137,11 +164,12 @@ def simulate_24h_horizon(optimization_matrix: list, initial_soc: float) -> list:
     chart_rows = []
     sim_soc = initial_soc
     
-    battery_capacity_kwh = float(getattr(config, 'BATTERY_CAPACITY_KWH'))
-    min_soc_limit = float(getattr(config, 'BATTERY_MIN_SOC'))
-    max_soc_limit = float(getattr(config, 'BATTERY_MAX_SOC'))
-    max_power = float(getattr(config, 'BATTERY_MAX_POWER_KW'))
-    efficiency = float(getattr(config, 'BATTERY_EFFICIENCY'))
+    battery_params = config.get_battery_params()
+    battery_capacity_kwh = battery_params['battery_capacity_kwh']
+    min_soc_limit = battery_params['min_soc']
+    max_soc_limit = battery_params['max_soc']
+    max_power = battery_params['max_power_kw']
+    efficiency = battery_params['efficiency']
     
     for i, row in enumerate(optimization_matrix[:24]):
         h = row['hour']
@@ -165,31 +193,15 @@ def simulate_24h_horizon(optimization_matrix: list, initial_soc: float) -> list:
             action_text = "Automatikbetrieb"
             
         old_soc = sim_soc
-        
-        # Technische Leistungsbegrenzung des Wechselrichters anwenden
-        if batt_action > max_power:
-            batt_action = max_power
-        elif batt_action < -max_power:
-            batt_action = -max_power
-
-        # Physikalischen Wirkungsgrad auf die SoC-Änderung anwenden
-        if batt_action >= 0:
-            energy_change = batt_action * efficiency
-        else:
-            energy_change = batt_action / efficiency
-            
-        soc_change = (energy_change / battery_capacity_kwh) * 100
-        sim_soc += soc_change
-        
-        # Hard-Limits absichern und reale Batterieleistung rückrechnen bei Überlauf
-        if sim_soc > max_soc_limit:
-            sim_soc = max_soc_limit
-            actual_energy = ((max_soc_limit - old_soc) / 100) * battery_capacity_kwh
-            batt_action = actual_energy / efficiency if actual_energy >= 0 else actual_energy * efficiency
-        elif sim_soc < min_soc_limit:
-            sim_soc = min_soc_limit
-            actual_energy = ((min_soc_limit - old_soc) / 100) * battery_capacity_kwh
-            batt_action = actual_energy * efficiency if actual_energy < 0 else actual_energy / efficiency
+        batt_action = _clamp_power(batt_action, max_power)
+        sim_soc, batt_action = _apply_soc_change(
+            old_soc,
+            batt_action,
+            battery_capacity_kwh,
+            efficiency,
+            min_soc_limit,
+            max_soc_limit,
+        )
             
         chart_rows.append({
             "Uhrzeit": f"{h:02d}:00",
@@ -228,11 +240,12 @@ def simulate_baseline_horizon(optimization_matrix: list, initial_soc: float) -> 
     chart_rows = []
     sim_soc = initial_soc
 
-    battery_capacity_kwh = float(getattr(config, 'BATTERY_CAPACITY_KWH'))
-    min_soc_limit = float(getattr(config, 'BATTERY_MIN_SOC'))
-    max_soc_limit = float(getattr(config, 'BATTERY_MAX_SOC'))
-    max_power = float(getattr(config, 'BATTERY_MAX_POWER_KW'))
-    efficiency = float(getattr(config, 'BATTERY_EFFICIENCY'))
+    battery_params = config.get_battery_params()
+    battery_capacity_kwh = battery_params['battery_capacity_kwh']
+    min_soc_limit = battery_params['min_soc']
+    max_soc_limit = battery_params['max_soc']
+    max_power = battery_params['max_power_kw']
+    efficiency = battery_params['efficiency']
 
     for row in optimization_matrix[:24]:
         h = row['hour']
@@ -240,30 +253,16 @@ def simulate_baseline_horizon(optimization_matrix: list, initial_soc: float) -> 
         con = row['expected_p_act']
         net_pv_surplus = pv - con
 
-        batt_action = net_pv_surplus
-        if batt_action > max_power:
-            batt_action = max_power
-        elif batt_action < -max_power:
-            batt_action = -max_power
-
+        batt_action = _clamp_power(net_pv_surplus, max_power)
         old_soc = sim_soc
-
-        if batt_action >= 0:
-            energy_change = batt_action * efficiency
-        else:
-            energy_change = batt_action / efficiency
-
-        soc_change = (energy_change / battery_capacity_kwh) * 100
-        sim_soc += soc_change
-
-        if sim_soc > max_soc_limit:
-            sim_soc = max_soc_limit
-            actual_energy = ((max_soc_limit - old_soc) / 100) * battery_capacity_kwh
-            batt_action = actual_energy / efficiency if actual_energy >= 0 else actual_energy * efficiency
-        elif sim_soc < min_soc_limit:
-            sim_soc = min_soc_limit
-            actual_energy = ((min_soc_limit - old_soc) / 100) * battery_capacity_kwh
-            batt_action = actual_energy * efficiency if actual_energy < 0 else actual_energy / efficiency
+        sim_soc, batt_action = _apply_soc_change(
+            old_soc,
+            batt_action,
+            battery_capacity_kwh,
+            efficiency,
+            min_soc_limit,
+            max_soc_limit,
+        )
 
         chart_rows.append({
             "Uhrzeit": f"{h:02d}:00",
@@ -282,7 +281,7 @@ def calculate_optimization_savings(optimization_matrix: list, initial_soc: float
     """Berechnet die Einsparung in Euro gegenüber einer nicht-optimierten Baseline-Simulation."""
     optimized_rows = simulate_24h_horizon(optimization_matrix, initial_soc)
     baseline_rows = simulate_baseline_horizon(optimization_matrix, initial_soc)
-    sell_price_cent = float(getattr(config, 'K_PUSH_CENT'))
+    sell_price_cent = config.get_push_price_cent()
 
     optimized_cost = _calculate_cost_euro_from_rows(optimized_rows, sell_price_cent)
     baseline_cost = _calculate_cost_euro_from_rows(baseline_rows, sell_price_cent)
