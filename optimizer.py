@@ -202,3 +202,96 @@ def simulate_24h_horizon(optimization_matrix: list, initial_soc: float) -> list:
         })
         
     return chart_rows
+
+
+def _calculate_cost_euro_from_rows(rows: list, sell_price_cent: float) -> float:
+    """Berechnet die Kosten in Euro für eine Stundenreihe aus einem Simulations-Output."""
+    total_cents = 0.0
+    for row in rows:
+        p_pv = row['PV-Prognose (kW)']
+        p_con = row['Verbrauch-Prognose (kW)']
+        batt_action = row['Geplante Batterie-Aktion (kW)']
+        price_cent = row['Strompreis (Cent/kWh)']
+
+        # Positiv = Netzbezug, Negativ = Einspeisung ins Netz
+        p_grid = p_con - p_pv + batt_action
+        if p_grid >= 0:
+            total_cents += p_grid * price_cent
+        else:
+            total_cents += p_grid * (-sell_price_cent)
+
+    return total_cents / 100.0
+
+
+def simulate_baseline_horizon(optimization_matrix: list, initial_soc: float) -> list:
+    """Simuliert den 24h-Verlauf ohne Optimierung: Batterie folgt nur dem aktuellen PV-Überschuss."""
+    chart_rows = []
+    sim_soc = initial_soc
+
+    battery_capacity_kwh = float(getattr(config, 'BATTERY_CAPACITY_KWH'))
+    min_soc_limit = float(getattr(config, 'BATTERY_MIN_SOC'))
+    max_soc_limit = float(getattr(config, 'BATTERY_MAX_SOC'))
+    max_power = float(getattr(config, 'BATTERY_MAX_POWER_KW'))
+    efficiency = float(getattr(config, 'BATTERY_EFFICIENCY'))
+
+    for row in optimization_matrix[:24]:
+        h = row['hour']
+        pv = row['expected_p_pv']
+        con = row['expected_p_act']
+        net_pv_surplus = pv - con
+
+        batt_action = net_pv_surplus
+        if batt_action > max_power:
+            batt_action = max_power
+        elif batt_action < -max_power:
+            batt_action = -max_power
+
+        old_soc = sim_soc
+
+        if batt_action >= 0:
+            energy_change = batt_action * efficiency
+        else:
+            energy_change = batt_action / efficiency
+
+        soc_change = (energy_change / battery_capacity_kwh) * 100
+        sim_soc += soc_change
+
+        if sim_soc > max_soc_limit:
+            sim_soc = max_soc_limit
+            actual_energy = ((max_soc_limit - old_soc) / 100) * battery_capacity_kwh
+            batt_action = actual_energy / efficiency if actual_energy >= 0 else actual_energy * efficiency
+        elif sim_soc < min_soc_limit:
+            sim_soc = min_soc_limit
+            actual_energy = ((min_soc_limit - old_soc) / 100) * battery_capacity_kwh
+            batt_action = actual_energy * efficiency if actual_energy < 0 else actual_energy / efficiency
+
+        chart_rows.append({
+            "Uhrzeit": f"{h:02d}:00",
+            "Strompreis (Cent/kWh)": row['k_act'],
+            "PV-Prognose (kW)": pv,
+            "Verbrauch-Prognose (kW)": con,
+            "Geplante Batterie-Aktion (kW)": round(batt_action, 2),
+            "Simulierter SoC (%)": round(old_soc, 1),
+            "Steuerbefehl": "Baseline"
+        })
+
+    return chart_rows
+
+
+def calculate_optimization_savings(optimization_matrix: list, initial_soc: float) -> dict:
+    """Berechnet die Einsparung in Euro gegenüber einer nicht-optimierten Baseline-Simulation."""
+    optimized_rows = simulate_24h_horizon(optimization_matrix, initial_soc)
+    baseline_rows = simulate_baseline_horizon(optimization_matrix, initial_soc)
+    sell_price_cent = float(getattr(config, 'K_PUSH_CENT'))
+
+    optimized_cost = _calculate_cost_euro_from_rows(optimized_rows, sell_price_cent)
+    baseline_cost = _calculate_cost_euro_from_rows(baseline_rows, sell_price_cent)
+    savings = baseline_cost - optimized_cost
+
+    return {
+        'baseline_cost_euro': round(baseline_cost, 4),
+        'optimized_cost_euro': round(optimized_cost, 4),
+        'savings_euro': round(savings, 4),
+        'optimized_rows': optimized_rows,
+        'baseline_rows': baseline_rows
+    }
