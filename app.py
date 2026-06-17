@@ -159,7 +159,7 @@ def render_pv_tuning_sidebar():
 
     st.sidebar.caption(
         "Errechnet aus dem automatischen Abgleich zwischen Forecast.Solar "
-        "und deinen realen Loxone-Zählerständen der vergangenen 2 Wochen."
+        "und deine realen Loxone-Zählerständen der vergangenen 2 Wochen."
     )
 
 
@@ -360,75 +360,106 @@ def render_countdown_block():
     st.caption(f"⏳ **Nächste Berechnung in:** `{remaining}` Sekunden (Countdown aktualisiert alle 10s)")
 
 #### LEISTUNGSFLUSS DARSTELLUNG
-import random
 
-def _generate_mock_live_data() -> dict:
-    """Generiert dynamische, sich verändernde Mockup-Leistungswerte in kW."""
-    pv = round(0 + random.uniform(0, 4), 2)
-    house = -round(0.6 + random.uniform(-0.1, 3), 2)
-    battery = round(0 + random.uniform(-2, 2), 2)  # Angenommene konstante Ladung für das Mockup
-    grid = -pv - house - battery
-    return {"pv": pv, "house": house, "battery": battery, "grid": grid}
-
-
-#### LEISTUNGSFLUSS DARSTELLUNG
-
-def _create_live_flow_sankey(data: dict) -> go.Figure:
-    """Erstellt ein dynamisches Energiefluss-Diagramm basierend auf Plotly Sankey ohne Vorzeichenfehler."""
-    # Knoten-Indizes: 0=PV, 1=Netz, 2=Batterie, 3=Wohnhaus, 4=Zentraler Systemknoten
-    labels = ["☀️ PV-Anlage", "🔌 Stromnetz", "🔋 Batterie", "🏠 Wohnhaus", "⚙️ System-Knoten"]
+def _prepare_sankey_data(data: dict) -> tuple[list[str], list[int], list[int], list[float], list[str]]:
+    """Bereitet die Beschriftungen, Flusswege und Farben für das Sankey-Diagramm vor."""
+    # Dynamische Beschriftungen mit Live-Leistungswerten zusammenbauen
+    lbl_pv = f"☀️ PV-Anlage ({data['pv']:.2f} kW)"
+    lbl_house = f"🏠 Wohnhaus ({data['house']:.2f} kW)"
     
+    if data['grid'] >= 0:
+        lbl_grid = f"🔌 Stromnetz (Bezug: {data['grid']:.2f} kW)"
+    else:
+        lbl_grid = f"🔌 Stromnetz (Einspeisung: {abs(data['grid']):.2f} kW)"
+        
+    if data['battery'] >= 0:
+        lbl_bat = f"🔋 Batterie (Entladen: {data['battery']:.2f} kW)"
+    else:
+        lbl_bat = f"🔋 Batterie (Laden: {abs(data['battery']):.2f} kW)"
+
+    labels = [lbl_pv, lbl_grid, lbl_bat, lbl_house, "⚙️ System-Knoten"]
     sources, targets, values = [], [], []
     
     # A) ZUFLÜSSE zum zentralen Systemknoten (Index 4)
     if data['pv'] > 0: 
         sources.append(0); targets.append(4); values.append(data['pv'])
-    if data['grid'] > 0: # Netzbezug (Strom kommt rein)
+    if data['grid'] > 0: 
         sources.append(1); targets.append(4); values.append(data['grid'])
-    if data['battery'] > 0: # Batterie entlädt (Strom kommt rein)
+    if data['battery'] > 0: 
         sources.append(2); targets.append(4); values.append(data['battery'])
         
     # B) ABFLÜSSE aus dem zentralen Systemknoten (Index 4)
-    if data['house'] > 0: # Hausverbrauch
+    if data['house'] > 0: 
         sources.append(4); targets.append(3); values.append(data['house'])
-    if data['grid'] < 0: # Netzeinspeisung (Strom geht ins Netz)
+    if data['grid'] < 0: 
         sources.append(4); targets.append(1); values.append(abs(data['grid']))
-    if data['battery'] < 0: # Batterie lädt (Strom geht in Speicher)
+    if data['battery'] < 0: 
         sources.append(4); targets.append(2); values.append(abs(data['battery']))
 
-    # Dynamische Farbanpassung je nach Zustand
+    # Dynamische Farbanpassung
     c_grid = "crimson" if data['grid'] >= 0 else "#95a5a6"
-    c_bat = "forestgreen" if data['battery'] < 0 else "crimson"
+    c_bat = "forestgreen" if data['battery'] < 0 else "crimson" if data['battery'] > 0 else "#95a5a6"
     colors = ["#f1c40f", c_grid, c_bat, "#3498db", "#7f8c8d"]
 
+    return labels, sources, targets, values, colors
+
+
+def _create_live_flow_sankey(data: dict) -> go.Figure:
+    """Erstellt ein dynamisches Energiefluss-Diagramm."""
+    labels, sources, targets, values, colors = _prepare_sankey_data(data)
+
     fig = go.Figure(data=[go.Sankey(
-        node=dict(pad=15, thickness=20, label=labels, color=colors),
-        link=dict(source=sources, target=targets, value=values, color="rgba(180, 180, 180, 0.25)")
+        node=dict(
+            pad=15, 
+            thickness=20, 
+            label=labels, 
+            color=colors
+        ),
+        link=dict(
+            source=sources, 
+            target=targets, 
+            value=values, 
+            color="rgba(180, 180, 180, 0.25)"
+        ),
+        valueformat=".2f",
+        valuesuffix=" kW"
     )])
-    fig.update_layout(height=250, margin=dict(l=10, r=10, t=10, b=10))
+    
+    fig.update_layout(
+        height=250, 
+        margin=dict(l=10, r=10, t=10, b=10),
+        font=dict(color="black", size=12)
+    )
     return fig
 
 
 @st.fragment(run_every=10)
 def render_live_power_flow():
-    """Rendert die Live-Leistungsfluss-Ansicht basierend auf echten Loxone-Werten."""
+    """Rendert die Live-Leistungsfluss-Ansicht mit CSS-Fix gegen den Text-Glow."""
     st.write("### ⚡ Echtzeit-Leistungsfluss (Live)")
     
-    # Holt die echten, frisch normierten Daten aus dem loxone_client
-    data = loxone_client.fetch_loxone_live_power()
+    # CSS-Injektion: Entfernt restlos den hardcodierten Plotly-Textschatten
+    st.markdown(
+        """
+        <style>
+        .js-plotly-plot .sankey-node text {
+            text-shadow: none !important;
+            stroke: none !important;
+            fill: black !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
     
-    # Fallback auf simulierte Werte mit korrekter Logik, falls Loxone offline ist
+    data = loxone_client.fetch_loxone_live_power()
     if data is None:
         st.warning("⚠️ Live-Leistungswerte konnten nicht von Loxone geladen werden. Zeige simulierte Werte.")
-        import random
-        pv = round(random.uniform(0, 4), 2)
-        house = round(random.uniform(0.5, 2.5), 2)
-        battery = round(random.uniform(-2, 2), 2)
-        grid = round(house - pv - battery, 2)
-        data = {"pv": pv, "house": house, "battery": battery, "grid": grid}
+        return
     
     fig = _create_live_flow_sankey(data)
-    st.plotly_chart(fig, use_container_width=True, key="live_power_flow_sankey")
+    # BEHOBEN: API-Migration von use_container_width=True auf width='stretch'
+    st.plotly_chart(fig, width='stretch', key="live_power_flow_sankey")
 
 ################################    
 
