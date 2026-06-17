@@ -55,37 +55,20 @@ def check_and_update_profile_if_new_month() -> None:
     if should_update:
         generate_consumption_profile()
 
-def get_forecast_vectors(market_data) -> Tuple[List[float], List[float], List[dict]]:
-    """
-    Lädt das passende historische Verbrauchsprofil und die PV-Prognose 
-    für die NÄCHSTEN 24 STUNDEN (rollierender Horizont ab der aktuellen Stunde).
-    
-    Returns:
-        Tuple[List[float], List[float], List[dict]]: (Verbrauchs_Vektor, PV_Vektor, Optimierungs_Matrix) jeweils exakt 24 Elemente.
-    """
+def _load_consumption_profile(target_hours: List) -> List[float]:
+    """Lädt das Verbrauchsprofil für die Zielstunden."""
     profile_path = 'consumption_profiles.csv'
-    
-    # Zeitfenster definieren: Jetzt (auf Stunde gerundet) + die nächsten 23 Stunden
-    now = datetime.now().replace(minute=0, second=0, microsecond=0)
-    target_hours = [now + timedelta(hours=i) for i in range(24)]
-    
-    forecast_consumption: List[float] = []
-    global_hour_defaults = {h: 0.5 for h in range(24)} # Fallback falls alles fehlschlägt (0.5 kW)
+    forecast_consumption = []
+    global_hour_defaults = {h: 0.5 for h in range(24)}
 
     if os.path.exists(profile_path):
         try:
             df_profiles = pd.read_csv(profile_path, sep=';')
-            
-            # Extrem schneller O(1) Lookup über Dictionary statt Pandas-Filterung in der Schleife
-            # Key: (Month, Weekday, Hour) -> Value: Consumption
             lookup = df_profiles.set_index(['Month', 'Weekday', 'Hour'])['Consumption'].to_dict()
-            
-            # Grober Fallback (Nur nach Stunde gruppiert) falls ein Wochentag im Monat fehlt
             hour_fallback = df_profiles.groupby('Hour')['Consumption'].mean().to_dict()
             
             for dt in target_hours:
                 key = (dt.month, dt.weekday(), dt.hour)
-                
                 if key in lookup:
                     forecast_consumption.append(float(lookup[key]))
                 elif dt.hour in hour_fallback:
@@ -100,10 +83,11 @@ def get_forecast_vectors(market_data) -> Tuple[List[float], List[float], List[di
         print("ℹ️ Keine 'consumption_profiles.csv' vorhanden. Nutze Standard-Verbrauchswerte.")
         forecast_consumption = [global_hour_defaults[dt.hour] for dt in target_hours]
 
-    # Live PV-Prognose abrufen (liefert bereits die nächsten 24h relativ ab 'now')
-    forecast_pv = pv_forecast.get_hourly_pv_forecast()
+    return forecast_consumption
 
-    # Matrix für den Simulations-Horizont aufbauen
+
+def _build_optimization_matrix(market_data: list, forecast_consumption: list, forecast_pv: list) -> list:
+    """Erstellt die Optimierungs-Matrix mit Preis-, Verbrauchs- und PV-Daten."""
     optimization_matrix = []
     
     fix_aufschlag = getattr(config, 'FIX_AUFSCHLAG_CENT')
@@ -113,24 +97,37 @@ def get_forecast_vectors(market_data) -> Tuple[List[float], List[float], List[di
     for i, item in enumerate(market_data[:24]):    
         hour = item['hour']
         
-        # Sicherung gegen potenzielle fehlerhafte Datentypen aus der API
         try:
             epex_price_cent = float(item['price_buy'])
-            # Offizielle Awattar AT Formel angewendet auf Cent/kWh:
-            # (EPEX-Cent * 1.03 + 1.5 Cent) * 1.20
             brutto_price_cent = (epex_price_cent * netzverlust + fix_aufschlag) * mwst_faktor
             brutto_price_cent = round(brutto_price_cent, 4)
         except (TypeError, ValueError) as e:
-            # Fallback auf den Rohwert, falls die Konvertierung fehlschlägt (Robustheit)
             print(f"🚨 Fehler bei Brutto-Berechnung für Stunde {hour}: {e}. Nutze Rohwert.")
             brutto_price_cent = item['price_buy']
 
         optimization_matrix.append({
             "hour": hour,
-            "k_act": brutto_price_cent,  # Jetzt der echte Brutto-Bezugspreis in Cent/kWh
+            "k_act": brutto_price_cent,
             "expected_p_act": forecast_consumption[i],
             "expected_p_pv": forecast_pv[i]
         })
     
-    # Sicherheits-Slicing auf exakt 24 Elemente
+    return optimization_matrix[:24]
+
+
+def get_forecast_vectors(market_data) -> Tuple[List[float], List[float], List[dict]]:
+    """
+    Lädt das passende historische Verbrauchsprofil und die PV-Prognose 
+    für die NÄCHSTEN 24 STUNDEN (rollierender Horizont ab der aktuellen Stunde).
+    
+    Returns:
+        Tuple[List[float], List[float], List[dict]]: (Verbrauchs_Vektor, PV_Vektor, Optimierungs_Matrix) jeweils exakt 24 Elemente.
+    """
+    now = datetime.now().replace(minute=0, second=0, microsecond=0)
+    target_hours = [now + timedelta(hours=i) for i in range(24)]
+    
+    forecast_consumption = _load_consumption_profile(target_hours)
+    forecast_pv = pv_forecast.get_hourly_pv_forecast()
+    optimization_matrix = _build_optimization_matrix(market_data, forecast_consumption, forecast_pv)
+
     return forecast_consumption[:24], forecast_pv[:24], optimization_matrix[:24]
