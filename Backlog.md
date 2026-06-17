@@ -1,9 +1,9 @@
 🗺️ Projekt-Roadmap & Backlog
 
-- [ ] Lineare Programmireung in optimizer.py einbauen (forecast_pv und forecast_consumption berücksichtigen)
-- [ ] Deployment auf Synology NAS einrichten
+- [x] Lineare Programmireung in optimizer.py einbauen (forecast_pv und forecast_consumption berücksichtigen)
+- [x] Deployment auf Synology NAS einrichten
+- [ ] Aktuellen Ladezustand in Sankey-Diagramm verschieben (oben rausnehmen)
 - [ ] Web-App lokal auf Handy verfügbar machen
-- [ ] Einfache Anzeige in Web-App integrieren, ob Verbraucher jetzt, in 3h oder 6h gestartet werden soll (Verbraucher konfigurierbar über Dauer und mittleren Leistungsbedarf etc)
-
-
-
+- [ ] Umgang mit historischen Verbrauchsdaten nochmal prüfen
+- [ ] E-Auto (und weitere Verbraucher) in die Optimierung mit reinnehmen mit Empfehlung, wann der beste Startzeitpunkt wäre
+- [ ] Fiktive Simulation der historischen Daten mit einer größeren Batterie

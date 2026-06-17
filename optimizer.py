@@ -43,7 +43,7 @@ def heuristic_optimizer(matrix: List[Dict[str, Any]], current_hour: int, current
         print("🚨 Optimizer-Fehler: Matrix ist leer.")
         return 0, 0.0, 99.0
 
-    # 1. Parameter sicher aus der Config laden (mit Fallbacks)
+    # 1. Parameter sicher aus der Config laden
     battery_params = config.get_battery_params()
     battery_capacity = battery_params['battery_capacity_kwh']
     min_soc = battery_params['min_soc']
@@ -74,7 +74,6 @@ def heuristic_optimizer(matrix: List[Dict[str, Any]], current_hour: int, current
     delta_charge = [pulp.LpVariable(f"delta_charge_{t}", cat=pulp.LpBinary) for t in range(N)]
 
     # 4. Zielfunktion: Gesamtkosten über den Horizont minimieren
-    # Netzbezug * Einkaufspreis - Einspeisung * Einspeisevergütung
     prob += pulp.lpSum([
         p_grid_buy[t] * matrix[t]['k_act'] - p_grid_sell[t] * k_push
         for t in range(N)
@@ -86,7 +85,6 @@ def heuristic_optimizer(matrix: List[Dict[str, Any]], current_hour: int, current
         p_con = matrix[t]['expected_p_act']
 
         # KNOTENGLEICHUNG: Energieerhaltung des Hauses
-        # Erzeugung + Zukauf + Entladung == Verbrauch + Verkauf + Ladung
         prob += (p_pv + p_grid_buy[t] + p_discharge[t] == p_con + p_grid_sell[t] + p_charge[t])
 
         # LEISTUNGSGRENZEN: Gekoppelt an die binäre Variable
@@ -99,10 +97,9 @@ def heuristic_optimizer(matrix: List[Dict[str, Any]], current_hour: int, current
         else:
             prob += (e_batt[t] == e_batt[t-1] + p_charge[t] * efficiency - p_discharge[t] / efficiency)
 
-    # 6. Problem mathematisch lösen (stummgeschaltet ohne Log-Spam)
+    # 6. Problem mathematisch lösen
     prob.solve(pulp.PULP_CBC_CMD(msg=False))
 
-    # Fallback-Sicherung falls der Solver fehlschlägt
     if pulp.LpStatus[prob.status] != "Optimal":
         print(f"⚠️ MILP-Solver konnte keine optimale Lösung finden Status: {pulp.LpStatus[prob.status]}. Fallback auf Automatik.")
         return 0, 0.0, 99.0
@@ -121,30 +118,20 @@ def heuristic_optimizer(matrix: List[Dict[str, Any]], current_hour: int, current
     target_power = 0.0
     target_soc = 99.0
 
-    # REGEL 1: ZWANGSLADEN
-    # Wenn der Solver den Akku aktiv laden will UND zeitgleich Strom aus dem Netz kauft
     if opt_charge > 0.05 and opt_grid_buy > 0.05:
         mode = 1
         target_power = round(opt_charge, 2)
-        # Berechne den mathematisch exakten Ziel-SoC am Ende dieser Stunde
         opt_end_soc = (e_batt[0].varValue / battery_capacity) * 100.0
         target_soc = round(max(current_soc, opt_end_soc), 1)
-    
-    # REGEL 2: ENTLADESPERRE
-    # Wenn ein Haus-Defizit vorliegt, der Solver aber entscheidet, den Akku NICHT zu entladen (Sperre für spätere Spitzen)
-    # und der Akku theoretisch genug Energie hätte, um einzuspringen (> min_soc + 2%)
     elif net_pv_surplus < -0.05 and opt_discharge < 0.05 and current_soc > (min_soc + 2.0):
         mode = 2
         target_power = 0.0
-        target_soc = 100.0  # Volle Sperrwirkung im Huawei WR erzwingen
-    
-    # REGEL 3: AUTOMATIK (Normalbetrieb)
+        target_soc = 100.0
     else:
         mode = 0
         target_power = 0.0
         target_soc = 99.0
 
-    # Konsolen-Logs zur Überwachung ausgeben
     print(f"\n--- 🧮 MILP Optimierungs-Entscheidung für {current_hour}:00 Uhr ---")
     print(f"Aktueller Brutto-Preis: {matrix[0]['k_act']:.2f} Cent/kWh")
     print(f"Aktueller Akku-SoC    : {current_soc:.1f}%")
@@ -163,57 +150,59 @@ def simulate_24h_horizon(optimization_matrix: list, initial_soc: float) -> list:
     """
     chart_rows = []
     sim_soc = initial_soc
-    
     battery_params = config.get_battery_params()
-    battery_capacity_kwh = battery_params['battery_capacity_kwh']
-    min_soc_limit = battery_params['min_soc']
-    max_soc_limit = battery_params['max_soc']
-    max_power = battery_params['max_power_kw']
-    efficiency = battery_params['efficiency']
     
     for i, row in enumerate(optimization_matrix[:24]):
-        h = row['hour']
-        
-        # Den mathematischen Optimizer für den verbleibenden Horizont aufrufen
-        mode, target_power, target_soc = heuristic_optimizer(optimization_matrix[i:], h, sim_soc)
-        
-        pv = row['expected_p_pv']
-        con = row['expected_p_act']
-        net_pv_surplus = pv - con
-        
-        # Realistische physikalische Nachbildung der Batteriereaktion im jeweiligen Modus
-        if mode == 1:
-            batt_action = target_power + max(0.0, net_pv_surplus)
-            action_text = f"Zwangsladen ({target_power} kW)"
-        elif mode == 2:
-            batt_action = max(0.0, net_pv_surplus)
-            action_text = "Entladesperre aktiv"
-        else:
-            batt_action = net_pv_surplus
-            action_text = "Automatikbetrieb"
-            
-        old_soc = sim_soc
-        batt_action = _clamp_power(batt_action, max_power)
-        sim_soc, batt_action = _apply_soc_change(
-            old_soc,
-            batt_action,
-            battery_capacity_kwh,
-            efficiency,
-            min_soc_limit,
-            max_soc_limit,
+        sim_soc, chart_row = _simulate_single_hour_optimizer(
+            optimization_matrix[i:], row, sim_soc, battery_params
         )
-            
-        chart_rows.append({
-            "Uhrzeit": f"{h:02d}:00",
-            "Strompreis (Cent/kWh)": row['k_act'],
-            "PV-Prognose (kW)": pv,
-            "Verbrauch-Prognose (kW)": con,
-            "Geplante Batterie-Aktion (kW)": round(batt_action, 2),
-            "Simulierter SoC (%)": round(old_soc, 1),
-            "Steuerbefehl": action_text
-        })
+        chart_rows.append(chart_row)
         
     return chart_rows
+
+
+def _simulate_single_hour_optimizer(remaining_matrix: list, row: dict, sim_soc: float, battery_params: dict) -> Tuple[float, dict]:
+    """Hilfsfunktion: Simuliert eine einzelne Stunde im optimierten Pfad (< 30 Zeilen)."""
+    h = row['hour']
+    mode, target_power, target_soc = heuristic_optimizer(remaining_matrix, h, sim_soc)
+    
+    pv = row['expected_p_pv']
+    con = row['expected_p_act']
+    net_pv_surplus = pv - con
+    
+    # BEHOBEN: Kein künstliches Aufaddieren von Überschüssen beim Zwangsladen.
+    # target_power entspricht bereits der mathematisch exakt gewollten Brutto-Ladeleistung.
+    if mode == 1:
+        batt_action = target_power
+        action_text = f"Zwangsladen ({target_power} kW)"
+    elif mode == 2:
+        batt_action = max(0.0, net_pv_surplus)
+        action_text = "Entladesperre aktiv"
+    else:
+        batt_action = net_pv_surplus
+        action_text = "Automatikbetrieb"
+        
+    old_soc = sim_soc
+    batt_action = _clamp_power(batt_action, battery_params['max_power_kw'])
+    sim_soc, batt_action = _apply_soc_change(
+        old_soc,
+        batt_action,
+        battery_params['battery_capacity_kwh'],
+        battery_params['efficiency'],
+        battery_params['min_soc'],
+        battery_params['max_soc'],
+    )
+    
+    chart_row = {
+        "Uhrzeit": f"{h:02d}:00",
+        "Strompreis (Cent/kWh)": row['k_act'],
+        "PV-Prognose (kW)": pv,
+        "Verbrauch-Prognose (kW)": con,
+        "Geplante Batterie-Aktion (kW)": round(batt_action, 2),
+        "Simulierter SoC (%)": round(old_soc, 1),
+        "Steuerbefehl": action_text
+    }
+    return sim_soc, chart_row
 
 
 def _calculate_cost_euro_from_rows(rows: list, sell_price_cent: float) -> float:
@@ -230,7 +219,9 @@ def _calculate_cost_euro_from_rows(rows: list, sell_price_cent: float) -> float:
         if p_grid >= 0:
             total_cents += p_grid * price_cent
         else:
-            total_cents += p_grid * (-sell_price_cent)
+            # BEHOBEN: Da p_grid negativ ist, zieht eine direkte Multiplikation mit sell_price_cent 
+            # den Betrag korrekt von den Gesamtkosten ab (Umsatz/Vergütung).
+            total_cents += p_grid * sell_price_cent
 
     return total_cents / 100.0
 
@@ -239,42 +230,43 @@ def simulate_baseline_horizon(optimization_matrix: list, initial_soc: float) -> 
     """Simuliert den 24h-Verlauf ohne Optimierung: Batterie folgt nur dem aktuellen PV-Überschuss."""
     chart_rows = []
     sim_soc = initial_soc
-
     battery_params = config.get_battery_params()
-    battery_capacity_kwh = battery_params['battery_capacity_kwh']
-    min_soc_limit = battery_params['min_soc']
-    max_soc_limit = battery_params['max_soc']
-    max_power = battery_params['max_power_kw']
-    efficiency = battery_params['efficiency']
 
     for row in optimization_matrix[:24]:
-        h = row['hour']
-        pv = row['expected_p_pv']
-        con = row['expected_p_act']
-        net_pv_surplus = pv - con
-
-        batt_action = _clamp_power(net_pv_surplus, max_power)
-        old_soc = sim_soc
-        sim_soc, batt_action = _apply_soc_change(
-            old_soc,
-            batt_action,
-            battery_capacity_kwh,
-            efficiency,
-            min_soc_limit,
-            max_soc_limit,
-        )
-
-        chart_rows.append({
-            "Uhrzeit": f"{h:02d}:00",
-            "Strompreis (Cent/kWh)": row['k_act'],
-            "PV-Prognose (kW)": pv,
-            "Verbrauch-Prognose (kW)": con,
-            "Geplante Batterie-Aktion (kW)": round(batt_action, 2),
-            "Simulierter SoC (%)": round(old_soc, 1),
-            "Steuerbefehl": "Baseline"
-        })
+        sim_soc, chart_row = _simulate_single_hour_baseline(row, sim_soc, battery_params)
+        chart_rows.append(chart_row)
 
     return chart_rows
+
+
+def _simulate_single_hour_baseline(row: dict, sim_soc: float, battery_params: dict) -> Tuple[float, dict]:
+    """Hilfsfunktion: Simuliert eine einzelne Stunde im Baseline-Pfad (< 30 Zeilen)."""
+    h = row['hour']
+    pv = row['expected_p_pv']
+    con = row['expected_p_act']
+    net_pv_surplus = pv - con
+
+    batt_action = _clamp_power(net_pv_surplus, battery_params['max_power_kw'])
+    old_soc = sim_soc
+    sim_soc, batt_action = _apply_soc_change(
+        old_soc,
+        batt_action,
+        battery_params['battery_capacity_kwh'],
+        battery_params['efficiency'],
+        battery_params['min_soc'],
+        battery_params['max_soc'],
+    )
+
+    chart_row = {
+        "Uhrzeit": f"{h:02d}:00",
+        "Strompreis (Cent/kWh)": row['k_act'],
+        "PV-Prognose (kW)": pv,
+        "Verbrauch-Prognose (kW)": con,
+        "Geplante Batterie-Aktion (kW)": round(batt_action, 2),
+        "Simulierter SoC (%)": round(old_soc, 1),
+        "Steuerbefehl": "Baseline"
+    }
+    return sim_soc, chart_row
 
 
 def calculate_optimization_savings(optimization_matrix: list, initial_soc: float) -> dict:

@@ -97,6 +97,7 @@ def get_hourly_pv_forecast() -> List[float]:
     Holt die stündliche PV-Prognose für die nächsten 24 Stunden (ab der aktuellen Stunde).
     Gibt eine Liste mit exakt 24 Float-Werten (in kW) zurück.
     Schützt die forecast.solar API durch ein integriertes 15-Minuten-Caching.
+    Wendet das adaptive PV-Tuning konsistent auf API-Daten und Fallbacks an.
     """
     lat = config.get('LATITUDE', cast=float)
     lon = config.get('LONGITUDE', cast=float)
@@ -111,12 +112,15 @@ def get_hourly_pv_forecast() -> List[float]:
     
     hourly_watts = _check_and_fetch_api_data(url, kwp)
     
+    # 1. Versuch: API- / Cache-Daten mappen
     if hourly_watts:
         pv_vector, success = _map_hourly_data_to_vector(hourly_watts, target_hours)
         if success:
-            return pv_vector
+            # NEU: Auch die erfolgreichen API-Daten werden nun getuned
+            return _apply_tuning_factor(pv_vector)
         print("⚠️ API-/Cache-Daten empfangen, aber keine passenden Zeitstempel für die nächsten 24h gefunden. Nutze Fallback.")
 
+    # 2. Versuch (Fallback): Saisonaler Vektor generieren
     pv_vector = _generate_seasonal_fallback(target_hours, kwp)
     return _apply_tuning_factor(pv_vector)
 
