@@ -33,6 +33,7 @@ def _build_hourly_optimization_matrix(df: pd.DataFrame, awattar_cfg: dict) -> li
     for ts, row in hourly.iterrows():
         matrix.append({
             'hour': ts.hour,
+            'date': ts.date(),
             'k_act': _brutto_price_cent(row['price_cent_kwh'], awattar_cfg),
             'expected_p_pv': row['pv'],
             'expected_p_act': row['load'],

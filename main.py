@@ -79,9 +79,19 @@ def main():
     
     # 4. Optimierung berechnen
     current_hour = datetime.now().hour
-    mode, target_power, target_soc = optimizer.heuristic_optimizer(optimization_matrix, current_hour, current_soc)
-    
-    logger.info("Berechnete Werte für Loxone -> MODE: %s | TARGET_POWER: %s kW | TARGET_SOC: %s", mode, target_power, target_soc)
+    consumer_remaining = optimizer.get_consumer_remaining_kwh()
+    mode, target_power, target_soc, consumer_powers, _ = optimizer.heuristic_optimizer(
+        optimization_matrix,
+        current_hour,
+        current_soc,
+        consumer_remaining_kwh=consumer_remaining,
+    )
+    optimizer.register_consumer_hours(consumer_powers)
+
+    logger.info(
+        "Berechnete Werte für Loxone -> MODE: %s | TARGET_POWER: %s kW | TARGET_SOC: %s | Verbraucher: %s",
+        mode, target_power, target_soc, consumer_powers,
+    )
 
     current_market_item = market_data[0] # Aktuelle Stunde
     log_to_csv(

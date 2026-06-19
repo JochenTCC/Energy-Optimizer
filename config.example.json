@@ -7,7 +7,7 @@
     },
     "system": {
         "global_timeout": 10,
-        "loop_timeout": 720
+        "loop_timeout": 900
     },
     "loxone_blocks": {
         "soc_name": "B004-Battery_SOC",
