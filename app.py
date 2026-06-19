@@ -4,6 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import importlib
 import time
+from datetime import date
 
 # Bestehende Projektmodule importieren
 import config
@@ -168,7 +169,49 @@ def render_parameter_input():
     st.sidebar.markdown("Änderungen werden direkt über das Konfigurationsmodul angewendet.")
 
     render_config_form(get_runtime_settings())
-    render_pv_tuning_sidebar()
+    if st.session_state.get("app_mode") == "Echtzeit":
+        render_pv_tuning_sidebar()
+
+
+def render_mode_selector() -> str:
+    st.sidebar.header("🕒 Betriebsmodus")
+    mode = st.sidebar.radio(
+        "Optimierung für:",
+        ["Echtzeit", "Historischer Tag"],
+        help="Historisch: beliebiger Tag aus den letzten 12 Monaten mit echten Loxone-Daten und Marktpreisen.",
+    )
+    st.session_state.app_mode = mode
+    return mode
+
+
+def render_historical_inputs() -> tuple[date, float]:
+    min_date, max_date = profile_manager.get_historical_date_picker_bounds(months_back=12)
+    default_date = max_date
+    settings = get_runtime_settings()
+    soc_min = float(settings["BATTERY_MIN_SOC"])
+    soc_max = float(settings["BATTERY_MAX_SOC"])
+
+    selected_date = st.sidebar.date_input(
+        "Simulations-Tag",
+        value=default_date,
+        min_value=min_date,
+        max_value=max_date,
+        help=f"Wählbar: {min_date.strftime('%d.%m.%Y')} bis {max_date.strftime('%d.%m.%Y')}",
+    )
+    initial_soc = st.sidebar.slider(
+        "Start-SoC für die Simulation (%)",
+        min_value=soc_min,
+        max_value=soc_max,
+        value=soc_min,
+        step=1.0,
+        help=f"Erlaubter Bereich laut config.json: {soc_min:.0f}–{soc_max:.0f} %",
+    )
+    return selected_date, initial_soc
+
+
+@st.cache_data(ttl=3600, show_spinner="Lade historische Tagesdaten...")
+def load_historical_matrix(target_date: date):
+    return profile_manager.build_historical_optimization_matrix(target_date)
 
 
 def get_bar_colors(df):
@@ -200,6 +243,18 @@ def add_power_traces(fig, df, bar_colors):
             line=dict(color='#3498db', width=2, dash='dash'),
             yaxis="y"
         ))
+
+    for consumer in config.get_flexible_consumers(optimizer_only=True):
+        col = f"{consumer['name']} (kW)"
+        if col in df.columns and df[col].sum() > 0:
+            fig.add_trace(go.Bar(
+                x=df["Uhrzeit"],
+                y=df[col],
+                name=col,
+                opacity=0.65,
+                offsetgroup=consumer["id"],
+                yaxis="y"
+            ))
 
     fig.add_trace(go.Bar(
         x=df["Uhrzeit"],
@@ -265,28 +320,80 @@ def render_optimization_chart(df, baseline_df=None):
     st.plotly_chart(fig, width='stretch')
 
 
+def render_applied_targets(savings: dict):
+    """Zeigt Baseline- und Optimierungsenergie je Verbraucher in einer Tabelle."""
+    comparison = savings.get("energy_comparison") or []
+    if not comparison:
+        return
+
+    st.markdown("**⚡ Energievergleich Baseline vs. Optimierung (24h)**")
+
+    def _format_optimization_cell(kwh: float, source: str) -> str:
+        if source:
+            return f"{kwh:.1f} kWh ({source})"
+        return f"{kwh:.1f} kWh"
+
+    st.dataframe(
+        pd.DataFrame([
+            {
+                "Verbraucher": row["name"],
+                "Baseline (kWh)": row["baseline_kwh"],
+                "Optimierung": _format_optimization_cell(
+                    row["optimization_kwh"],
+                    row.get("optimization_source", ""),
+                ),
+            }
+            for row in comparison
+        ]),
+        width="stretch",
+        hide_index=True,
+    )
+
+
 def render_savings_metrics(savings: dict):
     """Rendert die finanzielle Metriken-Übersicht im Dashboard auf einheitlicher Zeitbasis."""
     st.subheader("💶 Optimierungs-Einsparungen")
     baseline_cost = savings.get('baseline_cost_euro', 0.0)
     optimized_cost = savings.get('optimized_cost_euro', 0.0)
-    savings_euro = savings.get('savings_euro', 0.0)
-    
+    baseline_kwh = savings.get('baseline_consumption_kwh', 0.0)
+    optimized_kwh = savings.get('optimized_consumption_kwh', 0.0)
+
     optimized_rows = savings.get('optimized_rows', [])
-    total_kwh, consumption_24h, cost_without_pv_24h_euro = _calculate_scaled_consumption_and_cost(optimized_rows)
+    _, _, cost_without_pv_24h_euro = _calculate_scaled_consumption_and_cost(optimized_rows)
 
-    col1, col2, col3, col4, col5 = st.columns(5)
-    col1.metric("Ohne PV (24h hochger.)", f"{cost_without_pv_24h_euro:.2f} €", help="Hochgerechnete Kosten bei 100% Netzbezug ohne PV-Anlage auf einen vollen 24h-Horizont.")
+    col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
+    col1.metric(
+        "Ohne PV (24h hochger.)",
+        f"{cost_without_pv_24h_euro:.2f} €",
+        help="Hochgerechnete Kosten bei 100 % Netzbezug ohne PV-Anlage auf einen vollen 24h-Horizont.",
+    )
     col2.metric("Baseline-Kosten", f"{baseline_cost:.2f} €")
-    col3.metric("Optimierte Kosten", f"{optimized_cost:.2f} €")
+    col3.metric(
+        "Baseline-Verbrauch",
+        f"{baseline_kwh:.1f} kWh",
+        help="Summe des stündlichen Gesamtverbrauchs in der Baseline (ohne Lastverschiebung).",
+    )
+    col4.metric("Optimierte Kosten", f"{optimized_cost:.2f} €")
+    col5.metric(
+        "Optimierter Verbrauch",
+        f"{optimized_kwh:.1f} kWh",
+        help="Summe Grundlast + Flex über alle Stunden im 24h-Fenster (je Zeile 1 h).",
+    )
 
-    if savings_euro >= 0:
-        display_value, delta_value, delta_color = f"-{savings_euro:.2f} €", f"-{savings_euro:.2f} €", "inverse"
-    else:
-        display_value, delta_value, delta_color = f"+{abs(savings_euro):.2f} €", f"+{abs(savings_euro):.2f} €", "normal"
+    display_savings = optimized_cost - baseline_cost
+    col6.metric(
+        "Ersparnis",
+        f"{display_savings:.2f} €",
+        delta=f"{display_savings:.2f} €",
+        delta_color="normal" if display_savings <= 0 else "inverse",
+    )
+    col7.metric(
+        "Δ Verbrauch",
+        f"{optimized_kwh - baseline_kwh:+.1f} kWh",
+        help="Differenz optimierter minus Baseline-Verbrauch.",
+    )
 
-    col4.metric("Ersparnis", display_value, delta=delta_value, delta_color=delta_color)
-    col5.metric("Verbrauch 24h", f"{consumption_24h:.1f} kWh", help=f"Tatsächlich gemessen: {total_kwh:.1f} kWh über {len(optimized_rows)} Stunden")
+    render_applied_targets(savings)
 
 
 def fetch_market_data():
@@ -297,15 +404,76 @@ def fetch_market_data():
     return market_data
 
 
-def render_simulation_details(df):
-    st.subheader("📋 Simulations-Details (Nächste 24 Stunden)")
+def render_simulation_details(df, title: str = "📋 Simulations-Details (Nächste 24 Stunden)"):
+    st.subheader(title)
     st.markdown("Hier sind die exakten mathematischen Stundenslots aufgelistet, die als Grundlage für den Chart dienen:")
     st.dataframe(df, width='stretch')
 
 
+def render_historical_day_info(meta: dict):
+    totals = meta['historical_totals']
+    target_date = meta['target_date']
+    date_label = target_date.strftime('%d.%m.%Y') if hasattr(target_date, 'strftime') else str(target_date)
+
+    st.subheader(f"📅 Historische Tagesdaten: {date_label}")
+    cols = st.columns(3 + len(totals))
+    cols[0].metric("Gesamtverbrauch (real)", f"{meta.get('total_kwh', meta['baseload_kwh']):.1f} kWh")
+    cols[1].metric("Grundlast", f"{meta['baseload_kwh']:.1f} kWh")
+    cols[2].metric("PV-Ertrag (real)", f"{meta['pv_kwh']:.1f} kWh")
+    for idx, consumer in enumerate(config.get_flexible_consumers(), start=3):
+        kwh = totals.get(consumer['id'], 0.0)
+        cols[idx].metric(f"{consumer['name']} (real)", f"{kwh:.1f} kWh")
+    st.caption(
+        "Baseline-Kosten nutzen den geloggten Gesamtverbrauch. "
+        "Die Optimierung plant Grundlast plus steuerbare Verbraucher zu den **geloggten** Tageszielen "
+        "(unabhängig von daily_target_source in config.json)."
+    )
+
+
+def render_historical_optimization_block(selected_date: date, initial_soc: float):
+    try:
+        matrix, meta = load_historical_matrix(selected_date)
+    except Exception as e:
+        st.error(f"🚨 Historische Daten konnten nicht geladen werden: {e}")
+        return
+
+    if not matrix or sum(row.get('expected_p_act', 0) for row in matrix) == 0:
+        st.warning(f"⚠️ Für den {selected_date.strftime('%d.%m.%Y')} wurden keine verwertbaren Loxone-Daten gefunden.")
+        return
+
+    render_historical_day_info(meta)
+
+    with st.spinner("Berechne Optimierung für den historischen Tag..."):
+        savings_info = optimizer.calculate_optimization_savings(
+            matrix,
+            initial_soc,
+            consumer_daily_targets_kwh=meta.get("consumer_daily_targets_kwh"),
+        )
+
+    optimized_df = pd.DataFrame(savings_info['optimized_rows'])
+    baseline_df = pd.DataFrame(savings_info['baseline_rows'])
+
+    planned_lines = []
+    for consumer in config.get_flexible_consumers(optimizer_only=True):
+        col = f"{consumer['name']} (kW)"
+        if col in optimized_df.columns:
+            planned = optimized_df[col].sum()
+            if planned > 0:
+                planned_lines.append(f"**{consumer['name']}**: {planned:.1f} kWh")
+    if planned_lines:
+        st.info("🏭 Geplante flexible Verbraucher: " + " | ".join(planned_lines))
+
+    render_savings_metrics(savings_info)
+    render_optimization_chart(optimized_df, baseline_df)
+    render_simulation_details(
+        optimized_df,
+        title=f"📋 Simulations-Details ({selected_date.strftime('%d.%m.%Y')})",
+    )
+
+
 def setup_auto_refresh():
     """Initialisiert den automatischen Refresh-Mechanismus basierend auf LOOP_TIMEOUT."""
-    loop_timeout = config.get('LOOP_TIMEOUT', default=720, cast=int)
+    loop_timeout = config.get('LOOP_TIMEOUT', default=900, cast=int)
     
     # Initialisiere den Refresh-Timer in session_state, falls noch nicht vorhanden
     if 'last_refresh' not in st.session_state:
@@ -319,7 +487,7 @@ def setup_auto_refresh():
         st.session_state.last_refresh = time.time()
         st.rerun()
 
-@st.fragment(run_every=config.get('LOOP_TIMEOUT', default=720, cast=int))
+@st.fragment(run_every=config.get('LOOP_TIMEOUT', default=900, cast=int))
 def render_optimization_block(current_soc: float):
     """Führt die rechenintensive Optimierung im großen LOOP_TIMEOUT-Takt aus."""
     market_data = fetch_market_data()
@@ -327,7 +495,12 @@ def render_optimization_block(current_soc: float):
         return
 
     _, _, matrix = profile_manager.get_forecast_vectors(market_data)
-    savings_info = optimizer.calculate_optimization_savings(matrix, current_soc)
+    consumer_targets = profile_manager.resolve_consumer_daily_targets(matrix=matrix)
+    savings_info = optimizer.calculate_optimization_savings(
+        matrix,
+        current_soc,
+        consumer_daily_targets_kwh=consumer_targets,
+    )
     
     optimized_df = pd.DataFrame(savings_info['optimized_rows'])
     baseline_df = pd.DataFrame(savings_info['baseline_rows'])
@@ -342,7 +515,7 @@ def render_optimization_block(current_soc: float):
 @st.fragment(run_every=10)
 def render_countdown_block():
     """Aktualisiert alle 10 Sekunden exklusiv die Anzeige des Countdowns."""
-    loop_timeout = config.get('LOOP_TIMEOUT', default=720, cast=int)
+    loop_timeout = config.get('LOOP_TIMEOUT', default=900, cast=int)
     
     if 'last_optimization' not in st.session_state:
         st.session_state.last_optimization = time.time()
@@ -465,18 +638,25 @@ def render_live_power_flow(current_soc: float):
 
 def main():
     st.title("🔋 Ernie Energy Control Center")
-    st.markdown("Echtzeit-Cockpit und Vorhersage-Simulation des synchronisierten 24-Stunden-Horizonts.")
+    mode = render_mode_selector()
 
-    # 1. Parameter-Eingabemaske in der Sidebar (statisch)
+    if mode == "Historischer Tag":
+        st.markdown(
+            "Historische **24-Stunden-Optimierung** mit echten Loxone-Daten "
+            "(Grundlast, PV) und historischen Marktpreisen."
+        )
+    else:
+        st.markdown("Echtzeit-Cockpit und Vorhersage-Simulation des synchronisierten 24-Stunden-Horizonts.")
+
     render_parameter_input()
 
-    # Live SoC abrufen
+    if mode == "Historischer Tag":
+        selected_date, initial_soc = render_historical_inputs()
+        render_historical_optimization_block(selected_date, initial_soc)
+        return
+
     current_soc = loxone_client.fetch_loxone_soc()
-
-    # 2. Echtzeit-Leistungsfluss
     render_live_power_flow(current_soc)
-
-    # 3. Steuerung der beiden entkoppelten Refresh-Kreisläufe
     render_optimization_block(current_soc)
     render_countdown_block()
 

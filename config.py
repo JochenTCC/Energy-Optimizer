@@ -86,17 +86,52 @@ class Config:
         self.PATH_CONSUMPTION = sim_paths.get("path_consumption", "")
         self.PATH_CONSUMPTION_TOTAL = self.PATH_CONSUMPTION
         self.PATH_PRODUCTION = sim_paths.get("path_production", "")
-        self.PATH_E_AUTO = sim_paths.get("path_e_auto", "")
-        self.PATH_POOL = sim_paths.get("path_pool", "")
-        self.PATH_WP = sim_paths.get("path_wp", "")
         self.PATH_PRICE = sim_paths.get("path_price", "")
         self.PRICE_SOURCE = sim_paths.get("price_source", "csv")
         self.PRICE_PROVIDER = sim_paths.get("price_provider", "awattar")
         self.PRICE_RANGE = sim_paths.get("price_range", "last_12_months")
         self.ENERGY_CHARTS_BZN = sim_paths.get("energy_charts_bzn", "DE-LU")
 
-        runtime_settings = self._raw_config.get("runtime_settings", {})
-        self.WP_NOMINAL_POWER_KW = runtime_settings.get("wp_nominal_power_kw", 1.6)
+        # Legacy-Pfad-Aliase aus flexible_consumers (Abwärtskompatibilität)
+        self.PATH_E_AUTO = self._consumer_path("eauto")
+        self.PATH_POOL = self._consumer_path("swimspa")
+        self.PATH_WP = self._consumer_path("waermepumpe")
+        wp_consumer = self._consumer_by_id("waermepumpe")
+        self.WP_NOMINAL_POWER_KW = float(wp_consumer.get("nominal_power_kw", 1.6)) if wp_consumer else 1.6
+
+    def _consumer_by_id(self, consumer_id: str) -> dict | None:
+        for raw in self._raw_config.get("flexible_consumers", []):
+            if raw.get("id") == consumer_id:
+                return self._normalize_consumer(raw)
+        return None
+
+    def _consumer_path(self, consumer_id: str, default: str = "") -> str:
+        consumer = self._consumer_by_id(consumer_id)
+        return consumer.get("path_log", default) if consumer else default
+
+    @staticmethod
+    def _normalize_consumer(raw: dict) -> dict:
+        source = str(raw.get("daily_target_source", "config")).lower().strip()
+        if source not in ("config", "historical", "loxone"):
+            source = "config"
+        return {
+            "id": str(raw["id"]),
+            "name": str(raw.get("name", raw["id"])),
+            "nominal_power_kw": float(raw.get("nominal_power_kw", 0.0)),
+            "daily_target_kwh": float(raw.get("daily_target_kwh", 0.0)),
+            "daily_target_source": source,
+            "loxone_target_kwh_name": str(raw.get("loxone_target_kwh_name", "")).strip(),
+            "min_on_quarterhours": max(1, int(raw.get("min_on_quarterhours", raw.get("min_on_hours", 1) * 4))),
+            "path_log": str(raw.get("path_log", "")),
+            "signal_type": str(raw.get("signal_type", "power")),
+            "optimizer_enabled": bool(raw.get("optimizer_enabled", True)),
+        }
+
+    @staticmethod
+    def _consumer_has_daily_target(consumer: dict) -> bool:
+        if consumer.get("daily_target_source", "config") in ("historical", "loxone"):
+            return True
+        return consumer["daily_target_kwh"] > 0
 
     def _load_dynamic_params(self) -> None:
         self.K_PUSH_CENT = self._get_strict(self._raw_config, ["runtime_settings", "k_push_cent"])
@@ -140,6 +175,31 @@ class Config:
             'efficiency': self.get('BATTERY_EFFICIENCY', cast=float),
         }
 
+    def get_flexible_consumers(self, optimizer_only: bool = False) -> list:
+        """Lädt alle konfigurierten flexiblen Verbraucher."""
+        consumers = [
+            self._normalize_consumer(raw)
+            for raw in self._raw_config.get("flexible_consumers", [])
+        ]
+        if optimizer_only:
+            return [
+                c for c in consumers
+                if c["optimizer_enabled"]
+                and c["nominal_power_kw"] > 0
+                and self._consumer_has_daily_target(c)
+            ]
+        return consumers
+
+    def get_swimspa_settings(self) -> dict:
+        """Legacy-Hilfsfunktion: liefert den SwimSpa-Verbraucher oder Defaults."""
+        consumer = self._consumer_by_id("swimspa")
+        if consumer:
+            return {
+                "nominal_power_kw": consumer["nominal_power_kw"],
+                "daily_target_kwh": consumer["daily_target_kwh"],
+            }
+        return {"nominal_power_kw": 2.8, "daily_target_kwh": 10.0}
+
     def get_push_price_cent(self) -> float:
         return self.get('K_PUSH_CENT', cast=float)
 
@@ -151,9 +211,6 @@ class Config:
         return {
             "path_consumption": self.PATH_CONSUMPTION,
             "path_production": self.PATH_PRODUCTION,
-            "path_e_auto": self.PATH_E_AUTO,
-            "path_pool": self.PATH_POOL,
-            "path_wp": self.PATH_WP,
             "path_price": self.PATH_PRICE,
             "price_source": self.PRICE_SOURCE,
             "price_provider": self.PRICE_PROVIDER,
@@ -214,6 +271,14 @@ def get_runtime_settings() -> dict:
 
 def get_battery_params() -> dict:
     return CONFIG.get_battery_params()
+
+
+def get_swimspa_settings() -> dict:
+    return CONFIG.get_swimspa_settings()
+
+
+def get_flexible_consumers(optimizer_only: bool = False) -> list:
+    return CONFIG.get_flexible_consumers(optimizer_only=optimizer_only)
 
 
 def get_push_price_cent() -> float:

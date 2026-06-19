@@ -1,333 +1,1557 @@
 # optimizer.py
+
 from typing import List, Dict, Any, Tuple
+
+from datetime import datetime
+
+import json
+
+import os
+
 import pulp
-import config  # Lokaler Import der Konfiguration
+
+import config
+
+
+
+CONSUMER_STATE_FILE = "flexible_consumers_state.json"
+
+_RESERVED_KW_COLUMNS = {
+
+    "PV-Prognose (kW)",
+
+    "Verbrauch-Prognose (kW)",
+
+    "Geplante Batterie-Aktion (kW)",
+
+    "Netzbezug (kW)",
+
+}
+
+
+
 
 
 def _clamp_power(value: float, max_power: float) -> float:
+
     return max(-max_power, min(value, max_power))
 
 
-def _apply_soc_change(old_soc: float, batt_action: float, battery_capacity_kwh: float, efficiency: float, min_soc_limit: float, max_soc_limit: float) -> tuple[float, float]:
+
+
+
+def _apply_soc_change(
+
+    old_soc: float,
+
+    batt_action: float,
+
+    battery_capacity_kwh: float,
+
+    efficiency: float,
+
+    min_soc_limit: float,
+
+    max_soc_limit: float,
+
+) -> tuple[float, float]:
+
     if batt_action >= 0:
+
         energy_change = batt_action * efficiency
+
     else:
+
         energy_change = batt_action / efficiency
 
+
+
     soc_change = (energy_change / battery_capacity_kwh) * 100
+
     new_soc = old_soc + soc_change
 
+
+
     if new_soc > max_soc_limit:
+
         new_soc = max_soc_limit
+
         actual_energy = ((max_soc_limit - old_soc) / 100) * battery_capacity_kwh
+
         batt_action = actual_energy / efficiency if actual_energy >= 0 else actual_energy * efficiency
+
     elif new_soc < min_soc_limit:
+
         new_soc = min_soc_limit
+
         actual_energy = ((min_soc_limit - old_soc) / 100) * battery_capacity_kwh
+
         batt_action = actual_energy * efficiency if actual_energy < 0 else actual_energy / efficiency
+
+
 
     return new_soc, batt_action
 
 
-def heuristic_optimizer(
-    matrix: List[Dict[str, Any]],
-    current_hour: int,
-    current_soc: float,
-    battery_params: dict | None = None,
-    k_push: float | None = None,
-    verbose: bool = True,
-) -> Tuple[int, float, float]:
-    """
-    Berechnet den optimalen Betriebsmodus und die Ziel-Leistung für den Loxone Miniserver.
-    Nutzt mathematische lineare Optimierung (MILP) über das PuLP-Framework.
-    
-    Modi (Ernie_Mode):
-        0 = Automatik (Normalbetrieb / Batterieladung und -entladung freigegeben)
-        1 = Zwangsladen (Laden aus dem Netz mit Ziel-Leistung)
-        2 = Entladesperre (Batterieentladung blockiert, um Kapazität für teure Stunden zu sparen)
-    """
-    if not matrix:
-        print("🚨 Optimizer-Fehler: Matrix ist leer.")
-        return 0, 0.0, 99.0
 
-    # 1. Parameter laden (Szenario-Override oder globale Config)
+
+
+def _day_indices(matrix: List[Dict[str, Any]], horizon: int) -> list[int]:
+
+    """Stunden im Planungshorizont, die zum selben Kalendertag wie t=0 gehören."""
+
+    ref_date = matrix[0].get("date")
+
+    if ref_date is None:
+
+        return list(range(horizon))
+
+    return [t for t in range(horizon) if matrix[t].get("date") == ref_date]
+
+
+
+
+
+def _consumer_column_name(consumer: dict) -> str:
+
+    return f"{consumer['name']} (kW)"
+
+
+
+
+
+def _active_consumers(consumers: list | None = None) -> list:
+
+    return consumers if consumers is not None else config.get_flexible_consumers(optimizer_only=True)
+
+
+
+
+
+def _load_consumer_state() -> dict:
+
+    today = datetime.now().date().isoformat()
+
+    if not os.path.exists(CONSUMER_STATE_FILE):
+
+        return {"date": today, "delivered": {}}
+
+
+
+    try:
+
+        with open(CONSUMER_STATE_FILE, "r", encoding="utf-8") as f:
+
+            state = json.load(f)
+
+        if state.get("date") != today:
+
+            return {"date": today, "delivered": {}}
+
+        delivered = state.get("delivered", {})
+
+        if not isinstance(delivered, dict):
+
+            return {"date": today, "delivered": {}}
+
+        return {"date": today, "delivered": delivered}
+
+    except (json.JSONDecodeError, OSError, TypeError, ValueError):
+
+        return {"date": today, "delivered": {}}
+
+
+
+
+
+def _save_consumer_state(state: dict) -> None:
+
+    with open(CONSUMER_STATE_FILE, "w", encoding="utf-8") as f:
+
+        json.dump(state, f, indent=2)
+
+
+
+
+
+def get_consumer_remaining_kwh(consumers: list | None = None) -> dict[str, float]:
+
+    """Verbleibende Tagesziele aller optimierbaren Verbraucher."""
+
+    import profile_manager
+
+    active = _active_consumers(consumers)
+
+    state = _load_consumer_state()
+
+    delivered = state.get("delivered", {})
+
+    daily_targets = profile_manager.resolve_consumer_daily_targets()
+
+    remaining = {}
+
+    for consumer in active:
+
+        cid = consumer["id"]
+
+        daily_target = float(daily_targets.get(cid, consumer["daily_target_kwh"]))
+
+        already = float(delivered.get(cid, 0.0))
+
+        remaining[cid] = max(0.0, daily_target - already)
+
+    return remaining
+
+
+
+
+
+def _optimization_interval_hours() -> float:
+    """Dauer eines Live-Optimierungszyklus in Stunden (loop_timeout in Sekunden)."""
+    return config.get("LOOP_TIMEOUT", default=900, cast=int) / 3600.0
+
+
+def register_consumer_hours(consumer_powers: dict[str, float]) -> None:
+
+    """Bucht die gelieferte Energie aller Verbraucher im aktuellen Optimierungsintervall."""
+
+    if not consumer_powers:
+
+        return
+
+    interval_h = _optimization_interval_hours()
+
+    state = _load_consumer_state()
+
+    delivered = dict(state.get("delivered", {}))
+
+    for cid, power_kw in consumer_powers.items():
+
+        if power_kw > 0:
+
+            delivered[cid] = round(float(delivered.get(cid, 0.0)) + power_kw * interval_h, 3)
+
+
+
+    state["delivered"] = delivered
+
+    _save_consumer_state(state)
+
+
+
+
+
+def get_spa_remaining_kwh() -> float:
+
+    """Legacy: verbleibendes SwimSpa-Tagesziel."""
+
+    return get_consumer_remaining_kwh().get("swimspa", 0.0)
+
+
+
+
+
+def register_spa_hour(spa_power_kw: float) -> None:
+
+    """Legacy: SwimSpa-Stunde buchen."""
+
+    if spa_power_kw > 0:
+
+        register_consumer_hours({"swimspa": spa_power_kw})
+
+
+
+
+
+def _min_delivery_kwh(consumer: dict) -> float:
+    """Mindest-Energie (kWh) für eine einzelne Einschaltperiode (min_on_quarterhours)."""
+    min_hours = max(1, (int(consumer["min_on_quarterhours"]) + 3) // 4)
+    return consumer["nominal_power_kw"] * min_hours
+
+
+def _max_delivery_cap_kwh(consumer: dict, target: float, day_hours: int) -> float:
+    """Obergrenze für Flex-Energie: Ziel plus höchstens eine Mindestperiode (min_on-Granularität)."""
+    return _feasible_target_kwh(consumer, target, day_hours)
+
+
+def _feasible_target_kwh(consumer: dict, target: float, day_hours: int) -> float:
+    """Rundet das Ziel auf die kleinste mit min_on erreichbare Energiemenge (volle Stunden à Nennleistung)."""
+    if target <= 0:
+        return 0.0
+    power = consumer["nominal_power_kw"]
+    min_hours = max(1, (int(consumer["min_on_quarterhours"]) + 3) // 4)
+    for hours in range(min_hours, day_hours + 1):
+        if hours * power >= target - 1e-6:
+            return hours * power
+    return day_hours * power
+
+
+_EMPTY_MILP_PLAN = {
+    "p_grid_buy": 0.0,
+    "p_grid_sell": 0.0,
+    "p_charge": 0.0,
+    "p_discharge": 0.0,
+}
+
+
+def _add_min_on_time_constraints(prob, on_vars: list, min_on_quarterhours: int, prefix: str) -> None:
+    """Erzwingt Mindest-Einschaltdauer; MILP arbeitet stündlich (4 Viertelstunden = 1 Slot)."""
+    min_hours = max(1, (int(min_on_quarterhours) + 3) // 4)
+    if min_hours <= 1:
+        return
+
+    horizon = len(on_vars)
+    for t in range(horizon - min_hours + 1):
+        prev = 0 if t == 0 else on_vars[t - 1]
+        prob += pulp.lpSum(on_vars[t:t + min_hours]) >= min_hours * (on_vars[t] - prev)
+
+
+
+
+
+def _filter_feasible_consumers(
+
+    consumers: list,
+
+    remaining_kwh: dict[str, float],
+
+    day_indices: list[int],
+
+    verbose: bool,
+
+) -> list:
+
+    """Entfernt Verbraucher, deren Tagesziel im verbleibenden Horizont nicht erreichbar ist."""
+
+    feasible = []
+
+    for consumer in consumers:
+
+        cid = consumer["id"]
+
+        target = remaining_kwh.get(cid, 0.0)
+
+        if target <= 0:
+
+            continue
+
+
+
+        max_deliverable = len(day_indices) * consumer["nominal_power_kw"]
+
+        if target > max_deliverable + 1e-6:
+
+            if verbose:
+
+                print(
+
+                    f"⚠️ {consumer['name']}: Ziel ({target:.2f} kWh) nicht erreichbar "
+
+                    f"mit {len(day_indices)} h à {consumer['nominal_power_kw']:.2f} kW. Wird übersprungen."
+
+                )
+
+            continue
+
+        feasible.append(consumer)
+
+    return feasible
+
+
+
+
+
+def heuristic_optimizer(
+
+    matrix: List[Dict[str, Any]],
+
+    current_hour: int,
+
+    current_soc: float,
+
+    battery_params: dict | None = None,
+
+    k_push: float | None = None,
+
+    verbose: bool = True,
+
+    consumers: list | None = None,
+
+    consumer_remaining_kwh: dict[str, float] | None = None,
+
+    spa_cfg: dict | None = None,
+
+    spa_remaining_kwh: float | None = None,
+
+) -> Tuple[int, float, float, dict[str, float], dict[str, float]]:
+
+    """
+
+    Berechnet den optimalen Betriebsmodus und die Ziel-Leistung für den Loxone Miniserver.
+
+    Optimiert Batterie und alle konfigurierten flexible_consumers gemeinsam per MILP.
+
+
+
+    Rückgabe: (mode, target_power, target_soc, {consumer_id: leistung_kw}, milp_plan)
+
+    """
+
+    if not matrix:
+
+        print("🚨 Optimizer-Fehler: Matrix ist leer.")
+
+        return 0, 0.0, 99.0, {}, _EMPTY_MILP_PLAN
+
+
+
     battery_params = battery_params or config.get_battery_params()
-    battery_capacity = battery_params['battery_capacity_kwh']
-    min_soc = battery_params['min_soc']
-    max_soc = battery_params['max_soc']
-    max_power = battery_params['max_power_kw']
-    efficiency = battery_params['efficiency']
+
+    battery_capacity = battery_params["battery_capacity_kwh"]
+
+    min_soc = battery_params["min_soc"]
+
+    max_soc = battery_params["max_soc"]
+
+    max_power = battery_params["max_power_kw"]
+
+    efficiency = battery_params["efficiency"]
+
     k_push = k_push if k_push is not None else config.get_push_price_cent()
 
-    # Planungshorizont bestimmen (maximal 24 Stunden)
+
+
+    active = _active_consumers(consumers)
+
+    remaining: dict[str, float] = {}
+
+    for consumer in active:
+
+        cid = consumer["id"]
+
+        if consumer_remaining_kwh and cid in consumer_remaining_kwh:
+
+            remaining[cid] = max(0.0, float(consumer_remaining_kwh[cid]))
+
+        else:
+
+            remaining[cid] = float(consumer["daily_target_kwh"])
+
+
+
+    # Legacy-Parameter für SwimSpa (Abwärtskompatibilität)
+
+    if spa_remaining_kwh is not None and "swimspa" in remaining:
+
+        remaining["swimspa"] = max(0.0, float(spa_remaining_kwh))
+
+
+
     N = min(24, len(matrix))
 
-    # SoC-Grenzen von Prozent in absolute kWh umrechnen
     e_min = (min_soc / 100.0) * battery_capacity
+
     e_max = (max_soc / 100.0) * battery_capacity
+
     e_init = (current_soc / 100.0) * battery_capacity
 
-    # 2. Lineares Optimierungsproblem erstellen
+
+
+    day_indices = _day_indices(matrix, N)
+
+    planned_consumers = _filter_feasible_consumers(active, remaining, day_indices, verbose)
+
+
+
     prob = pulp.LpProblem("Energy_Cost_Minimization", pulp.LpMinimize)
 
-    # 3. Entscheidungsvariablen definieren
+
+
     p_grid_buy = [pulp.LpVariable(f"p_grid_buy_{t}", lowBound=0) for t in range(N)]
+
     p_grid_sell = [pulp.LpVariable(f"p_grid_sell_{t}", lowBound=0) for t in range(N)]
+
     p_charge = [pulp.LpVariable(f"p_charge_{t}", lowBound=0, upBound=max_power) for t in range(N)]
+
     p_discharge = [pulp.LpVariable(f"p_discharge_{t}", lowBound=0, upBound=max_power) for t in range(N)]
+
     e_batt = [pulp.LpVariable(f"e_batt_{t}", lowBound=e_min, upBound=e_max) for t in range(N)]
-    
-    # Binäre Hilfsvariable: 1 = Akku lädt, 0 = Akku entlädt (verhindert Gleichzeitigkeit)
+
     delta_charge = [pulp.LpVariable(f"delta_charge_{t}", cat=pulp.LpBinary) for t in range(N)]
 
-    # 4. Zielfunktion: Gesamtkosten über den Horizont minimieren
+    max_flex_power = sum(c["nominal_power_kw"] for c in planned_consumers)
+    max_load = max((row["expected_p_act"] for row in matrix[:N]), default=0.0)
+    max_pv = max((row["expected_p_pv"] for row in matrix[:N]), default=0.0)
+    big_m_grid = max(max_load + max_flex_power + max_power, max_pv + max_power, 50.0)
+    delta_import = [pulp.LpVariable(f"delta_import_{t}", cat=pulp.LpBinary) for t in range(N)]
+
+
+
+    consumer_on: dict[str, list] = {}
+
+    for consumer in planned_consumers:
+
+        cid = consumer["id"]
+
+        consumer_on[cid] = [
+
+            pulp.LpVariable(f"{cid}_on_{t}", cat=pulp.LpBinary)
+
+            for t in range(N)
+
+        ]
+
+        _add_min_on_time_constraints(
+
+            prob,
+
+            consumer_on[cid],
+
+            consumer["min_on_quarterhours"],
+
+            cid,
+
+        )
+
+
+
     prob += pulp.lpSum([
-        p_grid_buy[t] * matrix[t]['k_act'] - p_grid_sell[t] * k_push
+
+        p_grid_buy[t] * matrix[t]["k_act"] - p_grid_sell[t] * k_push
+
         for t in range(N)
+
     ])
 
-    # 5. Mathematische Nebenbedingungen (Constraints) definieren
+
+
     for t in range(N):
-        p_pv = matrix[t]['expected_p_pv']
-        p_con = matrix[t]['expected_p_act']
 
-        # KNOTENGLEICHUNG: Energieerhaltung des Hauses
-        prob += (p_pv + p_grid_buy[t] + p_discharge[t] == p_con + p_grid_sell[t] + p_charge[t])
+        p_pv = matrix[t]["expected_p_pv"]
 
-        # LEISTUNGSGRENZEN: Gekoppelt an die binäre Variable
+        p_con = matrix[t]["expected_p_act"]
+
+        p_flex = pulp.lpSum(
+
+            consumer["nominal_power_kw"] * consumer_on[consumer["id"]][t]
+
+            for consumer in planned_consumers
+
+        )
+
+
+
+        prob += (p_pv + p_grid_buy[t] + p_discharge[t] == p_con + p_flex + p_grid_sell[t] + p_charge[t])
+
+        # Kein gleichzeitiger Netzbezug und Einspeisung (verhindert unbounded arbitrage)
+        prob += (p_grid_buy[t] <= big_m_grid * delta_import[t])
+        prob += (p_grid_sell[t] <= big_m_grid * (1 - delta_import[t]))
+
         prob += (p_charge[t] <= max_power * delta_charge[t])
+
         prob += (p_discharge[t] <= max_power * (1 - delta_charge[t]))
 
-        # BATTERIE-DYNAMIK: Energieinhalt der aktuellen Stunde unter Berücksichtigung des Wirkungsgrads
-        if t == 0:
-            prob += (e_batt[t] == e_init + p_charge[t] * efficiency - p_discharge[t] / efficiency)
-        else:
-            prob += (e_batt[t] == e_batt[t-1] + p_charge[t] * efficiency - p_discharge[t] / efficiency)
 
-    # 6. Problem mathematisch lösen
+
+        if t == 0:
+
+            prob += (e_batt[t] == e_init + p_charge[t] * efficiency - p_discharge[t] / efficiency)
+
+        else:
+
+            prob += (e_batt[t] == e_batt[t - 1] + p_charge[t] * efficiency - p_discharge[t] / efficiency)
+
+
+
+    for consumer in planned_consumers:
+
+        cid = consumer["id"]
+
+        target = remaining.get(cid, 0.0)
+
+        if target <= 0:
+
+            continue
+
+        prob += (
+
+            pulp.lpSum(
+
+                consumer["nominal_power_kw"] * consumer_on[cid][t]
+
+                for t in day_indices
+
+            ) >= target
+
+        )
+
+
+
     prob.solve(pulp.PULP_CBC_CMD(msg=False))
 
+
+
     if pulp.LpStatus[prob.status] != "Optimal":
+
         if verbose:
-            print(f"⚠️ MILP-Solver konnte keine optimale Lösung finden Status: {pulp.LpStatus[prob.status]}. Fallback auf Automatik.")
-        return 0, 0.0, 99.0
 
-    # 7. Ergebnisse für die aktuelle Stunde (t=0) extrahieren
+            print(
+
+                f"⚠️ MILP-Solver konnte keine optimale Lösung finden "
+
+                f"Status: {pulp.LpStatus[prob.status]}. Fallback auf Automatik."
+
+            )
+
+        return 0, 0.0, 99.0, {}, _EMPTY_MILP_PLAN
+
+
+
     opt_charge = p_charge[0].varValue if p_charge[0].varValue is not None else 0.0
-    opt_discharge = p_discharge[0].varValue if p_discharge[0].varValue is not None else 0.0
-    opt_grid_buy = p_grid_buy[0].varValue if p_grid_buy[0].varValue is not None else 0.0
-    
-    p_pv_0 = matrix[0]['expected_p_pv']
-    p_con_0 = matrix[0]['expected_p_act']
-    net_pv_surplus = p_pv_0 - p_con_0
 
-    # 8. Übersetzung der kontinuierlichen Solver-Ergebnisse in Loxone-Modi
+    opt_discharge = p_discharge[0].varValue if p_discharge[0].varValue is not None else 0.0
+
+    opt_grid_buy = p_grid_buy[0].varValue if p_grid_buy[0].varValue is not None else 0.0
+
+    opt_grid_sell = p_grid_sell[0].varValue if p_grid_sell[0].varValue is not None else 0.0
+
+    milp_plan = {
+
+        "p_grid_buy": opt_grid_buy,
+
+        "p_grid_sell": opt_grid_sell,
+
+        "p_charge": opt_charge,
+
+        "p_discharge": opt_discharge,
+
+    }
+
+
+
+    consumer_powers: dict[str, float] = {}
+
+    total_flex_power = 0.0
+
+    for consumer in planned_consumers:
+
+        cid = consumer["id"]
+
+        on_val = consumer_on[cid][0].varValue
+
+        power = consumer["nominal_power_kw"] if on_val is not None and on_val > 0.5 else 0.0
+
+        consumer_powers[cid] = power
+
+        total_flex_power += power
+
+
+
+    p_pv_0 = matrix[0]["expected_p_pv"]
+
+    p_con_0 = matrix[0]["expected_p_act"]
+
+    net_pv_surplus = p_pv_0 - p_con_0 - total_flex_power
+
+
+
     mode = 0
+
     target_power = 0.0
+
     target_soc = 99.0
 
+
+
     if opt_charge > 0.05 and opt_grid_buy > 0.05:
+
         mode = 1
+
         target_power = round(opt_charge, 2)
+
         opt_end_soc = (e_batt[0].varValue / battery_capacity) * 100.0
+
         target_soc = round(max(current_soc, opt_end_soc), 1)
+
     elif net_pv_surplus < -0.05 and opt_discharge < 0.05 and current_soc > (min_soc + 2.0):
+
         mode = 2
+
         target_power = 0.0
+
         target_soc = 100.0
-    else:
-        mode = 0
-        target_power = 0.0
-        target_soc = 99.0
+
+
 
     if verbose:
+
         print(f"\n--- 🧮 MILP Optimierungs-Entscheidung für {current_hour}:00 Uhr ---")
+
         print(f"Aktueller Brutto-Preis: {matrix[0]['k_act']:.2f} Cent/kWh")
+
         print(f"Aktueller Akku-SoC    : {current_soc:.1f}%")
-        print(f"Optimierter Fahrplan  : Ladung={opt_charge:.2f} kW | Entladung={opt_discharge:.2f} kW | Netzbezug={opt_grid_buy:.2f} kW")
-        
+
+        print(
+
+            f"Optimierter Fahrplan  : Ladung={opt_charge:.2f} kW | "
+
+            f"Entladung={opt_discharge:.2f} kW | Netzbezug={opt_grid_buy:.2f} kW"
+
+        )
+
+        for consumer in planned_consumers:
+
+            cid = consumer["id"]
+
+            power_now = consumer_powers.get(cid, 0.0)
+
+            planned_kwh = sum(
+
+                consumer["nominal_power_kw"]
+
+                for t in range(N)
+
+                if consumer_on[cid][t].varValue is not None and consumer_on[cid][t].varValue > 0.5
+
+            )
+
+            print(
+
+                f"{consumer['name']:<16}: Jetzt={'AN' if power_now > 0 else 'AUS'} "
+
+                f"({power_now:.2f} kW) | Restziel={remaining.get(cid, 0.0):.2f} kWh | "
+
+                f"Geplant={planned_kwh:.2f} kWh | min_on={consumer['min_on_quarterhours']} x 15min"
+
+            )
+
+
+
         modi_text = {0: "AUTOMATIK", 1: "ZWANGSLADEN", 2: "ENTLADESPERRE"}
+
         print(f"-> Steuerbefehl Loxone: {modi_text[mode]} (Leistung: {target_power} kW, Ziel-SoC: {target_soc}%)")
 
-    return mode, target_power, target_soc
+
+
+    return mode, target_power, target_soc, consumer_powers, milp_plan
+
+
+
+
+
+def _resolve_daily_target_kwh(
+    consumer: dict,
+    consumer_daily_targets_kwh: dict | None,
+    row_date=None,
+    logged_targets_only: bool = False,
+) -> float:
+    """Tagesziel aus Overrides oder – je nach Modus – Logs bzw. daily_target_source."""
+    cid = consumer["id"]
+    if consumer_daily_targets_kwh is not None:
+        if row_date is not None and row_date in consumer_daily_targets_kwh:
+            day_targets = consumer_daily_targets_kwh[row_date]
+            if isinstance(day_targets, dict) and cid in day_targets:
+                return float(day_targets[cid])
+        if cid in consumer_daily_targets_kwh:
+            return float(consumer_daily_targets_kwh[cid])
+
+    if logged_targets_only:
+        import profile_manager
+
+        if row_date is None:
+            return 0.0
+        logged = profile_manager.resolve_historical_consumer_daily_targets(row_date)
+        return float(logged.get(cid, 0.0))
+
+    import profile_manager
+
+    day = row_date or datetime.now().date()
+    resolved = profile_manager.resolve_consumer_daily_targets(target_date=day)
+    return float(resolved.get(cid, consumer["daily_target_kwh"]))
+
+
+def _hours_per_date_in_matrix(matrix: list) -> dict:
+    """Zählt die Stunden je Kalendertag im 24h-Simulationsfenster."""
+    from collections import Counter
+
+    counts: Counter = Counter()
+    for row in matrix[:24]:
+        day = row.get("date")
+        if day is not None:
+            counts[day] += 1
+    return dict(counts)
+
+
+def _prorated_horizon_target_kwh(full_target_kwh: float, date, matrix: list) -> float:
+    """Skaliert ein Kalender-Tagesziel auf die Stunden dieses Datums im Simulationsfenster."""
+    if full_target_kwh <= 0:
+        return 0.0
+    hours = _hours_per_date_in_matrix(matrix).get(date, 0)
+    if hours <= 0:
+        return 0.0
+    return full_target_kwh * (hours / 24.0)
+
+
+def resolve_horizon_consumer_targets_kwh(
+    optimization_matrix: list,
+    consumer_daily_targets_kwh: dict | None = None,
+) -> dict[str, float]:
+    """
+    Flex-Zielenergie je Verbraucher über das gesamte Simulationsfenster.
+    Bei rollierendem 24h-Horizont über Mitternacht: anteilig pro Kalendertag (h/24).
+    """
+    consumers_cfg = config.get_flexible_consumers(optimizer_only=True)
+    logged_targets_only = bool(
+        optimization_matrix
+        and optimization_matrix[0].get("consumption_mode") == "logged_day"
+    )
+    hours_by_date = _hours_per_date_in_matrix(optimization_matrix)
+    if not hours_by_date:
+        row_date = optimization_matrix[0].get("date") if optimization_matrix else None
+        return {
+            consumer["id"]: _resolve_daily_target_kwh(
+                consumer,
+                consumer_daily_targets_kwh,
+                row_date,
+                logged_targets_only,
+            )
+            for consumer in consumers_cfg
+        }
+
+    targets: dict[str, float] = {}
+    for consumer in consumers_cfg:
+        cid = consumer["id"]
+        total = 0.0
+        for day in hours_by_date:
+            full_target = _resolve_daily_target_kwh(
+                consumer,
+                consumer_daily_targets_kwh,
+                day,
+                logged_targets_only,
+            )
+            total += _prorated_horizon_target_kwh(full_target, day, optimization_matrix)
+        targets[cid] = round(total, 3)
+    return targets
+
+
+def resolve_applied_daily_targets(
+    optimization_matrix: list,
+    consumer_daily_targets_kwh: dict | None = None,
+) -> dict[str, float]:
+    """Ermittelt die Tagesziele, die die Simulation tatsächlich verwendet."""
+    return resolve_horizon_consumer_targets_kwh(
+        optimization_matrix,
+        consumer_daily_targets_kwh,
+    )
+
+
+def build_applied_targets_detail(
+    optimization_matrix: list,
+    consumer_daily_targets_kwh: dict | None = None,
+) -> list[dict]:
+    """Bereitet die genutzten Tagesziele mit Verbrauchername und Quelle für die UI auf."""
+    logged_day = bool(
+        optimization_matrix
+        and optimization_matrix[0].get("consumption_mode") == "logged_day"
+    )
+    targets = resolve_applied_daily_targets(optimization_matrix, consumer_daily_targets_kwh)
+    details = []
+    for consumer in config.get_flexible_consumers(optimizer_only=True):
+        cid = consumer["id"]
+        if logged_day:
+            source = "geloggt (historischer Tag)"
+        else:
+            source_key = consumer.get("daily_target_source", "config")
+            source_labels = {
+                "config": "config.json (daily_target_kwh)",
+                "historical": "historical (Profil/Logs)",
+                "loxone": "loxone (Live-Wert)",
+            }
+            source = source_labels.get(source_key, source_key)
+            if len(_hours_per_date_in_matrix(optimization_matrix)) > 1:
+                source = f"{source}, anteilig 24h-Fenster"
+        details.append({
+            "id": cid,
+            "name": consumer["name"],
+            "target_kwh": round(float(targets.get(cid, 0.0)), 3),
+            "source": source,
+        })
+    return details
+
+
+def build_baseline_targets_detail(optimization_matrix: list) -> list[dict]:
+    """
+    Ermittelt die pro Verbraucher in der Baseline enthaltene Tagesenergie.
+    Historisch: geloggte Summen im Gesamtverbrauchs-Stundenprofil.
+    Echtzeit: Summe der stündlichen Flex-Profile (flexible_consumer_profiles.csv).
+    """
+    if not optimization_matrix:
+        return []
+
+    logged_day = optimization_matrix[0].get("consumption_mode") == "logged_day"
+    consumers = config.get_flexible_consumers(optimizer_only=True)
+    details = []
+
+    if logged_day:
+        row_date = optimization_matrix[0].get("date")
+        import profile_manager
+
+        totals = profile_manager.resolve_historical_consumer_daily_targets(row_date)
+        source = "geloggt (Gesamtverbrauchs-Stundenprofil)"
+        for consumer in consumers:
+            cid = consumer["id"]
+            details.append({
+                "id": cid,
+                "name": consumer["name"],
+                "target_kwh": round(float(totals.get(cid, 0.0)), 3),
+                "source": source,
+            })
+        return details
+
+    flex_sums = {consumer["id"]: 0.0 for consumer in consumers}
+    for row in optimization_matrix[:24]:
+        flex = row.get("expected_flex_kw") or {}
+        for cid in flex_sums:
+            flex_sums[cid] += float(flex.get(cid, 0.0) or 0.0)
+
+    has_profile_flex = any(v > 0 for v in flex_sums.values())
+    source = (
+        "Verbrauchsprofil (flexible_consumer_profiles.csv)"
+        if has_profile_flex
+        else "Gesamtprofil (total_consumption_profiles.csv, nicht aufgeteilt)"
+    )
+
+    for consumer in consumers:
+        cid = consumer["id"]
+        details.append({
+            "id": cid,
+            "name": consumer["name"],
+            "target_kwh": round(flex_sums.get(cid, 0.0), 3),
+            "source": source,
+        })
+    return details
+
+
+def resolve_baseload_kwh(optimization_matrix: list) -> float:
+    """Summiert die Grundlast (kWh) über den Simulationshorizont."""
+    if not optimization_matrix:
+        return 0.0
+    return round(
+        sum(float(row.get("expected_p_act", 0.0) or 0.0) for row in optimization_matrix[:24]),
+        3,
+    )
+
+
+def build_energy_comparison_detail(
+    optimization_matrix: list,
+    consumer_daily_targets_kwh: dict | None = None,
+) -> list[dict]:
+    """Kombiniert Baseline-Verbrauch und Optimierungsziele je Verbraucher inkl. Grundlast."""
+    baseload_kwh = resolve_baseload_kwh(optimization_matrix)
+    logged_day = bool(
+        optimization_matrix
+        and optimization_matrix[0].get("consumption_mode") == "logged_day"
+    )
+    baseload_source = (
+        "geloggt (historischer Tag)" if logged_day else "Verbrauchsprofil (consumption_profiles.csv)"
+    )
+
+    baseline_by_id = {
+        item["id"]: item for item in build_baseline_targets_detail(optimization_matrix)
+    }
+    optimized_by_id = {
+        item["id"]: item
+        for item in build_applied_targets_detail(optimization_matrix, consumer_daily_targets_kwh)
+    }
+
+    rows = [{
+        "name": "Grundlast",
+        "baseline_kwh": baseload_kwh,
+        "optimization_kwh": baseload_kwh,
+        "optimization_source": baseload_source,
+    }]
+
+    for consumer in config.get_flexible_consumers(optimizer_only=True):
+        cid = consumer["id"]
+        base = baseline_by_id.get(cid, {})
+        opt = optimized_by_id.get(cid, {})
+        rows.append({
+            "name": consumer["name"],
+            "baseline_kwh": base.get("target_kwh", 0.0),
+            "optimization_kwh": opt.get("target_kwh", 0.0),
+            "optimization_source": opt.get("source", ""),
+        })
+
+    return rows
 
 
 def simulate_horizon(
+
     optimization_matrix: list,
+
     initial_soc: float,
+
     battery_params: dict | None = None,
+
     k_push: float | None = None,
+
     verbose: bool = True,
+
     on_progress=None,
+
+    consumer_daily_targets_kwh: dict[str, float] | None = None,
+
 ) -> list:
-    """
-    Simuliert einen rollierenden Optimierungshorizont über die gesamte Matrix.
-    """
+
+    """Simuliert einen rollierenden Optimierungshorizont über die gesamte Matrix."""
+
     chart_rows = []
+
     sim_soc = initial_soc
+
     battery_params = battery_params or config.get_battery_params()
+
     total_steps = len(optimization_matrix)
 
+    consumers_cfg = config.get_flexible_consumers(optimizer_only=True)
+
+    delivered_by_date: dict = {}
+
+    daily_limits_by_date: dict = {}
+
+    logged_targets_only = bool(
+        optimization_matrix
+        and optimization_matrix[0].get("consumption_mode") == "logged_day"
+    )
+
+
+
     for i, row in enumerate(optimization_matrix):
+
+        row_date = row.get("date")
+
+        if row_date is not None and row_date not in daily_limits_by_date:
+
+            daily_limits_by_date[row_date] = {
+
+                consumer["id"]: round(
+
+                    _prorated_horizon_target_kwh(
+
+                        _resolve_daily_target_kwh(
+
+                            consumer, consumer_daily_targets_kwh, row_date, logged_targets_only
+
+                        ),
+
+                        row_date,
+
+                        optimization_matrix,
+
+                    ),
+
+                    3,
+
+                )
+
+                for consumer in consumers_cfg
+
+            }
+
+        remaining = {}
+
+        for consumer in consumers_cfg:
+
+            cid = consumer["id"]
+
+            if row_date is not None:
+                daily_target = daily_limits_by_date.get(row_date, {}).get(cid, 0.0)
+            else:
+                daily_target = _resolve_daily_target_kwh(
+                    consumer, consumer_daily_targets_kwh, row_date, logged_targets_only
+                )
+
+            delivered_today = 0.0
+
+            if row_date is not None:
+
+                delivered_today = delivered_by_date.get(row_date, {}).get(cid, 0.0)
+
+            remaining[cid] = max(0.0, daily_target - delivered_today)
+
+
+
         sim_soc, chart_row = _simulate_single_hour_optimizer(
+
             optimization_matrix[i:],
+
             row,
+
             sim_soc,
+
             battery_params,
+
             k_push=k_push,
+
             verbose=verbose,
+
+            consumer_remaining_kwh=remaining,
+
         )
+
+
+
+        if row_date is not None:
+
+            day_delivered = delivered_by_date.setdefault(row_date, {})
+
+            limits = daily_limits_by_date.get(row_date, {})
+
+            for consumer in consumers_cfg:
+
+                col = _consumer_column_name(consumer)
+
+                cid = consumer["id"]
+
+                power = float(chart_row.get(col, 0.0) or 0.0)
+
+                if power <= 0:
+
+                    continue
+
+                max_kwh = limits.get(cid, power)
+
+                already = day_delivered.get(cid, 0.0)
+
+                room = max(0.0, max_kwh - already)
+
+                if power > room + 1e-6:
+
+                    power = room
+
+                    chart_row[col] = round(power, 2)
+
+                if power > 0:
+
+                    day_delivered[cid] = already + power
+
+
+
         chart_rows.append(chart_row)
+
+
+
         if on_progress is not None:
+
             on_progress(i + 1, total_steps)
+
+
 
     return chart_rows
 
 
-def simulate_24h_horizon(optimization_matrix: list, initial_soc: float) -> list:
-    """
-    Simuliert den 24-Stunden-Verlauf des SoC unter exakter Berücksichtigung
-    des neuen mathematischen Wirkungsgrads und der Leistungsbegrenzungen.
-    """
-    return simulate_horizon(optimization_matrix[:24], initial_soc)
+
+
+
+def simulate_24h_horizon(
+    optimization_matrix: list,
+    initial_soc: float,
+    consumer_daily_targets_kwh: dict[str, float] | None = None,
+    verbose: bool = True,
+) -> list:
+
+    """Simuliert den 24-Stunden-Verlauf des SoC."""
+
+    return simulate_horizon(
+        optimization_matrix[:24],
+        initial_soc,
+        consumer_daily_targets_kwh=consumer_daily_targets_kwh,
+        verbose=verbose,
+    )
+
+
+
 
 
 def _simulate_single_hour_optimizer(
+
     remaining_matrix: list,
+
     row: dict,
+
     sim_soc: float,
+
     battery_params: dict,
+
     k_push: float | None = None,
+
     verbose: bool = True,
+
+    consumer_remaining_kwh: dict[str, float] | None = None,
+
+    spa_remaining_kwh: float | None = None,
+
 ) -> Tuple[float, dict]:
-    """Hilfsfunktion: Simuliert eine einzelne Stunde im optimierten Pfad (< 30 Zeilen)."""
-    h = row['hour']
-    mode, target_power, target_soc = heuristic_optimizer(
+
+    """Simuliert eine einzelne Stunde im optimierten Pfad."""
+
+    h = row["hour"]
+
+    mode, target_power, target_soc, consumer_powers, milp_plan = heuristic_optimizer(
+
         remaining_matrix,
+
         h,
+
         sim_soc,
+
         battery_params=battery_params,
+
         k_push=k_push,
+
         verbose=verbose,
+
+        consumer_remaining_kwh=consumer_remaining_kwh,
+
+        spa_remaining_kwh=spa_remaining_kwh,
+
     )
-    
-    pv = row['expected_p_pv']
-    con = row['expected_p_act']
-    net_pv_surplus = pv - con
-    
-    # BEHOBEN: Kein künstliches Aufaddieren von Überschüssen beim Zwangsladen.
-    # target_power entspricht bereits der mathematisch exakt gewollten Brutto-Ladeleistung.
+
+
+
+    pv = row["expected_p_pv"]
+
+    con = row["expected_p_act"]
+
+    total_flex_power = sum(consumer_powers.values())
+
+    p_charge = milp_plan["p_charge"]
+
+    p_discharge = milp_plan["p_discharge"]
+
+    p_grid = milp_plan["p_grid_buy"] - milp_plan["p_grid_sell"]
+
+    batt_action = p_charge - p_discharge
+
+
+
     if mode == 1:
-        batt_action = target_power
+
         action_text = f"Zwangsladen ({target_power} kW)"
+
     elif mode == 2:
-        batt_action = max(0.0, net_pv_surplus)
+
         action_text = "Entladesperre aktiv"
+
     else:
-        batt_action = net_pv_surplus
+
         action_text = "Automatikbetrieb"
-        
+
+
+
     old_soc = sim_soc
-    batt_action = _clamp_power(batt_action, battery_params['max_power_kw'])
+
+    batt_action = _clamp_power(batt_action, battery_params["max_power_kw"])
+
     sim_soc, batt_action = _apply_soc_change(
+
         old_soc,
+
         batt_action,
-        battery_params['battery_capacity_kwh'],
-        battery_params['efficiency'],
-        battery_params['min_soc'],
-        battery_params['max_soc'],
+
+        battery_params["battery_capacity_kwh"],
+
+        battery_params["efficiency"],
+
+        battery_params["min_soc"],
+
+        battery_params["max_soc"],
+
     )
-    
+
+
+
     chart_row = {
+
         "Uhrzeit": f"{h:02d}:00",
-        "Strompreis (Cent/kWh)": row['k_act'],
+
+        "Strompreis (Cent/kWh)": row["k_act"],
+
         "PV-Prognose (kW)": pv,
+
         "Verbrauch-Prognose (kW)": con,
+
         "Geplante Batterie-Aktion (kW)": round(batt_action, 2),
+
+        "Netzbezug (kW)": round(p_grid, 2),
+
         "Simulierter SoC (%)": round(old_soc, 1),
-        "Steuerbefehl": action_text
+
+        "Steuerbefehl": action_text,
+
     }
+
+    for consumer in config.get_flexible_consumers(optimizer_only=True):
+
+        chart_row[_consumer_column_name(consumer)] = round(
+
+            consumer_powers.get(consumer["id"], 0.0), 2
+
+        )
+
+
+
     return sim_soc, chart_row
 
 
-def _calculate_step_cost_euro_from_row(row: dict, sell_price_cent: float) -> float:
-    """Berechnet die Stromkosten einer einzelnen Simulationsstunde in Euro."""
-    p_pv = row['PV-Prognose (kW)']
-    p_con = row['Verbrauch-Prognose (kW)']
-    batt_action = row['Geplante Batterie-Aktion (kW)']
-    price_cent = row['Strompreis (Cent/kWh)']
 
-    p_grid = p_con - p_pv + batt_action
-    if p_grid >= 0:
-        step_cents = p_grid * price_cent
+
+
+def _flexible_consumer_power_kw(row: dict) -> float:
+
+    """Summiert alle flexiblen Verbraucher-Leistungen aus einer Chart-Zeile."""
+
+    return sum(
+
+        float(value or 0.0)
+
+        for key, value in row.items()
+
+        if key.endswith(" (kW)") and key not in _RESERVED_KW_COLUMNS
+
+    )
+
+
+
+
+
+def _total_consumption_kwh_from_rows(rows: list) -> float:
+    """
+    Summiert den Stundenverbrauch (Grundlast + flexible Verbraucher) über alle Zeilen.
+    Jede Zeile = 1 Stunde; kW-Werte werden als kWh addiert.
+    """
+    return round(
+        sum(
+            float(row.get("Verbrauch-Prognose (kW)", 0.0) or 0.0)
+            + _flexible_consumer_power_kw(row)
+            for row in rows
+        ),
+        3,
+    )
+
+
+def _delivered_flex_kwh_from_rows(rows: list) -> dict[str, float]:
+    """Summiert die gelieferte Flex-Energie je Verbraucher über alle Simulationsstunden."""
+    totals: dict[str, float] = {}
+    for consumer in config.get_flexible_consumers(optimizer_only=True):
+        col = _consumer_column_name(consumer)
+        totals[consumer["id"]] = round(
+            sum(float(row.get(col, 0.0) or 0.0) for row in rows),
+            3,
+        )
+    return totals
+
+
+
+
+
+def _calculate_step_cost_euro_from_row(row: dict, sell_price_cent: float) -> float:
+
+    """Berechnet die Stromkosten einer einzelnen Simulationsstunde in Euro."""
+
+    p_con = row["Verbrauch-Prognose (kW)"] + _flexible_consumer_power_kw(row)
+
+    price_cent = row["Strompreis (Cent/kWh)"]
+
+    if "Netzbezug (kW)" in row:
+
+        p_grid = float(row["Netzbezug (kW)"])
+
     else:
+
+        p_pv = row["PV-Prognose (kW)"]
+
+        batt_action = row["Geplante Batterie-Aktion (kW)"]
+
+        p_grid = p_con - p_pv + batt_action
+
+    if p_grid >= 0:
+
+        step_cents = p_grid * price_cent
+
+    else:
+
         step_cents = p_grid * sell_price_cent
+
+
 
     return step_cents / 100.0
 
 
+
+
+
 def _calculate_cost_euro_from_rows(rows: list, sell_price_cent: float) -> float:
+
     """Berechnet die Kosten in Euro für eine Stundenreihe aus einem Simulations-Output."""
+
     return sum(_calculate_step_cost_euro_from_row(row, sell_price_cent) for row in rows)
 
 
+
+
+
 def simulate_baseline_horizon(optimization_matrix: list, initial_soc: float) -> list:
+
     """Simuliert den 24h-Verlauf ohne Optimierung: Batterie folgt nur dem aktuellen PV-Überschuss."""
+
     chart_rows = []
+
     sim_soc = initial_soc
+
     battery_params = config.get_battery_params()
 
+
+
     for row in optimization_matrix[:24]:
+
         sim_soc, chart_row = _simulate_single_hour_baseline(row, sim_soc, battery_params)
+
         chart_rows.append(chart_row)
+
+
 
     return chart_rows
 
 
+
+
+
 def _simulate_single_hour_baseline(row: dict, sim_soc: float, battery_params: dict) -> Tuple[float, dict]:
-    """Hilfsfunktion: Simuliert eine einzelne Stunde im Baseline-Pfad (< 30 Zeilen)."""
-    h = row['hour']
-    pv = row['expected_p_pv']
-    con = row['expected_p_act']
+
+    """Simuliert eine einzelne Stunde im Baseline-Pfad."""
+
+    h = row["hour"]
+
+    pv = row["expected_p_pv"]
+
+    con = row.get("expected_p_total", row["expected_p_act"])
+
     net_pv_surplus = pv - con
 
-    batt_action = _clamp_power(net_pv_surplus, battery_params['max_power_kw'])
+
+
+    batt_action = _clamp_power(net_pv_surplus, battery_params["max_power_kw"])
+
     old_soc = sim_soc
+
     sim_soc, batt_action = _apply_soc_change(
+
         old_soc,
+
         batt_action,
-        battery_params['battery_capacity_kwh'],
-        battery_params['efficiency'],
-        battery_params['min_soc'],
-        battery_params['max_soc'],
+
+        battery_params["battery_capacity_kwh"],
+
+        battery_params["efficiency"],
+
+        battery_params["min_soc"],
+
+        battery_params["max_soc"],
+
     )
 
+
+
     chart_row = {
+
         "Uhrzeit": f"{h:02d}:00",
-        "Strompreis (Cent/kWh)": row['k_act'],
+
+        "Strompreis (Cent/kWh)": row["k_act"],
+
         "PV-Prognose (kW)": pv,
+
         "Verbrauch-Prognose (kW)": con,
+
         "Geplante Batterie-Aktion (kW)": round(batt_action, 2),
+
         "Simulierter SoC (%)": round(old_soc, 1),
-        "Steuerbefehl": "Baseline"
+
+        "Steuerbefehl": "Baseline",
+
     }
+
     return sim_soc, chart_row
 
 
-def calculate_optimization_savings(optimization_matrix: list, initial_soc: float) -> dict:
+
+
+
+def calculate_optimization_savings(
+    optimization_matrix: list,
+    initial_soc: float,
+    consumer_daily_targets_kwh: dict[str, float] | None = None,
+) -> dict:
+
     """Berechnet die Einsparung in Euro gegenüber einer nicht-optimierten Baseline-Simulation."""
-    optimized_rows = simulate_24h_horizon(optimization_matrix, initial_soc)
+
+    optimized_rows = simulate_24h_horizon(
+        optimization_matrix,
+        initial_soc,
+        consumer_daily_targets_kwh=consumer_daily_targets_kwh,
+        verbose=False,
+    )
+
     baseline_rows = simulate_baseline_horizon(optimization_matrix, initial_soc)
+
     sell_price_cent = config.get_push_price_cent()
 
     optimized_cost = _calculate_cost_euro_from_rows(optimized_rows, sell_price_cent)
+
     baseline_cost = _calculate_cost_euro_from_rows(baseline_rows, sell_price_cent)
+
     savings = baseline_cost - optimized_cost
 
+    baseline_kwh = _total_consumption_kwh_from_rows(baseline_rows)
+
+    optimized_kwh = _total_consumption_kwh_from_rows(optimized_rows)
+
+    applied_targets = build_applied_targets_detail(
+        optimization_matrix,
+        consumer_daily_targets_kwh,
+    )
+
+    baseline_targets = build_baseline_targets_detail(optimization_matrix)
+
+    energy_comparison = build_energy_comparison_detail(
+        optimization_matrix,
+        consumer_daily_targets_kwh,
+    )
+
     return {
-        'baseline_cost_euro': round(baseline_cost, 4),
-        'optimized_cost_euro': round(optimized_cost, 4),
-        'savings_euro': round(savings, 4),
-        'optimized_rows': optimized_rows,
-        'baseline_rows': baseline_rows
+
+        "baseline_cost_euro": round(baseline_cost, 4),
+
+        "optimized_cost_euro": round(optimized_cost, 4),
+
+        "savings_euro": round(savings, 4),
+
+        "baseline_consumption_kwh": round(baseline_kwh, 3),
+
+        "optimized_consumption_kwh": round(optimized_kwh, 3),
+
+        "baseload_kwh": resolve_baseload_kwh(optimization_matrix),
+
+        "baseline_targets": baseline_targets,
+
+        "applied_targets": applied_targets,
+
+        "energy_comparison": energy_comparison,
+
+        "optimized_rows": optimized_rows,
+
+        "baseline_rows": baseline_rows,
+
     }
+
+

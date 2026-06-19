@@ -181,7 +181,7 @@ def fetch_loxone_generic_value(io_name: str) -> Optional[float]:
             return None
             
         # Bereinigung von Einheiten falls Loxone diese mitsendet
-        clean_value = raw_value.replace('%', '').replace('kW', '').replace('W', '').strip()
+        clean_value = raw_value.replace('%', '').replace('kWh', '').replace('kW', '').replace('W', '').strip()
         return float(clean_value)
     except Exception as e:
         logger.error(f"🚨 Loxone-Fehler beim Abrufen von '{io_name}': {e}")
