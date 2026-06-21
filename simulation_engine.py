@@ -58,7 +58,7 @@ class HistoricalDataCache:
         df = profile_manager.load_cons_data_profile_dataframe()
         if df is None or df.empty:
             raise ValueError(
-                "Backtesting benötigt cons_data_hourly.csv (z. B. via GenerateConsData.py)."
+                "Backtesting benötigt cons_data_hourly.csv (z. B. via scripts/generate_cons_data.py)."
             )
 
         self._consumption_df = df

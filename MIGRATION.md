@@ -38,7 +38,7 @@ Energy-Optimizer/
 | Phase | Status | Datum / Notiz |
 |-------|--------|---------------|
 | 0 Vorbereitung | offen | |
-| 1 scripts/ | offen | |
+| 1 scripts/ | **erledigt** | Wrapper in Wurzel für generate_cons_data + run_backtesting |
 | 2a ui/ Grundgerüst | **erledigt** | styles, runtime_config, mode_selector, auto_refresh |
 | 2b config_forms | **erledigt** | |
 | 2c charts | **erledigt** | |
@@ -76,7 +76,6 @@ Energy-Optimizer/
 | `GenerateConsData.py` | `generate_cons_data.py` |
 | `run_backtesting.py` | `run_backtesting.py` (bleibt) |
 | `merge-logs.py` | `merge_logs.py` |
-| `zip_py_files.py` | `zip_py_files.py` (bleibt) |
 
 **Anpassungen**
 
@@ -85,7 +84,9 @@ Energy-Optimizer/
 - Optional: dünne Wrapper in der Wurzel (nur wenn alte Aufrufe behalten werden sollen)
 
 **Tests:** `pytest`  
-**Smoke:** `python scripts/run_backtesting.py --help` (falls argparse vorhanden)
+**Smoke:** `python -m scripts.run_backtesting --help`
+
+**Hinweis:** `GenerateConsData.py` und `run_backtesting.py` in der Wurzel sind dünne Kompatibilitäts-Wrapper.
 
 ---
 
@@ -195,7 +196,6 @@ Nur Page-Config, Routing, `main()`.
 - Shims entfernen, Imports projektweit anpassen
 - `Backlog.md`: „Dateistruktur aufräumen“ abhaken
 - `README.md` aktualisieren
-- `zip_py_files.py` Pfade anpassen
 
 ---
 
@@ -251,7 +251,7 @@ Phase 1 und Phase 2 können parallel laufen.
 - [x] Phase 2c 
 - [x] Phase 2d 
 - [x] Phase 2e 
-- [ ] Phase 1
+- [x] Phase 1
 - [ ] Phase 3
 - [ ] Phase 4 → 5
 - [ ] Phase 6

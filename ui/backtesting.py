@@ -1,4 +1,4 @@
-"""Backtesting-Auswertung aus run_backtesting.py."""
+"""Backtesting-Auswertung aus scripts/run_backtesting.py."""
 from __future__ import annotations
 
 import streamlit as st
@@ -165,7 +165,7 @@ def render_backtesting_block() -> None:
     if not backtesting_log.log_exists():
         st.warning(
             "Kein Backtesting-Log gefunden. Bitte zuerst "
-            "`python run_backtesting.py` ausführen "
+            "`python -m scripts.run_backtesting` ausführen "
             "(erzeugt `backtesting_log.json` und `backtesting_hourly.csv`)."
         )
         return

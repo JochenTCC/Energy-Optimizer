@@ -38,10 +38,11 @@
       "justMyCode": false
     },
     {
-      "name": "run_backtesting.py",
+      "name": "run_backtesting",
       "type": "python",
       "request": "launch",
-      "program": "${workspaceFolder}/run_backtesting.py",
+      "module": "scripts.run_backtesting",
+      "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "justMyCode": false
     }

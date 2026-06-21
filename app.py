@@ -40,7 +40,7 @@ def main() -> None:
         )
     elif mode == "Backtesting":
         st.markdown(
-            "Auswertung des **Backtesting-Logs** aus `run_backtesting.py` "
+            "Auswertung des **Backtesting-Logs** aus `scripts/run_backtesting.py` "
             "(Referenz ohne Optimierung vs. optimierte Szenarien)."
         )
     else:

@@ -1,3 +1,6 @@
+"""Führt historische Loxone-CSV-Logs mit dem aktuellen Logger-Format zusammen."""
+from __future__ import annotations
+
 import os
 import pandas as pd
 
