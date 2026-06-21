@@ -3,7 +3,7 @@
 # Voraussetzungen im Projektordner auf der NAS:
 #   - .env (LOXONE_IP, LOXONE_USER, LOXONE_PASS)
 #   - config.json (aus config.example.json, Laufzeit-Parameter + flexible_consumers)
-#   - cons_data_hourly.csv (+ .meta.json) – einmalig lokal via GenerateConsData.py erzeugen,
+#   - cons_data_hourly.csv (+ .meta.json) – einmalig lokal via scripts/generate_cons_data.py erzeugen,
 #     danach auf die NAS kopieren; laufende Pflege erfolgt über main.py
 #   - Leere Dateien anlegen, falls noch nicht vorhanden (Synology legt sonst Ordner an):
 #       touch flexible_consumers_state.json pv_counter_state.json cons_data_pending.json

@@ -54,7 +54,7 @@ def render_mode_selector() -> str:
         help_parts.append("Historisch: beliebiger Tag aus den letzten 12 Monaten.")
     if UI_MODE_LABELS["backtesting"] in enabled_modes:
         help_parts.append(
-            "Backtesting: Ergebnisse aus run_backtesting.py (backtesting_log.json)."
+            "Backtesting: Ergebnisse aus scripts/run_backtesting.py (backtesting_log.json)."
         )
 
     mode = st.sidebar.radio(

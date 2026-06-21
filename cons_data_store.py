@@ -1,7 +1,7 @@
 """
 cons_data_store.py – Lesen/Schreiben der generischen Stunden-Log-Datei (cons_data_hourly.csv).
 
-Wird von profile_manager, main.py und GenerateConsData.py genutzt.
+Wird von profile_manager, main.py und scripts/generate_cons_data.py genutzt.
 """
 from __future__ import annotations
 

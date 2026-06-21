@@ -15,4 +15,3 @@ energy_optimizer.log
 system_history_log.csv
 runtime_settings.json
 .env
-python_sources.zip

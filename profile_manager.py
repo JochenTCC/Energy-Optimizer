@@ -50,7 +50,7 @@ def generate_consumption_profile() -> bool:
             path = cons_data_store.get_output_path()
             print(
                 f"⚠️ Profil-Update abgebrochen: '{path}' fehlt oder ist leer. "
-                "Bitte GenerateConsData.py ausführen."
+                "Bitte scripts/generate_cons_data.py ausführen."
             )
             return False
         df['Month'] = df.index.month

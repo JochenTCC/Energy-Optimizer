@@ -1,5 +1,5 @@
 # backtesting_log.py
-"""Persistenz und Laden der Backtesting-Ergebnisse für run_backtesting.py und app.py."""
+"""Persistenz und Laden der Backtesting-Ergebnisse für scripts/run_backtesting.py und app.py."""
 from __future__ import annotations
 
 import json
@@ -144,7 +144,7 @@ def load_backtesting_log(log_dir: str = ".") -> tuple[dict, pd.DataFrame]:
     if not os.path.exists(json_path):
         raise FileNotFoundError(
             f"Kein Backtesting-Log gefunden ({json_path}). "
-            "Bitte zuerst run_backtesting.py ausführen."
+            "Bitte zuerst scripts/run_backtesting.py ausführen."
         )
 
     with open(json_path, "r", encoding="utf-8") as f:
