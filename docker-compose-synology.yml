@@ -7,9 +7,10 @@
 #     danach auf die NAS kopieren; laufende Pflege erfolgt über main.py
 #   - Leere Dateien anlegen, falls noch nicht vorhanden (Synology legt sonst Ordner an):
 #       touch flexible_consumers_state.json pv_counter_state.json cons_data_pending.json
-#       touch optimizer_run_state.json
 #       touch pv_accuracy_log.csv system_history_log.csv energy_optimizer.log
 #       touch consumption_profiles.csv total_consumption_profiles.csv flexible_consumer_profiles.csv
+#   - Laufzeit-Ordner für run_state (kein Einzeldatei-Mount – Synology EBUSY):
+#       mkdir -p runtime
 #
 # Nicht benötigt in Prod (nur Dev/Forschung): Loxone-Historien-CSVs, backtesting_log.json
 #
@@ -26,7 +27,7 @@ x-persist-volumes: &persist-volumes
   - ./flexible_consumers_state.json:/app/flexible_consumers_state.json
   - ./pv_counter_state.json:/app/pv_counter_state.json
   - ./cons_data_pending.json:/app/cons_data_pending.json
-  - ./optimizer_run_state.json:/app/optimizer_run_state.json
+  - ./runtime:/app/runtime
   # Stunden-Log (Profile + Tagesziele; wird von main.py fortgeschrieben)
   - ./cons_data_hourly.csv:/app/cons_data_hourly.csv
   - ./cons_data_hourly.meta.json:/app/cons_data_hourly.meta.json

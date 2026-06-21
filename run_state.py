@@ -13,42 +13,59 @@ from file_metadata import RUN_STATE_SCHEMA, read_schema_version, stamp_payload
 
 logger = logging.getLogger(__name__)
 
-RUN_STATE_FILE = "optimizer_run_state.json"
+RUNTIME_DIR = os.environ.get("ENERGY_OPTIMIZER_RUNTIME_DIR", "runtime")
+RUN_STATE_FILENAME = "optimizer_run_state.json"
+RUN_STATE_FILE = os.path.join(RUNTIME_DIR, RUN_STATE_FILENAME)
+LEGACY_RUN_STATE_PATH = RUN_STATE_FILENAME
 
 
-def _default_path() -> str:
-    return RUN_STATE_FILE
+def _candidate_paths() -> list[str]:
+    return [RUN_STATE_FILE, LEGACY_RUN_STATE_PATH]
 
 
-def save_run_state(payload: dict[str, Any], path: str | None = None) -> None:
-    """Atomares Schreiben nach erfolgreichem main.py-Durchlauf."""
-    path = path or _default_path()
-    data = stamp_payload(
-        {
-            "completed_at": datetime.now().isoformat(timespec="seconds"),
-            **payload,
-        },
-        schema_version=RUN_STATE_SCHEMA,
-    )
+def _ensure_parent_dir(path: str) -> None:
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+
+
+def _write_json(path: str, data: dict[str, Any]) -> None:
+    _ensure_parent_dir(path)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+
+def _save_atomic(path: str, data: dict[str, Any]) -> None:
+    _ensure_parent_dir(path)
     tmp = f"{path}.tmp"
     try:
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+        _write_json(tmp, data)
         os.replace(tmp, path)
-    except OSError as e:
-        logger.error("run_state: Schreiben fehlgeschlagen: %s", e)
+    finally:
         if os.path.exists(tmp):
             try:
                 os.remove(tmp)
             except OSError:
                 pass
-        raise
 
 
-def load_run_state(path: str | None = None) -> dict[str, Any] | None:
-    """Letzten main.py-Durchlauf laden; None wenn Datei fehlt oder ungültig."""
-    path = path or _default_path()
-    if not os.path.exists(path):
+def _save_to_path(path: str, data: dict[str, Any]) -> None:
+    """Atomar schreiben; bei EBUSY (Synology-Bind-Mount) direkt in die Zieldatei."""
+    try:
+        _save_atomic(path, data)
+    except OSError as e:
+        if e.errno != 16:
+            raise
+        logger.warning(
+            "run_state: atomares Schreiben nach %s nicht möglich (%s), direkter Versuch",
+            path,
+            e,
+        )
+        _write_json(path, data)
+
+
+def _load_from_path(path: str) -> dict[str, Any] | None:
+    if not os.path.isfile(path):
         return None
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -64,8 +81,45 @@ def load_run_state(path: str | None = None) -> dict[str, Any] | None:
             )
         return data
     except (json.JSONDecodeError, OSError) as e:
-        logger.warning("run_state: Lesen fehlgeschlagen: %s", e)
+        logger.warning("run_state: Lesen von %s fehlgeschlagen: %s", path, e)
         return None
+
+
+def save_run_state(payload: dict[str, Any], path: str | None = None) -> None:
+    """Schreiben nach erfolgreichem main.py-Durchlauf (runtime-Verzeichnis mit Fallback)."""
+    data = stamp_payload(
+        {
+            "completed_at": datetime.now().isoformat(timespec="seconds"),
+            **payload,
+        },
+        schema_version=RUN_STATE_SCHEMA,
+    )
+    targets = [path] if path else _candidate_paths()
+    errors: list[str] = []
+
+    for target in targets:
+        try:
+            _save_to_path(target, data)
+            if target != targets[0]:
+                logger.info("run_state: gespeichert unter %s", target)
+            return
+        except OSError as e:
+            errors.append(f"{target}: {e}")
+
+    message = "; ".join(errors)
+    logger.error("run_state: Schreiben fehlgeschlagen: %s", message)
+    raise OSError(message)
+
+
+def load_run_state(path: str | None = None) -> dict[str, Any] | None:
+    """Letzten main.py-Durchlauf laden; None wenn Datei fehlt oder ungültig."""
+    if path:
+        return _load_from_path(path)
+    for candidate in _candidate_paths():
+        state = _load_from_path(candidate)
+        if state is not None:
+            return state
+    return None
 
 
 def completed_at_epoch(state: dict[str, Any] | None) -> float | None:
