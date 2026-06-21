@@ -13,6 +13,7 @@
 - [x] Testsuite für 24h-Optimierung mit historischen Daten aufbauen
 - [ ] Dateistruktur aufräumen
 - [ ] Dateigrößen prüfen und ggf. refaktorieren
+- [ ] Prüfen, ob ältere Programm-Logs noch benötigt werden
 - [ ] Web-App in Loxone integrieren oder extern verfügbar machen. 
 - [ ] Verbrauchshistorie anzeigbar Machen im Live Modus
 - [ ] Erinnerung am Monatsanfang für Einspeisepreis

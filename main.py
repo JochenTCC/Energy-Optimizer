@@ -119,7 +119,7 @@ def main():
                 consumer["nominal_power_kw"],
                 lox["nominal_power_kw_name"],
             )
-    mode, target_power, target_soc, consumer_powers, _ = optimizer.heuristic_optimizer(
+    mode, target_power, target_soc, consumer_powers, _ = optimizer.milp_optimizer(
         optimization_matrix,
         current_hour,
         current_soc,
