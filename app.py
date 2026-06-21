@@ -76,7 +76,7 @@ def render_main_run_sync_panel() -> dict | None:
     st.markdown("#### 🛰️ Produktiv-Durchlauf (main.py)")
     st.caption(
         f"Letzter Lauf: **{completed}** · vor **{age_txt}** · "
-        "Daten read-only aus `optimizer_run_state.json`"
+        f"Daten read-only aus `{run_state.RUN_STATE_FILE}`"
     )
 
     cols = st.columns(5)
