@@ -1208,9 +1208,9 @@ def _simulate_single_hour_optimizer(
     flex_indices: list[int] | None = None,
     charging_contexts: dict[str, dict] | None = None,
 ) -> Tuple[float, dict]:
-    """Simuliert eine einzelne Stunde im optimierten Pfad."""
+    """Simuliert eine einzelne Stunde im optimierten Pfad (Huawei-Logik für die Batterie)."""
     h = row["hour"]
-    mode, target_power, target_soc, consumer_powers, milp_plan = heuristic_optimizer(
+    mode, target_power, target_soc, consumer_powers, _ = heuristic_optimizer(
         remaining_matrix,
         h,
         sim_soc,
@@ -1225,13 +1225,12 @@ def _simulate_single_hour_optimizer(
     pv = row["expected_p_pv"]
     con = row["expected_p_act"]
     total_flex_power = sum(consumer_powers.values())
-    p_charge = milp_plan["p_charge"]
-    p_discharge = milp_plan["p_discharge"]
-    p_grid = milp_plan["p_grid_buy"] - milp_plan["p_grid_sell"]
-    batt_action = p_charge - p_discharge
+    max_power = battery_params["max_power_kw"]
+    batt_action = battery_plan_kw_from_control(
+        mode, target_power, pv, con, total_flex_power, max_power
+    )
     action_text = steuerbefehl_for_mode(mode, target_power)
     old_soc = sim_soc
-    batt_action = _clamp_power(batt_action, battery_params["max_power_kw"])
     sim_soc, batt_action = _apply_soc_change(
         old_soc,
         batt_action,
@@ -1240,6 +1239,7 @@ def _simulate_single_hour_optimizer(
         battery_params["min_soc"],
         battery_params["max_soc"],
     )
+    p_grid = con + total_flex_power - pv + batt_action
     chart_row = {
         "Uhrzeit": f"{h:02d}:00",
         "Strompreis (Cent/kWh)": row["k_act"],
