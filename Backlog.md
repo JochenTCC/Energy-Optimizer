@@ -5,7 +5,7 @@
 - [x] Aktuellen Ladezustand in Sankey-Diagramm verschieben (oben rausnehmen)
 - [x] Versionsnummer einführen und anzeigen (Github-Release-Nr?)
 - [x] Umgang mit historischen Verbrauchsdaten nochmal prüfen (wie funktioniert das genau, wie sollte mit Großverbrauchern umgegangen werden, wie gehen neue Daten ein) 
-- [x] E-Auto / Swim-Spa / Wärmepumpe (und Waschmaschine, Geschirrspüler) in die Optimierung mit reinnehmen mit Empfehlung, wann der beste Startzeitpunkt wäre bzw. autonomes Starten. 
+- [x] E-Auto / Swim-Spa / Wärmepumpe in die Optimierung mit reinnehmen mit Empfehlung, wann der beste Startzeitpunkt wäre bzw. autonomes Starten. 
 - [x] Fiktive Simulation der historischen Daten mit einer größeren Batterie
 - [x] Zulässigen Maximalstrom für E-Auto Laden für Ernie bereitstellen
 - [x] Optimierung von main.py wird in App nicht richtig übernommen (kleinen Zeitversatz einbauen?) 
@@ -14,6 +14,7 @@
 - [ ] Dateistruktur aufräumen
 - [x] Dateigrößen prüfen und ggf. refaktorieren
 - [ ] Prüfen, ob ältere Programm-Logs noch benötigt werden
+- [ ] Nutzung des Swim-Spa Filters reviewen (läuft derzeit ständig?)
 - [ ] Generierung der Logs und .json Dateien beim Initialisieren des Containers automatisieren, so dass Dateien nicht mehr händisch angelegt werden müssen
 - [ ] Web-App in Loxone integrieren oder extern verfügbar machen.
 - [ ] Logik und UI für E-Auto verbessern
@@ -22,7 +23,5 @@
 - [ ] Verbrauchshistorie anzeigbar Machen im Live Modus (ist nur unzulänglich implementier)
 - [ ] Erinnerung am Monatsanfang für Einspeisepreis
 - [ ] Einfacherer Austausch / Synchronisation der Daten zwischen Produktiv und Dev-Version
-- [ ] Empfehlungsmodus für Waschmaschine und Geschirrspüler
+- [ ] Empfehlungsmodus für Waschmaschine und Geschirrspüler (Input: Laufzeit, mittlere Leistung / Output: Zeithorizont 6h: Güte des Startzeitpunkts)
 - [ ] Container für Loxberry ausprobieren
-
-
