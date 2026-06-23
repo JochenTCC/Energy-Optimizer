@@ -22,6 +22,7 @@
 - [ ] Nutzung des Swim-Spa Filters reviewen (läuft derzeit ständig?)
 - [ ] Logik und UI für E-Auto verbessern
   - Logik zum Zurücksetzen des Rest-SOC ist in Loxone implementiert - muss aber noch getestet werden. Rest-SOC wird beim Abstecken des Autos zurückgesetzt (auf 10%)
+  - Optimierung ausserplanmäßig anstoßen, wenn E-Auto angeschlossen wurde?
 - [ ] Verbrauchshistorie anzeigbar Machen im Live Modus (ist nur unzulänglich implementier)
 - [ ] Erinnerung am Monatsanfang für Einspeisepreis
 - [ ] Empfehlungsmodus für Waschmaschine und Geschirrspüler (Input: Laufzeit, mittlere Leistung / Output: Zeithorizont 6h: Güte des Startzeitpunkts)
