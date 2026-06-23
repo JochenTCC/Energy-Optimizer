@@ -289,18 +289,22 @@ def add_hourly_cost_comparison_bars(
     hourly_optimized_cost_euro: list[float],
     yaxis: str = "y2",
 ) -> None:
-    """Zwei Balken je Stunde: BL Ziel (grau) und optimiert (grün/rot bei Abweichung)."""
+    """
+    Zwei gestapelte Balken je Stunde, gleiche Gesamthöhe.
+    Ersparnis: grün auf Optimiert (blau); Mehrkosten: rot auf BL Ziel (grau).
+    """
     if not hourly_matched_cost_euro or not hourly_optimized_cost_euro:
         return
     length = len(slot_x)
     matched = pd.Series(hourly_matched_cost_euro[:length], dtype=float)
     optimized = pd.Series(hourly_optimized_cost_euro[:length], dtype=float)
-    diff = optimized - matched
-    optimized_colors = [
-        "#27ae60" if delta < -1e-6 else "#e74c3c" if delta > 1e-6 else "#3498db"
-        for delta in diff
-    ]
-    bar_width = 0.36
+    savings = (matched - optimized).clip(lower=0.0)
+    extra = (optimized - matched).clip(lower=0.0)
+    bar_width = 0.38
+    bar_hover = dict(
+        customdata=uhrzeit,
+        hovertemplate="Uhrzeit: %{customdata}<br>%{fullData.name}: %{y:.3f} €<extra></extra>",
+    )
 
     fig.add_trace(go.Bar(
         x=slot_x,
@@ -309,27 +313,42 @@ def add_hourly_cost_comparison_bars(
         marker=dict(color="#bdc3c7"),
         opacity=0.9,
         width=bar_width,
+        offsetgroup="bl",
         yaxis=yaxis,
-        customdata=uhrzeit,
-        hovertemplate=(
-            "Uhrzeit: %{customdata}<br>BL Ziel: %{y:.3f} €<extra></extra>"
-        ),
+        **bar_hover,
+    ))
+    fig.add_trace(go.Bar(
+        x=slot_x,
+        y=extra,
+        name="Mehrkosten",
+        marker=dict(color="#e74c3c"),
+        opacity=0.9,
+        width=bar_width,
+        offsetgroup="bl",
+        yaxis=yaxis,
+        **bar_hover,
     ))
     fig.add_trace(go.Bar(
         x=slot_x,
         y=optimized,
         name="Optimiert",
-        marker=dict(color=optimized_colors),
+        marker=dict(color="#3498db"),
         opacity=0.9,
         width=bar_width,
+        offsetgroup="opt",
         yaxis=yaxis,
-        customdata=list(zip(uhrzeit, matched, diff)),
-        hovertemplate=(
-            "Uhrzeit: %{customdata[0]}<br>"
-            "Optimiert: %{y:.3f} €<br>"
-            "BL Ziel: %{customdata[1]:.3f} €<br>"
-            "Differenz: %{customdata[2]:+.3f} €<extra></extra>"
-        ),
+        **bar_hover,
+    ))
+    fig.add_trace(go.Bar(
+        x=slot_x,
+        y=savings,
+        name="Einsparung",
+        marker=dict(color="#27ae60"),
+        opacity=0.9,
+        width=bar_width,
+        offsetgroup="opt",
+        yaxis=yaxis,
+        **bar_hover,
     ))
 
 
@@ -402,11 +421,11 @@ def render_price_savings_chart(
         yaxis=dict(title="Preis (Cent/kWh)", side="left"),
         legend=_chart_legend(),
         margin=dict(l=40, r=40, t=50, b=110),
-        barmode="group",
+        barmode="stack",
     )
     if has_costs:
-        layout["bargap"] = 0.15
-        layout["bargroupgap"] = 0.08
+        layout["bargap"] = 0.22
+        layout["bargroupgap"] = 0.12
     if has_costs:
         layout["yaxis2"] = dict(
             title="Kosten (€/h)",
@@ -418,8 +437,8 @@ def render_price_savings_chart(
     fig.update_layout(**layout)
     if has_costs:
         st.caption(
-            "Je Stunde zwei Kostenbalken: grau = BL Ziel (Profil auf heutige Energiemengen "
-            "skaliert), farbig = optimiert – grün günstiger, rot teurer, blau gleich."
+            "Je Stunde zwei gleich hohe Kosten-Säulen: links BL Ziel (grau, ggf. +rot), "
+            "rechts Optimiert (blau, ggf. +grün). Grün = Ersparnis, rot = Mehrkosten."
         )
     st.plotly_chart(fig, width="stretch")
 
