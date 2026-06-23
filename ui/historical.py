@@ -94,6 +94,7 @@ def render_historical_optimization_block(selected_date: date, initial_soc: float
 
     optimized_df = pd.DataFrame(savings_info["optimized_rows"])
     baseline_df = pd.DataFrame(savings_info["baseline_rows"])
+    matched_baseline_df = pd.DataFrame(savings_info.get("matched_baseline_rows", []))
 
     planned_lines = []
     for consumer in config.get_flexible_consumers(optimizer_only=True):
@@ -106,7 +107,12 @@ def render_historical_optimization_block(selected_date: date, initial_soc: float
         st.info("🏭 Geplante flexible Verbraucher: " + " | ".join(planned_lines))
 
     render_savings_metrics(savings_info)
-    render_optimization_chart(optimized_df, baseline_df)
+    render_optimization_chart(
+        optimized_df,
+        baseline_df,
+        matched_baseline_df,
+        hourly_savings_euro=savings_info.get("hourly_savings_euro"),
+    )
     render_applied_targets(savings_info)
     persist_simulation_debug(
         savings_info,
@@ -116,6 +122,7 @@ def render_historical_optimization_block(selected_date: date, initial_soc: float
         initial_soc=initial_soc,
         target_date=selected_date.isoformat(),
         historical_meta=meta,
+        matched_baseline_df=matched_baseline_df,
     )
     render_simulation_details(
         optimized_df,

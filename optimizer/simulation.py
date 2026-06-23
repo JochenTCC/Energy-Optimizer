@@ -277,18 +277,77 @@ def calculate_cost_euro_from_rows(rows: list, sell_price_cent: float) -> float:
     return sum(calculate_step_cost_euro_from_row(row, sell_price_cent) for row in rows)
 
 
+def hourly_savings_euro_from_rows(
+    matched_baseline_rows: list,
+    optimized_rows: list,
+    sell_price_cent: float,
+) -> list[float]:
+    """
+    Stündliche Einsparung vs. Ziel-Baseline (positiv = günstiger optimiert).
+    Summe entspricht savings_matched_euro in calculate_optimization_savings.
+    """
+    hour_count = min(len(matched_baseline_rows), len(optimized_rows))
+    return [
+        round(
+            calculate_step_cost_euro_from_row(matched_baseline_rows[i], sell_price_cent)
+            - calculate_step_cost_euro_from_row(optimized_rows[i], sell_price_cent),
+            4,
+        )
+        for i in range(hour_count)
+    ]
+
+
+def build_matched_flex_kw_per_hour(
+    optimization_matrix: list,
+    consumer_targets_kwh: dict[str, float],
+) -> list[dict[str, float]]:
+    """
+    Skaliert die stündlichen Flex-Profile auf dieselben Horizont-Ziele wie die Optimierung.
+    Ohne Profilanteile: gleichmäßige Verteilung über 24 h.
+    """
+    consumers_cfg = config.get_flexible_consumers(optimizer_only=True)
+    rows = optimization_matrix[:24]
+    hour_count = len(rows)
+    profile_sums = {consumer["id"]: 0.0 for consumer in consumers_cfg}
+    for row in rows:
+        flex = row.get("expected_flex_kw") or {}
+        for consumer in consumers_cfg:
+            cid = consumer["id"]
+            profile_sums[cid] += float(flex.get(cid, 0.0) or 0.0)
+
+    per_hour: list[dict[str, float]] = []
+    for row in rows:
+        flex = row.get("expected_flex_kw") or {}
+        hour_flex: dict[str, float] = {}
+        for consumer in consumers_cfg:
+            cid = consumer["id"]
+            target = float(consumer_targets_kwh.get(cid, 0.0) or 0.0)
+            profile_sum = profile_sums[cid]
+            profile_val = float(flex.get(cid, 0.0) or 0.0)
+            if profile_sum > 1e-6:
+                hour_flex[cid] = profile_val * (target / profile_sum)
+            elif target > 0 and hour_count > 0:
+                hour_flex[cid] = target / hour_count
+            else:
+                hour_flex[cid] = 0.0
+        per_hour.append(hour_flex)
+    return per_hour
+
+
 def _simulate_single_hour_baseline(
     row: dict,
     sim_soc: float,
     battery_params: dict,
+    flex_kw_override: dict[str, float] | None = None,
+    steuerbefehl: str = "Baseline",
 ) -> tuple[float, dict]:
     """Simuliert eine einzelne Stunde im Baseline-Pfad."""
     h = row["hour"]
     pv = row["expected_p_pv"]
-    flex_kw = row.get("expected_flex_kw") or {}
+    flex_kw = flex_kw_override if flex_kw_override is not None else (row.get("expected_flex_kw") or {})
     has_flex_profile = any(float(v or 0.0) > 0.0 for v in flex_kw.values())
     logged_day = row.get("consumption_mode") == "logged_day"
-    if logged_day and not has_flex_profile:
+    if flex_kw_override is None and logged_day and not has_flex_profile:
         con = float(row.get("expected_p_total", row["expected_p_act"]) or 0.0)
         total_flex_power = 0.0
         flex_kw = {}
@@ -306,14 +365,16 @@ def _simulate_single_hour_baseline(
         battery_params["min_soc"],
         battery_params["max_soc"],
     )
+    p_grid = con + total_flex_power - pv + round(batt_action, 2)
     chart_row = {
         "Uhrzeit": f"{h:02d}:00",
         "Strompreis (Cent/kWh)": row["k_act"],
         "PV-Prognose (kW)": pv,
         "Verbrauch-Prognose (kW)": con,
         "Geplante Batterie-Aktion (kW)": round(batt_action, 2),
+        "Netzbezug (kW)": round(p_grid, 2),
         "Simulierter SoC (%)": round(old_soc, 1),
-        "Steuerbefehl": "Baseline",
+        "Steuerbefehl": steuerbefehl,
     }
     for consumer in config.get_flexible_consumers(optimizer_only=True):
         if flex_kw:
@@ -334,6 +395,31 @@ def simulate_baseline_horizon(optimization_matrix: list, initial_soc: float) -> 
     return chart_rows
 
 
+def simulate_matched_baseline_horizon(
+    optimization_matrix: list,
+    initial_soc: float,
+    consumer_targets_kwh: dict[str, float],
+) -> list:
+    """
+    Baseline mit gleicher Flex-Energie wie die Optimierung (Profilform skaliert),
+    aber ohne Lastverschiebung – Batterie nur PV-Überschuss.
+    """
+    matched_flex = build_matched_flex_kw_per_hour(optimization_matrix, consumer_targets_kwh)
+    chart_rows = []
+    sim_soc = initial_soc
+    battery_params = config.get_battery_params()
+    for row, flex_kw in zip(optimization_matrix[:24], matched_flex):
+        sim_soc, chart_row = _simulate_single_hour_baseline(
+            row,
+            sim_soc,
+            battery_params,
+            flex_kw_override=flex_kw,
+            steuerbefehl="Baseline (Ziel)",
+        )
+        chart_rows.append(chart_row)
+    return chart_rows
+
+
 def calculate_optimization_savings(
     optimization_matrix: list,
     initial_soc: float,
@@ -347,26 +433,57 @@ def calculate_optimization_savings(
         verbose=False,
     )
     baseline_rows = simulate_baseline_horizon(optimization_matrix, initial_soc)
+    horizon_targets = resolve_horizon_consumer_targets_kwh(
+        optimization_matrix,
+        consumer_daily_targets_kwh,
+    )
+    charging_contexts = resolve_charging_contexts(
+        optimization_matrix,
+        consumer_daily_targets_kwh,
+    )
+    horizon_targets = apply_horizon_charging_limits(horizon_targets, charging_contexts)
+    matched_baseline_rows = simulate_matched_baseline_horizon(
+        optimization_matrix,
+        initial_soc,
+        horizon_targets,
+    )
     sell_price_cent = config.get_push_price_cent()
     optimized_cost = calculate_cost_euro_from_rows(optimized_rows, sell_price_cent)
     baseline_cost = calculate_cost_euro_from_rows(baseline_rows, sell_price_cent)
+    matched_baseline_cost = calculate_cost_euro_from_rows(
+        matched_baseline_rows, sell_price_cent
+    )
     savings = baseline_cost - optimized_cost
+    savings_matched_euro = matched_baseline_cost - optimized_cost
     baseline_kwh = total_consumption_kwh_from_rows(baseline_rows)
+    matched_baseline_kwh = total_consumption_kwh_from_rows(matched_baseline_rows)
     optimized_kwh = total_consumption_kwh_from_rows(optimized_rows)
     applied_targets = build_applied_targets_detail(
         optimization_matrix,
         consumer_daily_targets_kwh,
     )
     baseline_targets = build_baseline_targets_detail(optimization_matrix)
+    matched_flex_kwh = (
+        delivered_flex_kwh_from_rows(matched_baseline_rows)
+        if matched_baseline_rows
+        else None
+    )
     energy_comparison = build_energy_comparison_detail(
         optimization_matrix,
         consumer_daily_targets_kwh,
+        matched_flex_kwh=matched_flex_kwh,
+    )
+    hourly_savings = hourly_savings_euro_from_rows(
+        matched_baseline_rows, optimized_rows, sell_price_cent
     )
     return {
         "baseline_cost_euro": round(baseline_cost, 4),
+        "matched_baseline_cost_euro": round(matched_baseline_cost, 4),
         "optimized_cost_euro": round(optimized_cost, 4),
         "savings_euro": round(savings, 4),
+        "savings_matched_euro": round(savings_matched_euro, 4),
         "baseline_consumption_kwh": round(baseline_kwh, 3),
+        "matched_baseline_consumption_kwh": round(matched_baseline_kwh, 3),
         "optimized_consumption_kwh": round(optimized_kwh, 3),
         "baseload_kwh": resolve_baseload_kwh(optimization_matrix),
         "baseline_targets": baseline_targets,
@@ -374,4 +491,6 @@ def calculate_optimization_savings(
         "energy_comparison": energy_comparison,
         "optimized_rows": optimized_rows,
         "baseline_rows": baseline_rows,
+        "matched_baseline_rows": matched_baseline_rows,
+        "hourly_savings_euro": hourly_savings,
     }

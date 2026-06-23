@@ -21,6 +21,8 @@ def get_bar_colors(df: pd.DataFrame) -> list[str]:
             colors.append("darkorange")
         elif text == "Baseline":
             colors.append("lightgray")
+        elif text.startswith("Baseline (Ziel)"):
+            colors.append("lightgray")
         else:
             colors.append("dodgerblue")
     return colors
@@ -178,6 +180,33 @@ def add_power_traces(
         ))
 
 
+def add_savings_trace(
+    fig: go.Figure,
+    uhrzeit: pd.Series,
+    slot_x: pd.Series,
+    hourly_savings_euro: list[float],
+) -> None:
+    """Stündliche Einsparung vs. Ziel-Baseline (positiv = optimiert günstiger)."""
+    if not hourly_savings_euro:
+        return
+    savings_series = pd.Series(hourly_savings_euro[: len(slot_x)])
+    savings_x, savings_y = _extended_line_xy(slot_x, savings_series)
+    fig.add_trace(go.Scatter(
+        x=savings_x,
+        y=savings_y,
+        name="Einsparung",
+        mode="lines+markers",
+        line=dict(color="#27ae60", width=2, shape="hv"),
+        marker=dict(size=5),
+        yaxis="y3",
+        customdata=_extended_hover_labels(uhrzeit),
+        hovertemplate=(
+            "Uhrzeit: %{customdata}<br>Einsparung: %{y:.3f} €/h"
+            "<extra></extra>"
+        ),
+    ))
+
+
 def add_price_soc_traces(fig: go.Figure, df: pd.DataFrame, slot_x: pd.Series) -> None:
     uhrzeit = df["Uhrzeit"]
     price_x, price_y = _extended_line_xy(slot_x, df["Strompreis (Cent/kWh)"])
@@ -206,11 +235,14 @@ def add_price_soc_traces(fig: go.Figure, df: pd.DataFrame, slot_x: pd.Series) ->
 def render_optimization_chart(
     df: pd.DataFrame,
     baseline_df: pd.DataFrame | None = None,
+    matched_baseline_df: pd.DataFrame | None = None,
+    hourly_savings_euro: list[float] | None = None,
 ) -> None:
     """Zeichnet Leistungen (PV, Verbrauch, Batterie) und Preise/SoC über zwei Y-Achsen."""
     bar_colors = get_bar_colors(df)
     slot_x = _chart_slot_x(len(df))
     fig = go.Figure()
+    has_savings = bool(hourly_savings_euro)
 
     add_power_traces(fig, df, bar_colors, slot_x)
     if baseline_df is not None and not baseline_df.empty:
@@ -222,16 +254,33 @@ def render_optimization_chart(
         fig.add_trace(go.Scatter(
             x=baseline_x,
             y=baseline_y,
-            name="SoC BL",
+            name="SoC BL Profil",
             mode="lines",
             line=dict(color="darkgrey", width=2.5, dash="dash"),
             yaxis="y2",
             **_line_hover(baseline_df["Uhrzeit"], ".1f"),
         ))
+    if matched_baseline_df is not None and not matched_baseline_df.empty:
+        matched_slot_x = _chart_slot_x(len(matched_baseline_df))
+        matched_x, matched_y = _extended_line_xy(
+            matched_slot_x,
+            matched_baseline_df["Simulierter SoC (%)"],
+        )
+        fig.add_trace(go.Scatter(
+            x=matched_x,
+            y=matched_y,
+            name="SoC BL Ziel",
+            mode="lines",
+            line=dict(color="#7f8c8d", width=2.5, dash="dot"),
+            yaxis="y2",
+            **_line_hover(matched_baseline_df["Uhrzeit"], ".1f"),
+        ))
 
     add_price_soc_traces(fig, df, slot_x)
+    if has_savings:
+        add_savings_trace(fig, df["Uhrzeit"], slot_x, hourly_savings_euro or [])
 
-    fig.update_layout(
+    layout = dict(
         title="Synchronisierter 24-Stunden-Zeithorizont (Leistung vs. Preis & SoC)",
         xaxis=_chart_xaxis_config(df["Uhrzeit"]),
         barmode="overlay",
@@ -241,6 +290,8 @@ def render_optimization_chart(
             side="right",
             overlaying="y",
             showgrid=False,
+            anchor="free",
+            position=0.92,
         ),
         legend=dict(
             orientation="h",
@@ -250,7 +301,18 @@ def render_optimization_chart(
             xanchor="center",
             font=dict(size=10),
         ),
-        margin=dict(l=40, r=40, t=50, b=110),
+        margin=dict(l=40, r=70 if has_savings else 40, t=50, b=110),
     )
+    if has_savings:
+        layout["yaxis3"] = dict(
+            title="Einsparung (€/h)",
+            overlaying="y",
+            side="right",
+            anchor="free",
+            position=1.0,
+            showgrid=False,
+        )
+
+    fig.update_layout(**layout)
 
     st.plotly_chart(fig, width="stretch")

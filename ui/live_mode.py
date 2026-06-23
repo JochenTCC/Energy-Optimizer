@@ -62,10 +62,13 @@ def _render_pending_live_sync(wait_sec: int, reason: str) -> bool:
         return False
 
     baseline_df = pd.DataFrame(cached_savings.get("baseline_rows", []))
+    matched_baseline_df = pd.DataFrame(cached_savings.get("matched_baseline_rows", []))
     main_state = run_state.load_run_state()
     cached_df = _apply_main_run_to_live_df(cached_df, main_state)
     with _live_optimization_placeholder().container():
-        render_optimization_results(cached_savings, cached_df, baseline_df)
+        render_optimization_results(
+            cached_savings, cached_df, baseline_df, matched_baseline_df
+        )
         if reason == "delay":
             st.caption(
                 f"⏳ **Synchronisation mit main.py:** Aktualisierung in ca. **{wait_sec} s** "
@@ -143,8 +146,11 @@ def render_optimization_savings_and_chart(current_soc: float) -> None:
             st.session_state["live_optimization_df"], main_state
         )
         baseline_df = pd.DataFrame(cached_savings.get("baseline_rows", []))
+        matched_baseline_df = pd.DataFrame(cached_savings.get("matched_baseline_rows", []))
         with _live_optimization_placeholder().container():
-            render_optimization_results(cached_savings, cached_df, baseline_df)
+            render_optimization_results(
+                cached_savings, cached_df, baseline_df, matched_baseline_df
+            )
         return
 
     ready, reason, wait_sec = optimization_schedule.live_simulation_readiness(
@@ -187,6 +193,7 @@ def render_optimization_savings_and_chart(current_soc: float) -> None:
 
     optimized_df = pd.DataFrame(savings_info["optimized_rows"])
     baseline_df = pd.DataFrame(savings_info["baseline_rows"])
+    matched_baseline_df = pd.DataFrame(savings_info.get("matched_baseline_rows", []))
     optimized_df_raw = optimized_df.copy()
     optimized_df = _apply_main_run_to_live_df(optimized_df, main_state)
     st.session_state["live_optimization_cache_key"] = cache_key
@@ -203,6 +210,7 @@ def render_optimization_savings_and_chart(current_soc: float) -> None:
         quarter_hour_slot=current_slot,
         sync_reason=reason,
         optimized_df_raw=optimized_df_raw,
+        matched_baseline_df=matched_baseline_df,
     )
 
     sync_note = ""
@@ -226,5 +234,7 @@ def render_optimization_savings_and_chart(current_soc: float) -> None:
                 f"Rest des Horizonts aus Profil-Prognose{sync_note}."
             )
 
-        render_optimization_results(savings_info, optimized_df, baseline_df)
+        render_optimization_results(
+            savings_info, optimized_df, baseline_df, matched_baseline_df
+        )
         render_plausibility_debug_panel(main_state)

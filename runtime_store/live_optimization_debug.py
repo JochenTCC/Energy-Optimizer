@@ -136,9 +136,14 @@ def _main_run_summary(main_state: dict[str, Any] | None) -> dict[str, Any]:
 def _savings_summary(savings_info: dict[str, Any]) -> dict[str, Any]:
     return {
         "baseline_cost_euro": savings_info.get("baseline_cost_euro"),
+        "matched_baseline_cost_euro": savings_info.get("matched_baseline_cost_euro"),
         "optimized_cost_euro": savings_info.get("optimized_cost_euro"),
         "savings_euro": savings_info.get("savings_euro"),
+        "savings_matched_euro": savings_info.get("savings_matched_euro"),
         "baseline_consumption_kwh": savings_info.get("baseline_consumption_kwh"),
+        "matched_baseline_consumption_kwh": savings_info.get(
+            "matched_baseline_consumption_kwh"
+        ),
         "optimized_consumption_kwh": savings_info.get("optimized_consumption_kwh"),
         "baseload_kwh": savings_info.get("baseload_kwh"),
     }
@@ -237,6 +242,7 @@ def build_debug_payload(
     optimized_rows_raw: list[dict] | None = None,
     target_date: str | None = None,
     historical_meta: dict[str, Any] | None = None,
+    matched_baseline_rows: list[dict] | None = None,
 ) -> dict[str, Any]:
     """Gemeinsamer Snapshot für Debug und Nachrechnen."""
     main_summary = _main_run_summary(main_state)
@@ -252,6 +258,7 @@ def build_debug_payload(
         "energy_comparison": savings_info.get("energy_comparison") or [],
         "simulation_rows": optimized_rows,
         "baseline_rows": baseline_rows,
+        "matched_baseline_rows": matched_baseline_rows or [],
     }
     if kind == "live":
         payload["quarter_hour_slot"] = quarter_hour_slot

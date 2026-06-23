@@ -35,21 +35,6 @@ def calculate_scaled_consumption_and_cost(
     return total_consumption_kwh, consumption_24h, cost_without_pv_24h_euro
 
 
-def normalized_savings_euro(
-    baseline_cost: float,
-    optimized_cost: float,
-    baseline_kwh: float,
-    optimized_kwh: float,
-) -> float | None:
-    """Ersparnis auf gleichen Verbrauch normiert (Dreisatz auf Baseline-kWh)."""
-    if abs(optimized_kwh - baseline_kwh) < 1e-6:
-        return optimized_cost - baseline_cost
-    if optimized_kwh <= 0:
-        return None
-    normalized_optimized_cost = optimized_cost * (baseline_kwh / optimized_kwh)
-    return normalized_optimized_cost - baseline_cost
-
-
 def render_applied_targets(savings: dict) -> None:
     """Zeigt Baseline- und Optimierungsenergie je Verbraucher in einer Tabelle."""
     comparison = savings.get("energy_comparison") or []
@@ -58,8 +43,8 @@ def render_applied_targets(savings: dict) -> None:
 
     with st.expander("⚡ Energievergleich Baseline vs. Optimierung (24h)"):
         st.caption(
-            "Optimierung: je Verbraucher ein 24h-Ziel über das gesamte Simulationsfenster "
-            "(auch bei Kalendertagwechsel nur einmal gezählt)."
+            "BL Profil: historisches Flex-Profil. BL Ziel: gleiche Energie wie die Optimierung "
+            "(Profil skaliert), ohne Lastverschiebung."
         )
 
         def _format_kwh_cell(kwh: float) -> str:
@@ -75,7 +60,8 @@ def render_applied_targets(savings: dict) -> None:
             pd.DataFrame([
                 {
                     "Verbraucher": row["name"],
-                    "Baseline (kWh)": _format_kwh_cell(row["baseline_kwh"]),
+                    "BL Profil (kWh)": _format_kwh_cell(row["baseline_kwh"]),
+                    "BL Ziel (kWh)": _format_kwh_cell(row.get("matched_baseline_kwh", 0.0)),
                     "Optimierung": _format_optimization_cell(
                         row["optimization_kwh"],
                         row.get("optimization_source", ""),
@@ -92,63 +78,55 @@ def render_savings_metrics(savings: dict) -> None:
     """Rendert die finanzielle Metriken-Übersicht im Dashboard auf einheitlicher Zeitbasis."""
     st.subheader("💶 Optimierungs-Einsparungen")
     baseline_cost = savings.get("baseline_cost_euro", 0.0)
+    matched_baseline_cost = savings.get("matched_baseline_cost_euro", baseline_cost)
     optimized_cost = savings.get("optimized_cost_euro", 0.0)
-    baseline_kwh = savings.get("baseline_consumption_kwh", 0.0)
+    matched_baseline_kwh = savings.get(
+        "matched_baseline_consumption_kwh", savings.get("optimized_consumption_kwh", 0.0)
+    )
     optimized_kwh = savings.get("optimized_consumption_kwh", 0.0)
 
     optimized_rows = savings.get("optimized_rows", [])
     _, _, cost_without_pv_24h_euro = calculate_scaled_consumption_and_cost(optimized_rows)
 
-    col1, col2, col3, col4, col5, col6, col7, col8 = st.columns(8)
+    col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
     col1.metric(
         "Ohne PV (24h hochger.)",
         f"{cost_without_pv_24h_euro:.2f} €",
         help="Hochgerechnete Kosten bei 100 % Netzbezug ohne PV-Anlage auf einen vollen 24h-Horizont.",
     )
-    col2.metric("Baseline-Kosten", f"{baseline_cost:.2f} €")
+    col2.metric(
+        "BL Profil",
+        f"{baseline_cost:.2f} €",
+        help="Baseline mit historischem Flex-Profil, ohne Lastverschiebung.",
+    )
     col3.metric(
-        "Baseline-Verbrauch",
-        f"{baseline_kwh:.1f} kWh",
-        help="Summe des stündlichen Gesamtverbrauchs in der Baseline (ohne Lastverschiebung).",
+        "BL gleiches Ziel",
+        f"{matched_baseline_cost:.2f} €",
+        help=(
+            "Baseline mit gleicher Flex-Energie wie die Optimierung (Profil skaliert), "
+            "aber ohne Lastverschiebung."
+        ),
     )
-    col4.metric("Optimierte Kosten", f"{optimized_cost:.2f} €")
+    col4.metric("Optimiert", f"{optimized_cost:.2f} €")
     col5.metric(
-        "Optimierter Verbrauch",
-        f"{optimized_kwh:.1f} kWh",
-        help="Summe Grundlast + Flex über alle Stunden im 24h-Fenster (je Zeile 1 h).",
-    )
-
-    display_savings = optimized_cost - baseline_cost
-    norm_savings = normalized_savings_euro(
-        baseline_cost, optimized_cost, baseline_kwh, optimized_kwh
+        "Verbrauch BL Ziel",
+        f"{matched_baseline_kwh:.1f} kWh",
+        help="Summe Grundlast + Flex in der Ziel-Baseline (entspricht dem Optimierungsziel).",
     )
     col6.metric(
+        "Verbrauch Opt.",
+        f"{optimized_kwh:.1f} kWh",
+        help="Summe Grundlast + Flex über alle Stunden im 24h-Fenster.",
+    )
+
+    display_savings = optimized_cost - matched_baseline_cost
+    col7.metric(
         "Ersparnis",
         f"{display_savings:.2f} €",
         delta=f"{display_savings:.2f} €",
         delta_color="inverse",
+        help="Optimierte Kosten minus Baseline mit gleichem Verbrauchsziel (negativ = günstiger).",
     )
-    col7.metric(
-        "Δ Verbrauch",
-        f"{optimized_kwh - baseline_kwh:+.1f} kWh",
-        help="Differenz optimierter minus Baseline-Verbrauch.",
-    )
-    if norm_savings is None:
-        col8.metric(
-            "Norm. Ersparnis",
-            "—",
-            help="Nicht berechenbar (optimierter Verbrauch ist 0 kWh).",
-        )
-    else:
-        col8.metric(
-            "Norm. Ersparnis",
-            f"{norm_savings:.2f} €",
-            help=(
-                "Kostenvergleich bei gleichem Verbrauch (Baseline-kWh): "
-                "optimierte Kosten per Dreisatz auf Baseline-Verbrauch hoch-/runtergerechnet. "
-                "Bei Δ Verbrauch = 0 identisch mit „Ersparnis“."
-            ),
-        )
 
 
 def render_simulation_details(
@@ -167,11 +145,19 @@ def render_optimization_results(
     savings_info: dict,
     optimized_df: pd.DataFrame,
     baseline_df: pd.DataFrame,
+    matched_baseline_df: pd.DataFrame | None = None,
     *,
     simulation_table_title: str | None = "📋 Simulations-Details (Nächste 24 Stunden)",
 ) -> None:
+    if matched_baseline_df is None and savings_info.get("matched_baseline_rows"):
+        matched_baseline_df = pd.DataFrame(savings_info["matched_baseline_rows"])
     render_savings_metrics(savings_info)
-    render_optimization_chart(optimized_df, baseline_df)
+    render_optimization_chart(
+        optimized_df,
+        baseline_df,
+        matched_baseline_df,
+        hourly_savings_euro=savings_info.get("hourly_savings_euro"),
+    )
     render_applied_targets(savings_info)
     if simulation_table_title:
         render_simulation_details(optimized_df, title=simulation_table_title)
@@ -190,8 +176,11 @@ def persist_simulation_debug(
     optimized_df_raw: pd.DataFrame | None = None,
     target_date: str | None = None,
     historical_meta: dict | None = None,
+    matched_baseline_df: pd.DataFrame | None = None,
 ) -> None:
     """Schreibt Simulationsergebnis als JSON in runtime/ (Debug / Nachrechnen)."""
+    if matched_baseline_df is None and savings_info.get("matched_baseline_rows"):
+        matched_baseline_df = pd.DataFrame(savings_info["matched_baseline_rows"])
     try:
         payload = live_optimization_debug.build_debug_payload(
             savings_info,
@@ -207,6 +196,11 @@ def persist_simulation_debug(
             ),
             target_date=target_date,
             historical_meta=historical_meta,
+            matched_baseline_rows=(
+                matched_baseline_df.to_dict("records")
+                if matched_baseline_df is not None
+                else None
+            ),
         )
         live_optimization_debug.save_debug_snapshot(payload, kind=kind)
     except OSError as exc:

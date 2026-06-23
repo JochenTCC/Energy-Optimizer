@@ -265,8 +265,9 @@ def resolve_baseload_kwh(optimization_matrix: list) -> float:
 def build_energy_comparison_detail(
     optimization_matrix: list,
     consumer_daily_targets_kwh: dict | None = None,
+    matched_flex_kwh: dict[str, float] | None = None,
 ) -> list[dict]:
-    """Kombiniert Baseline-Verbrauch und Optimierungsziele je Verbraucher inkl. Grundlast."""
+    """Kombiniert Profil-Baseline, Ziel-Baseline und Optimierung je Verbraucher inkl. Grundlast."""
     baseload_kwh = resolve_baseload_kwh(optimization_matrix)
     logged_day = bool(
         optimization_matrix
@@ -282,9 +283,11 @@ def build_energy_comparison_detail(
         item["id"]: item
         for item in build_applied_targets_detail(optimization_matrix, consumer_daily_targets_kwh)
     }
+    matched_flex = matched_flex_kwh or {}
     rows = [{
         "name": "Grundlast",
         "baseline_kwh": baseload_kwh,
+        "matched_baseline_kwh": baseload_kwh,
         "optimization_kwh": baseload_kwh,
         "optimization_source": baseload_source,
     }]
@@ -295,6 +298,7 @@ def build_energy_comparison_detail(
         rows.append({
             "name": consumer["name"],
             "baseline_kwh": base.get("target_kwh", 0.0),
+            "matched_baseline_kwh": matched_flex.get(cid, opt.get("target_kwh", 0.0)),
             "optimization_kwh": opt.get("target_kwh", 0.0),
             "optimization_source": opt.get("source", ""),
         })

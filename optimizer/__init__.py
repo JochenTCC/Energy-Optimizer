@@ -38,6 +38,7 @@ from .simulation import (
     flexible_consumer_power_kw as _flexible_consumer_power_kw,
     simulate_24h_horizon,
     simulate_baseline_horizon,
+    simulate_matched_baseline_horizon,
     simulate_horizon,
     total_consumption_kwh_from_rows as _total_consumption_kwh_from_rows,
 )
@@ -82,6 +83,7 @@ __all__ = [
     "resolve_horizon_consumer_targets_kwh",
     "simulate_24h_horizon",
     "simulate_baseline_horizon",
+    "simulate_matched_baseline_horizon",
     "simulate_horizon",
     "steuerbefehl_for_mode",
     # Von optimization_consistency / simulation_engine genutzt:
