@@ -73,6 +73,8 @@ class TestLoxoneAbsentForecast:
       horizon = datetime(2026, 6, 22, 17, 0)
       with patch.object(
           cc.loxone_client, "fetch_loxone_generic_value", return_value=0
+      ), patch.object(
+          cc.loxone_client, "fetch_loxone_raw_value", return_value=None
       ):
           ctx = cc.fetch_loxone_charging_context(consumer, horizon)
 
@@ -84,6 +86,39 @@ class TestLoxoneAbsentForecast:
       assert ctx["use_time_window"] is True
       assert ctx["target_kwh"] == pytest.approx(14.222, rel=1e-3)
       assert "Prognose charging_schedule" in ctx["source_label"]
+
+  def test_forecast_uses_loxone_fertig_um_when_absent(self):
+      consumer = _eauto_consumer()
+      horizon = datetime(2026, 6, 22, 17, 0)
+      with patch.object(
+          cc.loxone_client, "fetch_loxone_generic_value", return_value=0
+      ), patch.object(
+          cc.loxone_client, "fetch_loxone_raw_value", return_value="Morgen, 16:03"
+      ):
+          ctx = cc.fetch_loxone_charging_context(consumer, horizon)
+
+      assert ctx["active"] is True
+      assert ctx["anticipated"] is True
+      assert ctx["plugged_in"] is False
+      assert ctx["available_from"] == datetime(2026, 6, 22, 19, 0)
+      assert ctx["deadline"] == datetime(2026, 6, 23, 16, 3)
+      assert ctx["use_time_window"] is False
+      assert "FertigUm Loxone" in ctx["source_label"]
+
+  def test_late_return_with_loxone_fertig_um(self):
+      consumer = _eauto_consumer()
+      horizon = datetime(2026, 6, 23, 8, 0)
+      with patch.object(
+          cc.loxone_client, "fetch_loxone_generic_value", return_value=0
+      ), patch.object(
+          cc.loxone_client, "fetch_loxone_raw_value", return_value="Heute, 16:03"
+      ):
+          ctx = cc.fetch_loxone_charging_context(consumer, horizon)
+
+      assert ctx["active"] is True
+      assert ctx["available_from"] == horizon
+      assert ctx["deadline"] == datetime(2026, 6, 23, 16, 3)
+      assert ctx["use_time_window"] is False
 
   def test_forecast_disabled_when_unplugged(self):
       consumer = _eauto_consumer(forecast_when_absent=False)
@@ -158,3 +193,25 @@ class TestEligibleIndices:
       )
       assert eligible[0] == 0
       assert len(eligible) == 6
+
+  def test_fertig_um_deadline_allows_midday_hours(self):
+      consumer = _eauto_consumer()
+      start = datetime(2026, 6, 22, 19, 0)
+      matrix = _hour_matrix(start, 24)
+      ctx = {
+          "active": True,
+          "anticipated": True,
+          "available_from": datetime(2026, 6, 22, 19, 0),
+          "deadline": datetime(2026, 6, 23, 16, 3),
+          "use_time_window": False,
+      }
+      eligible = cc.consumer_charging_eligible_indices(
+          matrix, consumer, list(range(24)), ctx
+      )
+      eligible_hours = [matrix[i]["slot_datetime"].hour for i in eligible]
+      assert 10 in eligible_hours
+      assert 14 in eligible_hours
+      assert 15 in eligible_hours
+      assert not any(
+          matrix[i]["slot_datetime"] >= datetime(2026, 6, 23, 16, 3) for i in eligible
+      )
