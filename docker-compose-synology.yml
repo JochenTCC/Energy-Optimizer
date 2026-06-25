@@ -8,7 +8,7 @@
 # Erstinstallation:
 #   1. Ordner anlegen: mkdir -p config runtime
 #   2. .env aus .env.example befüllen
-#   3. Container starten – fehlende Dateien legt der Entrypoint an (config aus config.example.json)
+#   3. Container starten – fehlende Dateien legt der Entrypoint an (config aus config/config.example.json)
 #   4. config/config.json anpassen (Loxone-Namen, Verbraucher)
 #   5. Optional: bestehende cons_data nach runtime/cons_data_hourly.csv kopieren
 #

@@ -6,7 +6,7 @@ Für Entwickler (Projektstruktur, Tests, Container) siehe [README.md](../README.
 
 ## Erste Schritte
 
-1. **Konfiguration:** `config.example.json` → `config/config.json` (lokal, nicht committen). Alternativ legt `python -m scripts.bootstrap_runtime` die Datei beim ersten Start an.
+1. **Konfiguration:** `config/config.example.json` → `config/config.json` (lokal, nicht committen). Alternativ legt `python -m scripts.bootstrap_runtime` die Datei beim ersten Start an.
 2. **Loxone-Zugang:** `.env.example` → `.env` mit `LOXONE_IP`, `LOXONE_USER`, `LOXONE_PASS`.
 3. **Merker-Namen** in `config/config.json` unter `loxone_blocks` und `flexible_consumers` anpassen (siehe [Loxone-Signale](referenz/loxone-signale.md)).
 4. **Verbindung prüfen:**
@@ -17,7 +17,7 @@ Für Entwickler (Projektstruktur, Tests, Container) siehe [README.md](../README.
 5. **Produktivbetrieb starten:** `python main.py` (Optimierung im 15-Minuten-Takt).
 6. **Cockpit öffnen:** `streamlit run app.py` (Modus **Echtzeit**).
 
-Parameter-Beschreibungen erscheinen in Cursor/VS Code als Hover-Hilfe, wenn in `config/config.json` `"$schema": "../config.schema.json"` gesetzt ist.
+Parameter-Beschreibungen erscheinen in Cursor/VS Code als Hover-Hilfe, wenn in `config/config.json` `"$schema": "./config.schema.json"` gesetzt ist.
 
 **Container-Betrieb (Synology):** [Container](einrichtung/container.md)
 

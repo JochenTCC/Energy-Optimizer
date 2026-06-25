@@ -7,6 +7,33 @@ from pathlib import Path
 from scripts import migrate_persist_layout as migrate
 
 
+def test_migrate_moves_config_templates_from_root(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "config.example.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "config.schema.json").write_text("{}", encoding="utf-8")
+
+    moves = migrate._planned_moves()
+    targets = {target.name for _, target in moves}
+
+    assert "config.example.json" in targets
+    assert "config.schema.json" in targets
+
+
+def test_migrate_apply_updates_schema_ref(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "config.json").write_text(
+        json.dumps({"$schema": "../config.schema.json"}),
+        encoding="utf-8",
+    )
+
+    assert migrate._update_config_schema_ref(config_dir / "config.json", apply=True)
+
+    updated = json.loads((config_dir / "config.json").read_text(encoding="utf-8"))
+    assert updated["$schema"] == "./config.schema.json"
+
+
 def test_migrate_preview_lists_planned_moves(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "config.json").write_text("{}", encoding="utf-8")

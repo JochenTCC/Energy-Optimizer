@@ -1,5 +1,5 @@
 {
-    "$schema": "../config.schema.json",
+    "$schema": "./config.schema.json",
     "awattar": {
         "url": "https://api.awattar.at/v1/marketdata",
         "fix_aufschlag_cent": 1.5,

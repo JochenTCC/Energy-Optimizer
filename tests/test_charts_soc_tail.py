@@ -5,6 +5,8 @@ import pandas as pd
 
 from ui.charts import (
     _chart_has_pv_follow_bars,
+    _chart_slot_x,
+    _consumer_bar_marker,
     _consumer_bar_palette,
     _consumer_bar_pattern_shapes,
     _cost_summary_annotations,
@@ -14,6 +16,13 @@ from ui.charts import (
     _segment_linear_connected_line_xy,
     _soc_tail_y_from_row,
 )
+
+
+def test_consumer_bar_marker_pattern_has_visible_contrast():
+    marker = _consumer_bar_marker("#00bcd4", ["", "/"], 0.65)
+    pattern = marker["pattern"]
+    assert pattern["fgcolor"] != pattern["bgcolor"]
+    assert pattern["fillmode"] == "overlay"
 
 
 def test_consumer_bar_pattern_shapes_pv_follow_only_when_active():
@@ -44,12 +53,21 @@ def test_soc_tail_y_reflects_battery_action():
     assert tail > 60.0
 
 
-def test_consumer_palette_spans_gray_to_cyan():
+def test_consumer_palette_spans_magenta_to_cyan():
     colors = _consumer_bar_palette(3)
     assert len(colors) == 3
-    assert colors[0] == "#7f8c8d"
+    assert colors[0] == "#c2185b"
     assert colors[-1] == "#00bcd4"
     assert colors[0] != colors[-1]
+
+
+def test_grid_line_x_centered_on_hour_slots():
+    slot_x = _chart_slot_x(4)
+    values = pd.Series([1.0, 2.0, 3.0, 4.0])
+    line_x, _ = _segment_connected_line_xy(
+        slot_x, values, 0, 4, step_line=True, x_shift=0.0
+    )
+    assert line_x.tolist() == [0.0, 1.0, 2.0, 3.0, 3.5]
 
 
 def test_segment_connected_line_bridges_interior_boundary_for_hv():
@@ -109,9 +127,17 @@ def test_hv_line_endpoint_x_matches_last_slot():
 
 
 def test_cost_summary_annotations_include_totals_and_savings_sign():
-    annotations = _cost_summary_annotations(23.5, 12.34, 11.50)
+    annotations = _cost_summary_annotations(12.34, 11.50)
     assert len(annotations) == 3
     assert annotations[0]["text"] == "BL Ziel: 12.34 €"
     assert annotations[1]["text"] == "Optimiert: 11.50 €"
     assert annotations[2]["text"] == "Ersparnis: -0.84 €"
     assert annotations[2]["font"]["color"] == "#27ae60"
+    assert annotations[0]["xref"] == "paper"
+    assert annotations[0]["xanchor"] == "left"
+    assert annotations[0]["yanchor"] == "top"
+    assert annotations[0]["yref"] == "y domain"
+    assert annotations[0]["y"] == 1.0
+    assert annotations[1]["yshift"] == -20
+    assert annotations[2]["yshift"] == -40
+    assert annotations[0]["font"]["size"] == 14

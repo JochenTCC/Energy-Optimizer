@@ -1,6 +1,6 @@
 # Loxone-Signale — Referenz
 
-Alle Namen sind **Beispiele** aus [`config.example.json`](../../config.example.json). In der eigenen `config.json` müssen sie exakt den virtuellen Eingängen und Merkern im Loxone Miniserver entsprechen.
+Alle Namen sind **Beispiele** aus [`config/config.example.json`](../../config/config.example.json). In der eigenen `config/config.json` müssen sie exakt den virtuellen Eingängen und Merkern im Loxone Miniserver entsprechen.
 
 Prüfung aller konfigurierten Signale:
 
@@ -44,7 +44,7 @@ python -m scripts.verify_loxone_setup
 
 Die E-Auto-Freigabe zum Laden liegt bei `loxone_outputs.enable_name` (z. B. `Ernie_EAuto_LadeFreigabe`).
 
-## Beispiel-Mapping aus `config.example.json`
+## Beispiel-Mapping aus `config/config.example.json`
 
 | Verbraucher (`id`) | Freigabe (Schreiben) | Leistung (Lesen) |
 |--------------------|----------------------|------------------|

@@ -13,10 +13,11 @@ _CONSUMER_BAR_OPACITY = 0.65
 _CONSUMER_PV_FOLLOW_PATTERN = "/"
 _COLOR_BASELINE = "#7f8c8d"
 _COLOR_OPTIMIZED = "#e67e22"
+_COLOR_GRID_POWER = "#7f8c8d"
 _EXTRAPOLATED_TRACE_OPACITY = 0.5
 _PV_LINE_COLOR = "#f1c40f"
 _PV_FILL_COLOR = "rgba(241, 196, 15, 0.15)"
-_CONSUMER_PALETTE_START = (127, 140, 141)
+_CONSUMER_PALETTE_START = (194, 24, 91)
 _CONSUMER_PALETTE_END = (0, 188, 212)
 
 
@@ -46,11 +47,13 @@ def _consumer_bar_marker(
 ) -> dict:
     marker: dict = {"color": color, "opacity": opacity}
     if any(shape for shape in pattern_shapes):
+        # fgcolor muss sich von bgcolor unterscheiden — sonst ist die Schraffur unsichtbar.
         marker["pattern"] = dict(
             shape=pattern_shapes,
-            fgcolor=color,
+            fgcolor="rgba(255, 255, 255, 0.8)",
             bgcolor=color,
-            solidity=0.45,
+            solidity=0.35,
+            fillmode="overlay",
         )
     return marker
 
@@ -148,27 +151,32 @@ def _chart_slot_x(length: int) -> pd.Series:
     return pd.Series(range(length), dtype=float)
 
 
-def _chart_line_x(slot_x: pd.Series) -> pd.Series:
-    """Linien um 30 min zurück auf Slot-Mitte, passend zu den Stunden-Balken."""
-    return slot_x - 0.5
+_LINE_X_SHIFT_SLOT_START = -0.5
+_LINE_X_SHIFT_SLOT_CENTER = 0.0
+
+
+def _chart_line_x(slot_x: pd.Series, x_shift: float = _LINE_X_SHIFT_SLOT_START) -> pd.Series:
+    """X-Position für Stundenlinien; Standard −0,5 h (HV-Anker am Slotbeginn)."""
+    return slot_x + x_shift
 
 
 def _extended_line_xy(
     slot_x: pd.Series,
     y: pd.Series,
     tail_y: float | None = None,
+    x_shift: float = _LINE_X_SHIFT_SLOT_START,
 ) -> tuple[pd.Series, pd.Series]:
-    """Verlängert Linien um 1 h für die -0.5-Verschiebung (Ende des letzten Slots)."""
+    """Verlängert Linien bis zum rechten Slot-Rand (Ende des letzten Slots)."""
     if y.empty:
-        return _chart_line_x(slot_x), y
-    tail_slot = float(slot_x.iloc[-1]) + 1.0
+        return _chart_line_x(slot_x, x_shift), y
+    tail_slot = float(slot_x.iloc[-1]) + (0.5 - x_shift)
     extended_slot = pd.concat(
         [slot_x, pd.Series([tail_slot])],
         ignore_index=True,
     )
     end_y = y.iloc[-1] if tail_y is None else tail_y
     extended_y = pd.concat([y, pd.Series([end_y])], ignore_index=True)
-    return _chart_line_x(extended_slot), extended_y
+    return _chart_line_x(extended_slot, x_shift), extended_y
 
 
 def _soc_tail_y_from_row(row: pd.Series) -> float | None:
@@ -269,10 +277,13 @@ def _segment_extended_line(
     start: int,
     end: int,
     tail_y: float | None = None,
+    x_shift: float = _LINE_X_SHIFT_SLOT_START,
 ) -> tuple[pd.Series, pd.Series]:
     if start >= end:
         return pd.Series(dtype=float), pd.Series(dtype=float)
-    return _extended_line_xy(slot_x.iloc[start:end], y.iloc[start:end], tail_y=tail_y)
+    return _extended_line_xy(
+        slot_x.iloc[start:end], y.iloc[start:end], tail_y=tail_y, x_shift=x_shift
+    )
 
 
 def _segment_linear_connected_line_xy(
@@ -281,12 +292,13 @@ def _segment_linear_connected_line_xy(
     start: int,
     end: int,
     tail_y: float | None = None,
+    x_shift: float = _LINE_X_SHIFT_SLOT_START,
 ) -> tuple[pd.Series, pd.Series]:
     """
     Stückweise lineare Verbindung ohne Stufen an Segmentgrenzen.
 
-    Endpunkt vor der Spiegelung = letzte Stunde des Segments (x = Slot − 0,5 h).
-    Startpunkt danach = derselbe Punkt, weiter zum nächsten Stundenwert.
+    Standard x_shift −0,5 h: Anker am Slotbeginn (HV).
+    x_shift 0: Stundenwert in der Slot-Mitte (wie Flex-Balken).
     """
     if start >= end:
         return pd.Series(dtype=float), pd.Series(dtype=float)
@@ -295,12 +307,12 @@ def _segment_linear_connected_line_xy(
     points_y: list[float] = []
 
     if start > 0:
-        join_x = float(slot_x.iloc[start - 1]) - 0.5
+        join_x = float(slot_x.iloc[start - 1]) + x_shift
         points_x.append(join_x)
         points_y.append(float(y.iloc[start - 1]))
 
     for hour_index in range(start, end):
-        points_x.append(float(slot_x.iloc[hour_index]) - 0.5)
+        points_x.append(float(slot_x.iloc[hour_index]) + x_shift)
         points_y.append(float(y.iloc[hour_index]))
 
     if end == len(slot_x):
@@ -320,6 +332,7 @@ def _segment_connected_line_xy(
     tail_y: float | None = None,
     *,
     step_line: bool = True,
+    x_shift: float = _LINE_X_SHIFT_SLOT_START,
 ) -> tuple[pd.Series, pd.Series]:
     """
     Linienabschnitt inkl. Brückenpunkt an der linken Grenze.
@@ -328,14 +341,18 @@ def _segment_connected_line_xy(
     step_line=False (SoC o.ä.): durchgehender linearer Verlauf ohne Stufe.
     """
     if not step_line:
-        return _segment_linear_connected_line_xy(slot_x, y, start, end, tail_y=tail_y)
+        return _segment_linear_connected_line_xy(
+            slot_x, y, start, end, tail_y=tail_y, x_shift=x_shift
+        )
 
     if start >= end:
         return pd.Series(dtype=float), pd.Series(dtype=float)
     seg_tail = tail_y if end == len(slot_x) else None
-    line_x, line_y = _segment_extended_line(slot_x, y, start, end, tail_y=seg_tail)
+    line_x, line_y = _segment_extended_line(
+        slot_x, y, start, end, tail_y=seg_tail, x_shift=x_shift
+    )
     if start > 0:
-        boundary_x = float(slot_x.iloc[start]) - 0.5
+        boundary_x = float(slot_x.iloc[start]) + x_shift
         bridge_y = float(y.iloc[start - 1])
         line_x = pd.concat([pd.Series([boundary_x]), line_x], ignore_index=True)
         line_y = pd.concat([pd.Series([bridge_y]), line_y], ignore_index=True)
@@ -389,13 +406,14 @@ def _add_segmented_hv_line(
     custom_hover_values: pd.Series | None = None,
     hover_template: str | None = None,
     segment_hover_template: str | None = None,
+    x_shift: float = _LINE_X_SHIFT_SLOT_START,
 ) -> None:
     for index, (start, end, is_extrapolated) in enumerate(segments):
         if start >= end:
             continue
         seg_tail = tail_y if end == len(slot_x) else None
         line_x, line_y = _segment_connected_line_xy(
-            slot_x, y, start, end, tail_y=seg_tail, step_line=True
+            slot_x, y, start, end, tail_y=seg_tail, step_line=True, x_shift=x_shift
         )
         if line_x.empty:
             continue
@@ -537,6 +555,20 @@ def add_power_traces(
             base_opacity=1.0,
         )
 
+    if "Netzbezug (kW)" in df.columns:
+        _add_segmented_hv_line(
+            fig,
+            slot_x,
+            df["Netzbezug (kW)"],
+            uhrzeit,
+            segments,
+            name="Netz",
+            line_kwargs=dict(color=_COLOR_GRID_POWER, width=2, dash="dash"),
+            y_format=".2f",
+            base_opacity=1.0,
+            x_shift=_LINE_X_SHIFT_SLOT_CENTER,
+        )
+
     for seg_index, (start, end, is_extrapolated) in enumerate(segments):
         if start >= end:
             continue
@@ -646,96 +678,52 @@ def add_optimized_soc_trace(
 
 def add_baseline_soc_traces(
     fig: go.Figure,
-    baseline_df: pd.DataFrame | None,
     matched_baseline_df: pd.DataFrame | None,
     yaxis: str = "y2",
     extrap_start: int | None = None,
     extrap_end: int | None = None,
 ) -> None:
-    segments = _trace_segments(
-        len(baseline_df) if baseline_df is not None and not baseline_df.empty else 0,
-        extrap_start,
-        extrap_end,
-    )
-    if baseline_df is not None and not baseline_df.empty:
-        baseline_slot_x = _chart_slot_x(len(baseline_df))
-        for index, (start, end, is_extrapolated) in enumerate(segments):
-            if start >= end:
-                continue
-            seg_tail = None
-            if end == len(baseline_slot_x):
-                seg_tail = _soc_tail_y_from_row(baseline_df.iloc[-1])
-            baseline_x, baseline_y = _segment_connected_line_xy(
-                baseline_slot_x,
-                baseline_df["Simulierter SoC (%)"],
+    if matched_baseline_df is None or matched_baseline_df.empty:
+        return
+    matched_slot_x = _chart_slot_x(len(matched_baseline_df))
+    matched_segments = _trace_segments(len(matched_baseline_df), extrap_start, extrap_end)
+    for index, (start, end, is_extrapolated) in enumerate(matched_segments):
+        if start >= end:
+            continue
+        seg_tail = None
+        if end == len(matched_slot_x):
+            seg_tail = _soc_tail_y_from_row(matched_baseline_df.iloc[-1])
+        matched_x, matched_y = _segment_connected_line_xy(
+            matched_slot_x,
+            matched_baseline_df["Simulierter SoC (%)"],
+            start,
+            end,
+            tail_y=seg_tail,
+            step_line=False,
+        )
+        if matched_x.empty:
+            continue
+        fig.add_trace(go.Scatter(
+            x=matched_x,
+            y=matched_y,
+            name="SoC BL Ziel" if index == 0 else "SoC BL Ziel",
+            showlegend=index == 0,
+            mode="lines",
+            line=dict(color=_COLOR_OPTIMIZED, width=2.5, dash="dot"),
+            opacity=_segment_opacity(1.0, is_extrapolated),
+            yaxis=yaxis,
+            customdata=_segment_hover_labels(
+                matched_baseline_df["Uhrzeit"],
                 start,
                 end,
-                tail_y=seg_tail,
                 step_line=False,
-            )
-            if baseline_x.empty:
-                continue
-            fig.add_trace(go.Scatter(
-                x=baseline_x,
-                y=baseline_y,
-                name="SoC BL Profil" if index == 0 else "SoC BL Profil",
-                showlegend=index == 0,
-                mode="lines",
-                line=dict(color=_COLOR_BASELINE, width=2.5, dash="dash"),
-                opacity=_segment_opacity(1.0, is_extrapolated),
-                yaxis=yaxis,
-                customdata=_segment_hover_labels(
-                    baseline_df["Uhrzeit"],
-                    start,
-                    end,
-                    step_line=False,
-                    point_count=len(baseline_x),
-                ),
-                hovertemplate=(
-                    "Uhrzeit: %{customdata}<br>%{fullData.name}: "
-                    "%{y:.1f}<extra></extra>"
-                ),
-            ))
-    if matched_baseline_df is not None and not matched_baseline_df.empty:
-        matched_slot_x = _chart_slot_x(len(matched_baseline_df))
-        matched_segments = _trace_segments(len(matched_baseline_df), extrap_start, extrap_end)
-        for index, (start, end, is_extrapolated) in enumerate(matched_segments):
-            if start >= end:
-                continue
-            seg_tail = None
-            if end == len(matched_slot_x):
-                seg_tail = _soc_tail_y_from_row(matched_baseline_df.iloc[-1])
-            matched_x, matched_y = _segment_connected_line_xy(
-                matched_slot_x,
-                matched_baseline_df["Simulierter SoC (%)"],
-                start,
-                end,
-                tail_y=seg_tail,
-                step_line=False,
-            )
-            if matched_x.empty:
-                continue
-            fig.add_trace(go.Scatter(
-                x=matched_x,
-                y=matched_y,
-                name="SoC BL Ziel" if index == 0 else "SoC BL Ziel",
-                showlegend=index == 0,
-                mode="lines",
-                line=dict(color=_COLOR_BASELINE, width=2.5, dash="dot"),
-                opacity=_segment_opacity(1.0, is_extrapolated),
-                yaxis=yaxis,
-                customdata=_segment_hover_labels(
-                    matched_baseline_df["Uhrzeit"],
-                    start,
-                    end,
-                    step_line=False,
-                    point_count=len(matched_x),
-                ),
-                hovertemplate=(
-                    "Uhrzeit: %{customdata}<br>%{fullData.name}: "
-                    "%{y:.1f}<extra></extra>"
-                ),
-            ))
+                point_count=len(matched_x),
+            ),
+            hovertemplate=(
+                "Uhrzeit: %{customdata}<br>%{fullData.name}: "
+                "%{y:.1f}<extra></extra>"
+            ),
+        ))
 
 
 def add_price_on_soc_axis_trace(
@@ -881,12 +869,16 @@ def _hv_line_endpoint_x(slot_count: int) -> float:
     return float(slot_count - 1) + 0.5
 
 
+_COST_SUMMARY_FONT_SIZE = 14
+_COST_SUMMARY_LINE_SHIFT = 20
+_COST_SUMMARY_Y_TOP = 1.0
+
+
 def _cost_summary_annotations(
-    endpoint_x: float,
     matched_baseline_cost_euro: float,
     optimized_cost_euro: float,
 ) -> list[dict]:
-    """Plotly-Annotationen für die Gesamtkosten am Ende des 24h-Fensters."""
+    """Plotly-Annotationen für die Gesamtkosten (oben links im Chart)."""
     savings_euro = optimized_cost_euro - matched_baseline_cost_euro
     if savings_euro < 0:
         savings_color = "#27ae60"
@@ -895,46 +887,44 @@ def _cost_summary_annotations(
     else:
         savings_color = _COLOR_BASELINE
 
-    anchor_y = max(matched_baseline_cost_euro, optimized_cost_euro)
+    summary_font = dict(size=_COST_SUMMARY_FONT_SIZE)
     base = dict(
-        x=endpoint_x,
-        y=anchor_y,
+        xref="paper",
+        yref="y domain",
+        x=0.01,
+        y=_COST_SUMMARY_Y_TOP,
         showarrow=False,
         xanchor="left",
-        xshift=8,
-        yanchor="bottom",
-        font=dict(size=11),
+        yanchor="top",
+        font=summary_font,
     )
     return [
         {
             **base,
             "text": f"BL Ziel: {matched_baseline_cost_euro:.2f} €",
-            "font": dict(color=_COLOR_BASELINE, size=11),
+            "font": {**summary_font, "color": _COLOR_BASELINE},
         },
         {
             **base,
             "text": f"Optimiert: {optimized_cost_euro:.2f} €",
-            "yshift": -16,
-            "font": dict(color=_COLOR_OPTIMIZED, size=11),
+            "yshift": -_COST_SUMMARY_LINE_SHIFT,
+            "font": {**summary_font, "color": _COLOR_OPTIMIZED},
         },
         {
             **base,
             "text": f"Ersparnis: {savings_euro:+.2f} €",
-            "yshift": -32,
-            "font": dict(color=savings_color, size=11),
+            "yshift": -2 * _COST_SUMMARY_LINE_SHIFT,
+            "font": {**summary_font, "color": savings_color},
         },
     ]
 
 
 def _add_cost_summary_annotations(
     fig: go.Figure,
-    slot_count: int,
     matched_baseline_cost_euro: float,
     optimized_cost_euro: float,
 ) -> None:
-    endpoint_x = _hv_line_endpoint_x(slot_count)
     for annotation in _cost_summary_annotations(
-        endpoint_x,
         matched_baseline_cost_euro,
         optimized_cost_euro,
     ):
@@ -956,7 +946,6 @@ def render_power_soc_chart(
     add_optimized_soc_trace(fig, df, slot_x, extrap_start=extrap_start, extrap_end=extrap_end)
     add_baseline_soc_traces(
         fig,
-        baseline_df,
         matched_baseline_df,
         extrap_start=extrap_start,
         extrap_end=extrap_end,
@@ -1034,21 +1023,16 @@ def render_cumulative_cost_chart(
     if show_cost_summary:
         _add_cost_summary_annotations(
             fig,
-            len(df),
             matched_baseline_cost_euro,
             optimized_cost_euro,
         )
 
-    xaxis = _chart_xaxis_config(df["Uhrzeit"])
-    if show_cost_summary:
-        xaxis["range"] = [xaxis["range"][0], xaxis["range"][1] + 2.5]
-
     layout = dict(
         title="Kumulierte Kosten & Verbrauch",
-        xaxis=xaxis,
+        xaxis=_chart_xaxis_config(df["Uhrzeit"]),
         yaxis=dict(title="Kosten (€, kumuliert)"),
         legend=_chart_legend(),
-        margin=dict(l=40, r=80 if show_cost_summary else 40, t=50, b=110),
+        margin=dict(l=40, r=40, t=50, b=110),
     )
     if has_consumption:
         layout["yaxis2"] = dict(

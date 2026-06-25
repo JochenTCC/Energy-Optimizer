@@ -1,16 +1,16 @@
 # Konfiguration — Überblick
 
-Die zentrale Datei ist **`config.json`** im Projektroot. Als Startpunkt dient [`config.example.json`](../../config.example.json).
+Die zentrale Datei ist **`config/config.json`**. Als Startpunkt dient [`config/config.example.json`](../../config/config.example.json).
 
 ## Schema und Editor-Hilfe
 
-Am Dateianfang:
+Am Dateianfang von `config/config.json`:
 
 ```json
 "$schema": "./config.schema.json"
 ```
 
-In Cursor/VS Code erscheinen für viele Felder **Hover-Beschreibungen** aus [`config.schema.json`](../../config.schema.json). Ausführlichere Zusammenhänge stehen in den folgenden Kapiteln dieser Dokumentation.
+In Cursor/VS Code erscheinen für viele Felder **Hover-Beschreibungen** aus [`config/config.schema.json`](../../config/config.schema.json). Ausführlichere Zusammenhänge stehen in den folgenden Kapiteln dieser Dokumentation.
 
 ## Hauptblöcke
 

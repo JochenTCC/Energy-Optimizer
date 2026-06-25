@@ -16,7 +16,7 @@ Umgebungsvariable in Compose: `ENERGY_OPTIMIZER_CONFIG_PATH=config/config.json`
 
 1. Projektordner mit `docker-compose-synology.yml` und `.env` anlegen
 2. `mkdir -p config runtime`
-3. Container starten — der **Entrypoint** legt fehlende Dateien an (`config.example.json` → `config/config.json`, leere Runtime-Dateien)
+3. Container starten — der **Entrypoint** legt fehlende Dateien an (`config/config.example.json` → `config/config.json`, leere Runtime-Dateien)
 4. `config/config.json` anpassen (Loxone-Namen, Verbraucher)
 5. Optional: historische `cons_data` aus Dev nach `runtime/cons_data_hourly.csv` kopieren
 
@@ -33,7 +33,7 @@ Anschließend Compose mit den drei Mounts (`config/`, `runtime/`, `.env`) verwen
 
 ## Config-Updates nach Programm-Upgrade
 
-Neue Einträge in `config.example.json` werden **nicht** automatisch in die Anwender-Config geschrieben.
+Neue Einträge in `config/config.example.json` werden **nicht** automatisch in die Anwender-Config geschrieben.
 
 - Beim Start von `main.py`: Hinweis im Log
 - In der Streamlit-App: gelbes Banner mit fehlenden Pfaden und Beispielwerten

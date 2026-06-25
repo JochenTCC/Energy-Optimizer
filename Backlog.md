@@ -26,8 +26,8 @@
 - [x] Kostenchart fix skalieren (nicht flexibel)
 - [x] Möglichkeit prüfen, ob variable Leistung bei E-Auto möglich und sinnvoll wäre
 - [x] Prüfen, ob sich PV-Überschuss-Modus bei E-Auto sinnvoll einsetzen lässt. --> Ja ist möglich und sinnvoll
-- [ ] PV_Follow Modus in Loxone implementieren und beides testen
-- [ ] Zusätzliche Balken im Chart einfügen, die eingespeiste Energie anzeigen (damit deutlicher ersichtlich wird, wo Geld verdient wird)
+- [x] PV_Follow Modus in Loxone implementieren und beides testen
+- [x] Zusätzliche Balken im Chart einfügen, die eingespeiste Energie anzeigen (ist als Linienverlau implementiert)
 - [ ] Nutzung des Swim-Spa Filters reviewen (läuft derzeit ständig?)
 - [ ] Logik und UI für E-Auto verbessern
   - Logik zum Zurücksetzen des Rest-SOC ist in Loxone implementiert - muss aber noch getestet werden. Rest-SOC wird beim Abstecken des Autos zurückgesetzt (auf 10%)
@@ -35,6 +35,7 @@
 - [ ] Verbrauchshistorie anzeigbar Machen im Live Modus (ist nur unzulänglich implementiert)
 - [ ] Erinnerung am Monatsanfang für Einspeisepreis
 - [ ] Empfehlungsmodus für Waschmaschine und Geschirrspüler (Input: Laufzeit, mittlere Leistung / Output: Zeithorizont 6h: Güte des Startzeitpunkts)
+- [ ] Bessere Verbrauchsoptimierung mit Geräte zur Temperaturkontrolle (Swim-Spa, Gefrierschrank)
 - [ ] **Adaptives PV-Tuning wieder aktivieren** (`pv_accuracy_log.csv` / `log_pv_comparison`)
   - Lesen + Anwenden des Korrekturfaktors läuft noch (`calculate_tuning_factor`, `pv_forecast`, Sidebar)
   - Schreiben ist unterbrochen: `log_pv_comparison()` wird nirgends aufgerufen → Faktor bleibt praktisch bei 1,0
@@ -64,7 +65,7 @@ Empfohlene Reihenfolge: 7b → 7c → 7a → 7d → 7e → 7f
 - [x] **7b — Container-Bootstrap automatisieren**
   - Entrypoint + `scripts/bootstrap_runtime` (legt fehlende Dateien an, überschreibt nie)
   - Persistenz unter `config/` und `runtime/` (vereinfachte Compose-Mounts)
-  - Config-Drift-Hinweise (`config.example.json` vs. Anwender-config, kein Auto-Merge)
+  - Config-Drift-Hinweise (`config/config.example.json` vs. Anwender-config, kein Auto-Merge)
   - Migration: `scripts/migrate_persist_layout.py`; Doku: [docs/einrichtung/container.md](docs/einrichtung/container.md)
   - Akzeptanz: frischer Container startet ohne manuelles Anlegen von Dateien
 - [x] **7c — Build-Pipeline vereinheitlichen**

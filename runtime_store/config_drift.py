@@ -1,5 +1,5 @@
 """
-config_drift.py – Vergleich der Anwender-config.json mit config.example.json (nur Hinweise, kein Auto-Merge).
+config_drift.py – Vergleich der Anwender-config.json mit config/config.example.json (nur Hinweise, kein Auto-Merge).
 """
 from __future__ import annotations
 
@@ -153,7 +153,7 @@ def log_config_drift(
 
 def format_drift_message(items: list[ConfigDriftItem]) -> str:
     lines = [
-        f"**{len(items)} neue Config-Einträge** in `config.example.json` – bitte manuell in "
+        f"**{len(items)} neue Config-Einträge** in `config/config.example.json` – bitte manuell in "
         f"`{resolve_config_json_path()}` ergänzen (kein automatisches Überschreiben):"
     ]
     for item in items:
