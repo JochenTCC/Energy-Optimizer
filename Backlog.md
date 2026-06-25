@@ -29,6 +29,12 @@
 - [x] PV_Follow Modus in Loxone implementieren und beides testen
 - [x] Zusätzliche Balken im Chart einfügen, die eingespeiste Energie anzeigen (ist als Linienverlau implementiert)
 - [ ] Nutzung des Swim-Spa Filters reviewen (läuft derzeit ständig?)
+  - Es gibt ein Signal "Ernie_Swimspa_Filter_Sollstunden", das angibt, wie lange der Filter laufen soll in den nächsten 24 Stunden
+  - Es gibt ein Steuersignal "Ernie_Filter_Freigabe", mit dem der Filter ein- und ausgeschaltet werden kann
+  - Ernie muss dafür sorgen, dass die Sollstunden in den nächsten 24 wieder auf Null kommen
+  - Der Filter braucht eine bestimmte Leistung
+  - In Loxone werden die Laufzeiten auf- und runter-integriert
+- [ ] Kommunikation mit Bew-Meldern (Hue) prüfen
 - [x] Logik und UI für E-Auto verbessern
   - [x]Logik zum Zurücksetzen des Rest-SOC ist in Loxone implementiert - muss aber noch getestet werden. Rest-SOC wird beim Abstecken des Autos zurückgesetzt (auf 10%)
   - [x] Optimierung ausserplanmäßig anstoßen, wenn E-Auto angeschlossen wurde? --> umgesetzt (event_trigger in main.py)
