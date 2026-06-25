@@ -12,6 +12,7 @@ from .charging_context import (
     charging_schedule_enabled,
     consumer_charging_eligible_indices,
 )
+from .consumer_power import power_limits_kw, uses_power_setpoint
 from . import battery as bat
 
 EMPTY_MILP_PLAN = {
@@ -34,6 +35,7 @@ class MilpHorizonModel:
     p_discharge: list
     e_batt: list
     consumer_on: dict[str, list]
+    consumer_p: dict[str, list]
     planned_consumers: list
 
 
@@ -107,7 +109,8 @@ def filter_feasible_consumers(
             matrix, consumer, schedule_indices, ctx
         )
         capacity_indices = eligible if eligible else schedule_indices
-        max_deliverable = len(capacity_indices) * consumer["nominal_power_kw"]
+        _, max_kw = power_limits_kw(consumer)
+        max_deliverable = len(capacity_indices) * max_kw
         if target > max_deliverable + 1e-6:
             if verbose:
                 sched_hint = ""
@@ -115,12 +118,55 @@ def filter_feasible_consumers(
                     sched_hint = f" ({len(eligible)} h im Ladezeitfenster)"
                 print(
                     f"⚠️ {consumer['name']}: Ziel ({target:.2f} kWh) nicht erreichbar "
-                    f"mit {len(capacity_indices)} h à {consumer['nominal_power_kw']:.2f} kW"
+                    f"mit {len(capacity_indices)} h à {max_kw:.2f} kW"
                     f"{sched_hint}. Wird übersprungen."
                 )
             continue
         feasible.append(consumer)
     return feasible
+
+
+def _flex_power_at_t(
+    consumer: dict,
+    consumer_on: dict[str, list],
+    consumer_p: dict[str, list],
+    t: int,
+):
+    cid = consumer["id"]
+    if uses_power_setpoint(consumer):
+        return consumer_p[cid][t]
+    return consumer["nominal_power_kw"] * consumer_on[cid][t]
+
+
+def _add_consumer_power_variables(
+    prob: pulp.LpProblem,
+    consumer: dict,
+    horizon: int,
+    consumer_on: dict[str, list],
+    consumer_p: dict[str, list],
+) -> None:
+    cid = consumer["id"]
+    min_kw, max_kw = power_limits_kw(consumer)
+    consumer_on[cid] = [
+        pulp.LpVariable(f"{cid}_on_{t}", cat=pulp.LpBinary)
+        for t in range(horizon)
+    ]
+    add_min_on_time_constraints(
+        prob,
+        consumer_on[cid],
+        consumer["min_on_quarterhours"],
+        cid,
+    )
+    if not uses_power_setpoint(consumer):
+        return
+    consumer_p[cid] = [
+        pulp.LpVariable(f"{cid}_p_{t}", lowBound=0, upBound=max_kw)
+        for t in range(horizon)
+    ]
+    for t in range(horizon):
+        prob += consumer_p[cid][t] <= max_kw * consumer_on[cid][t]
+        if min_kw > 1e-9:
+            prob += consumer_p[cid][t] >= min_kw * consumer_on[cid][t]
 
 
 def _build_milp_model(
@@ -155,31 +201,24 @@ def _build_milp_model(
         for t in range(horizon)
     ]
     delta_charge = [pulp.LpVariable(f"delta_charge_{t}", cat=pulp.LpBinary) for t in range(horizon)]
-    max_flex_power = sum(c["nominal_power_kw"] for c in planned_consumers)
+    max_flex_power = sum(power_limits_kw(c)[1] for c in planned_consumers)
     max_load = max((row["expected_p_act"] for row in matrix[:horizon]), default=0.0)
     max_pv = max((row["expected_p_pv"] for row in matrix[:horizon]), default=0.0)
     big_m_grid = max(max_load + max_flex_power + max_power, max_pv + max_power, 50.0)
     delta_import = [pulp.LpVariable(f"delta_import_{t}", cat=pulp.LpBinary) for t in range(horizon)]
 
     consumer_on: dict[str, list] = {}
+    consumer_p: dict[str, list] = {}
     for consumer in planned_consumers:
-        cid = consumer["id"]
-        consumer_on[cid] = [
-            pulp.LpVariable(f"{cid}_on_{t}", cat=pulp.LpBinary)
-            for t in range(horizon)
-        ]
-        add_min_on_time_constraints(
-            prob,
-            consumer_on[cid],
-            consumer["min_on_quarterhours"],
-            cid,
+        _add_consumer_power_variables(
+            prob, consumer, horizon, consumer_on, consumer_p
         )
 
     for t in range(horizon):
         p_pv = matrix[t]["expected_p_pv"]
         p_con = matrix[t]["expected_p_act"]
         p_flex = pulp.lpSum(
-            consumer["nominal_power_kw"] * consumer_on[consumer["id"]][t]
+            _flex_power_at_t(consumer, consumer_on, consumer_p, t)
             for consumer in planned_consumers
         )
         prob += (
@@ -210,6 +249,7 @@ def _build_milp_model(
         p_discharge=p_discharge,
         e_batt=e_batt,
         consumer_on=consumer_on,
+        consumer_p=consumer_p,
         planned_consumers=planned_consumers,
     )
 
@@ -263,6 +303,7 @@ def _add_consumer_delivery_constraints(
             consumer,
             schedule_indices,
             charging_contexts.get(cid),
+            model.consumer_p,
         )
         if not eligible:
             if verbose:
@@ -271,12 +312,14 @@ def _add_consumer_delivery_constraints(
                     "Flex-Laden wird übersprungen."
                 )
             continue
-        model.prob += (
-            pulp.lpSum(
+        if uses_power_setpoint(consumer):
+            delivery = pulp.lpSum(model.consumer_p[cid][t] for t in eligible)
+        else:
+            delivery = pulp.lpSum(
                 consumer["nominal_power_kw"] * model.consumer_on[cid][t]
                 for t in eligible
-            ) >= target
-        )
+            )
+        model.prob += delivery >= target
 
 
 def _var_value_at_zero(variables: list) -> float:
@@ -293,16 +336,41 @@ def _extract_milp_plan(model: MilpHorizonModel) -> dict[str, float]:
     }
 
 
+def _consumer_power_now(model: MilpHorizonModel, consumer: dict) -> float:
+    cid = consumer["id"]
+    if uses_power_setpoint(consumer):
+        value = model.consumer_p[cid][0].varValue
+        return max(0.0, float(value)) if value is not None else 0.0
+    on_val = model.consumer_on[cid][0].varValue
+    if on_val is not None and on_val > 0.5:
+        return float(consumer["nominal_power_kw"])
+    return 0.0
+
+
 def _consumer_powers_now(model: MilpHorizonModel) -> tuple[dict[str, float], float]:
     consumer_powers: dict[str, float] = {}
     total_flex_power = 0.0
     for consumer in model.planned_consumers:
         cid = consumer["id"]
-        on_val = model.consumer_on[cid][0].varValue
-        power = consumer["nominal_power_kw"] if on_val is not None and on_val > 0.5 else 0.0
+        power = round(_consumer_power_now(model, consumer), 3)
         consumer_powers[cid] = power
         total_flex_power += power
     return consumer_powers, total_flex_power
+
+
+def _planned_consumer_kwh(model: MilpHorizonModel, consumer: dict) -> float:
+    cid = consumer["id"]
+    total = 0.0
+    for t in range(model.horizon):
+        if uses_power_setpoint(consumer):
+            value = model.consumer_p[cid][t].varValue
+            if value is not None:
+                total += float(value)
+            continue
+        on_val = model.consumer_on[cid][t].varValue
+        if on_val is not None and on_val > 0.5:
+            total += float(consumer["nominal_power_kw"])
+    return total
 
 
 def _derive_control_from_milp(
@@ -404,12 +472,7 @@ def _log_milp_decision(
     for consumer in model.planned_consumers:
         cid = consumer["id"]
         power_now = consumer_powers.get(cid, 0.0)
-        planned_kwh = sum(
-            consumer["nominal_power_kw"]
-            for t in range(model.horizon)
-            if model.consumer_on[cid][t].varValue is not None
-            and model.consumer_on[cid][t].varValue > 0.5
-        )
+        planned_kwh = _planned_consumer_kwh(model, consumer)
         print(
             f"{consumer['name']:<16}: Jetzt={'AN' if power_now > 0 else 'AUS'} "
             f"({power_now:.2f} kW) | Restziel={remaining.get(cid, 0.0):.2f} kWh | "

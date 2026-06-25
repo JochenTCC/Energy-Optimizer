@@ -349,11 +349,89 @@ def flex_consumer_enable_value(
         return None
 
     cid = consumer["id"]
+    power_kw = _effective_consumer_power_kw(consumer, consumer_powers, charging_contexts, cid)
+    return 1 if power_kw > 1e-3 else 0
+
+
+def _effective_consumer_power_kw(
+    consumer: dict,
+    consumer_powers: dict[str, float],
+    charging_contexts: dict[str, dict],
+    cid: str,
+) -> float:
     power_kw = max(0.0, float(consumer_powers.get(cid, 0.0) or 0.0))
     ctx = charging_contexts.get(cid)
     if ctx is not None and not ctx.get("active", True):
-        power_kw = 0.0
-    return 1 if power_kw > 1e-3 else 0
+        return 0.0
+    return power_kw
+
+
+def flex_consumer_power_setpoint_kw(
+    consumer: dict,
+    consumer_powers: dict[str, float],
+    charging_contexts: dict[str, dict],
+) -> float | None:
+    """kW-Sollwert für Loxone (None wenn kein power_setpoint_name)."""
+    from optimizer.consumer_power import clamp_setpoint_kw
+
+    setpoint_name = (consumer.get("loxone_outputs") or {}).get("power_setpoint_name", "")
+    if not setpoint_name:
+        return None
+
+    cid = consumer["id"]
+    power_kw = _effective_consumer_power_kw(consumer, consumer_powers, charging_contexts, cid)
+    return clamp_setpoint_kw(consumer, power_kw)
+
+
+def _write_flexible_consumer_output(
+    consumer: dict,
+    consumer_powers: dict[str, float],
+    charging_contexts: dict[str, dict],
+    snapshot: dict[str, float] | None,
+) -> None:
+    """Schreibt Freigabe oder kW-Sollwert; optional Eintrag in snapshot."""
+    outputs = consumer.get("loxone_outputs") or {}
+    enable_name = outputs.get("enable_name", "")
+    setpoint_name = outputs.get("power_setpoint_name", "")
+    cid = consumer["id"]
+
+    if setpoint_name:
+        setpoint_kw = flex_consumer_power_setpoint_kw(
+            consumer, consumer_powers, charging_contexts
+        )
+        if setpoint_kw is None:
+            return
+        send_loxone_value(setpoint_name, setpoint_kw)
+        opt_kw = max(0.0, float(consumer_powers.get(cid, 0.0) or 0.0))
+        logger.info(
+            "Flex consumer %s -> Soll=%.2f kW (optimiert %.2f kW, Loxone: %s)",
+            consumer["name"],
+            setpoint_kw,
+            opt_kw,
+            setpoint_name,
+        )
+        if snapshot is not None:
+            snapshot[str(setpoint_name)] = float(setpoint_kw)
+        return
+
+    if not enable_name:
+        return
+
+    enabled = flex_consumer_enable_value(consumer, consumer_powers, charging_contexts)
+    if enabled is None:
+        return
+
+    send_loxone_value(enable_name, enabled)
+    power_kw = max(0.0, float(consumer_powers.get(cid, 0.0) or 0.0))
+    logger.info(
+        "Flex consumer %s -> Freigabe=%s (optimiert %.2f kW, Loxone: %s)",
+        consumer["name"],
+        enabled,
+        power_kw,
+        enable_name,
+    )
+    if snapshot is not None:
+        snapshot[str(enable_name)] = float(enabled)
 
 
 def build_sent_loxone_snapshot(
@@ -378,10 +456,9 @@ def build_sent_loxone_snapshot(
             snapshot[str(cfg_name)] = value
 
     for consumer in config.get_flexible_consumers(optimizer_only=True):
-        enable_name = (consumer.get("loxone_outputs") or {}).get("enable_name", "")
-        enabled = flex_consumer_enable_value(consumer, consumer_powers, contexts)
-        if enable_name and enabled is not None:
-            snapshot[str(enable_name)] = float(enabled)
+        _write_flexible_consumer_output(
+            consumer, consumer_powers, contexts, snapshot
+        )
 
     return snapshot
 
@@ -408,21 +485,7 @@ def send_flexible_consumer_states(
     consumer_powers: dict[str, float],
     charging_contexts: dict[str, dict] | None = None,
 ) -> None:
-    """Sendet Freigabe-Signale (0/1) der flexiblen Verbraucher an Loxone."""
+    """Sendet Freigabe (0/1) oder kW-Sollwerte der flexiblen Verbraucher an Loxone."""
     contexts = charging_contexts or {}
     for consumer in config.get_flexible_consumers(optimizer_only=True):
-        enable_name = (consumer.get("loxone_outputs") or {}).get("enable_name", "")
-        enabled = flex_consumer_enable_value(consumer, consumer_powers, contexts)
-        if not enable_name or enabled is None:
-            continue
-
-        send_loxone_value(enable_name, enabled)
-        cid = consumer["id"]
-        power_kw = max(0.0, float(consumer_powers.get(cid, 0.0) or 0.0))
-        logger.info(
-            "Flex consumer %s -> Freigabe=%s (optimiert %.2f kW, Loxone: %s)",
-            consumer["name"],
-            enabled,
-            power_kw,
-            enable_name,
-        )
+        _write_flexible_consumer_output(consumer, consumer_powers, contexts, None)

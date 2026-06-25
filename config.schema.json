@@ -296,11 +296,15 @@
     },
     "loxone_outputs": {
       "type": "object",
-      "description": "Freigabe-Signal an den Loxone Miniserver (virtueller Eingang 0/1). Die tatsächliche Schaltung obliegt der Smarthome-Logik.",
+      "description": "Steuer-Signale an den Loxone Miniserver. Entweder binäre Freigabe oder kW-Sollwert (nicht beides).",
       "properties": {
         "enable_name": {
           "type": "string",
-          "description": "Virtueller Eingang: 0 = Optimierung sperrt, 1 = Optimierung gibt Freigabe."
+          "description": "Virtueller Eingang: 0 = gesperrt, 1 = Freigabe (Volllast über nominal_power_kw)."
+        },
+        "power_setpoint_name": {
+          "type": "string",
+          "description": "Virtueller Eingang: Soll-Ladeleistung in kW (0 = aus, sonst min_power_kw … nominal_power_kw)."
         }
       }
     },
@@ -318,7 +322,12 @@
         },
         "nominal_power_kw": {
           "type": "number",
-          "description": "Nennleistung in kW für die Optimierung."
+          "description": "Maximale Leistung in kW für die Optimierung (P_max; live überschreibbar via charging_schedule.loxone.nominal_power_kw_name)."
+        },
+        "min_power_kw": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Minimale Soll-Leistung in kW (P_min), Pflicht wenn loxone_outputs.power_setpoint_name gesetzt ist."
         },
         "daily_target_kwh": {
           "type": "number",
