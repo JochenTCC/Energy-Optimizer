@@ -13,8 +13,9 @@ Energy-Optimizer/
 ├── main.py, app.py          # Einstiegspunkte (bleiben in der Wurzel)
 ├── config.py                # Konfigurations-Loader
 ├── config/
-│   └── config.json          # Haus-Konfiguration (gitignored, persistent)
-├── config.example.json      # Vorlage für neue Installationen
+│   ├── config.json          # Haus-Konfiguration (gitignored, persistent)
+│   ├── config.example.json  # Vorlage für neue Installationen
+│   └── config.schema.json   # JSON-Schema (Editor-Hover)
 ├── optimizer/               # MILP, Simulation, Ladekontext, Facade
 ├── integrations/            # Loxone, Awattar, Log-Import
 ├── data/                    # Profile, Verbrauch, PV-Prognose

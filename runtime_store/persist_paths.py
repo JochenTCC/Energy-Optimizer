@@ -54,7 +54,25 @@ def default_cons_data_file() -> str:
 
 
 def config_example_file() -> str:
-    return "config.example.json"
+    """Pfad zur Config-Vorlage: bevorzugt config/config.example.json."""
+    preferred = os.path.join("config", "config.example.json")
+    legacy = "config.example.json"
+    if os.path.isfile(preferred):
+        return preferred
+    if os.path.isfile(legacy):
+        return legacy
+    return preferred
+
+
+def config_schema_file() -> str:
+    """Pfad zum JSON-Schema: bevorzugt config/config.schema.json."""
+    preferred = os.path.join("config", "config.schema.json")
+    legacy = "config.schema.json"
+    if os.path.isfile(preferred):
+        return preferred
+    if os.path.isfile(legacy):
+        return legacy
+    return preferred
 
 
 def resolve_config_json_path() -> str:

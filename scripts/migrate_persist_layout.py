@@ -17,6 +17,11 @@ import shutil
 import sys
 from pathlib import Path
 
+_CONFIG_TEMPLATE_MOVES = (
+    "config.example.json",
+    "config.schema.json",
+)
+
 _RUNTIME_MOVES = (
     "cons_data_hourly.csv",
     "cons_data_hourly.meta.json",
@@ -57,6 +62,12 @@ def _planned_moves() -> list[tuple[Path, Path]]:
     if source_config.is_file() and not config_target.is_file():
         moves.append((source_config, config_target))
 
+    for name in _CONFIG_TEMPLATE_MOVES:
+        source = root / name
+        target = _config_dir() / name
+        if source.is_file() and not target.is_file():
+            moves.append((source, target))
+
     for name in _RUNTIME_MOVES:
         source = root / name
         target = runtime_dir / name
@@ -87,6 +98,23 @@ def _update_path_cons_data(config_path: Path, *, apply: bool) -> str | None:
     return message
 
 
+def _update_config_schema_ref(config_path: Path, *, apply: bool) -> str | None:
+    if not config_path.is_file():
+        return None
+    data = json.loads(config_path.read_text(encoding="utf-8"))
+    schema = data.get("$schema")
+    if schema != "../config.schema.json":
+        return None
+    message = "$schema: '../config.schema.json' -> './config.schema.json'"
+    if apply:
+        data["$schema"] = "./config.schema.json"
+        config_path.write_text(
+            json.dumps(data, indent=4, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+    return message
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Migration zu config/ + runtime/ Layout")
     parser.add_argument(
@@ -98,9 +126,16 @@ def main(argv: list[str] | None = None) -> int:
 
     moves = _planned_moves()
     config_source = _config_target() if _config_target().is_file() else _root() / "config.json"
-    config_patch = _update_path_cons_data(config_source, apply=args.apply)
+    config_patches = [
+        patch
+        for patch in (
+            _update_path_cons_data(config_source, apply=args.apply),
+            _update_config_schema_ref(config_source, apply=args.apply),
+        )
+        if patch
+    ]
 
-    if not moves and not config_patch:
+    if not moves and not config_patches:
         print("Keine Migration nötig – Layout ist bereits aktuell.")
         return 0
 
@@ -109,8 +144,8 @@ def main(argv: list[str] | None = None) -> int:
 
     for source, target in moves:
         print(f"  {source.relative_to(_root())}  ->  {target.relative_to(_root())}")
-    if config_patch:
-        print(f"  {config_patch}")
+    for patch in config_patches:
+        print(f"  {patch}")
 
     if not args.apply:
         print("\nZum Ausführen: python -m scripts.migrate_persist_layout --apply")
@@ -126,8 +161,8 @@ def main(argv: list[str] | None = None) -> int:
         except OSError as exc:
             print(f"Übersprungen ({source.name}): {exc}", file=sys.stderr)
 
-    if config_patch:
-        print(config_patch)
+    for patch in config_patches:
+        print(patch)
     print("\nFertig. Container-Compose: Mounts ./config und ./runtime verwenden.")
     return 0
 

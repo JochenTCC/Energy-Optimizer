@@ -13,7 +13,9 @@ def test_bootstrap_creates_missing_files_without_overwriting(tmp_path, monkeypat
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("ENERGY_OPTIMIZER_CONFIG_PATH", "config/config.json")
 
-    (tmp_path / "config.example.json").write_text(
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "config.example.json").write_text(
         json.dumps({"awattar": {"url": "https://example.test"}}),
         encoding="utf-8",
     )
@@ -37,9 +39,10 @@ def test_bootstrap_creates_missing_files_without_overwriting(tmp_path, monkeypat
 def test_bootstrap_rejects_directory_instead_of_file(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("ENERGY_OPTIMIZER_CONFIG_PATH", "config/config.json")
-    (tmp_path / "config.example.json").write_text("{}", encoding="utf-8")
-    (tmp_path / "config").mkdir()
-    (tmp_path / "config" / "config.json").mkdir()
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "config.example.json").write_text("{}", encoding="utf-8")
+    (config_dir / "config.json").mkdir()
 
     with pytest.raises(bootstrap.BootstrapError, match="Verzeichnis"):
         bootstrap.run()

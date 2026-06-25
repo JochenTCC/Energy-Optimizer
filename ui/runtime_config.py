@@ -23,6 +23,17 @@ def simulation_settings_fingerprint() -> str:
     battery = config.get_battery_params()
     tokens = [f"{key}={runtime[key]!r}" for key in sorted(runtime)]
     tokens.extend(f"b.{key}={battery[key]!r}" for key in sorted(battery))
+    for consumer in config.get_flexible_consumers(optimizer_only=True):
+        outputs = consumer.get("loxone_outputs") or {}
+        tokens.append(
+            "fc.{id}={enable}|{setpoint}|{pv_follow}|{min_kw}".format(
+                id=consumer["id"],
+                enable=outputs.get("enable_name", ""),
+                setpoint=outputs.get("power_setpoint_name", ""),
+                pv_follow=outputs.get("pv_follow_name", ""),
+                min_kw=consumer.get("min_power_kw", ""),
+            )
+        )
     return ";".join(tokens)
 
 
