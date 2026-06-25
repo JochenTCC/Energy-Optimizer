@@ -191,6 +191,19 @@ class TestFlexibleConsumerHelpers:
         enabled = lc.flex_consumer_enable_value(consumer, {"swimspa": 2.0}, ctx)
         assert enabled == 0
 
+    def test_flex_consumer_setpoint_clamped(self):
+        consumer = {
+            "id": "eauto",
+            "name": "E-Auto",
+            "nominal_power_kw": 3.5,
+            "min_power_kw": 1.4,
+            "loxone_outputs": {"power_setpoint_name": "Ernie_EAuto_Ziel_kW"},
+        }
+        assert lc.flex_consumer_power_setpoint_kw(consumer, {"eauto": 2.1}, {}) == 2.1
+        assert lc.flex_consumer_power_setpoint_kw(consumer, {"eauto": 0.0}, {}) == 0.0
+        ctx = {"eauto": {"active": False}}
+        assert lc.flex_consumer_power_setpoint_kw(consumer, {"eauto": 3.0}, ctx) == 0.0
+
     def test_resolve_live_power_binary_signal(self):
         consumer = self._consumer(signal_type="binary")
         with patch.object(lc, "fetch_loxone_generic_value", return_value=1.0):
@@ -256,6 +269,39 @@ class TestBuildSentSnapshot:
         assert snapshot["Ernie_Steuerbefehl"] == 1.0
         assert snapshot["Ernie_SwimSpa_Freigabe"] == 1.0
 
+    def test_snapshot_contains_power_setpoint(self):
+        consumers = [
+            {
+                "id": "eauto",
+                "name": "E-Auto",
+                "nominal_power_kw": 3.5,
+                "min_power_kw": 1.4,
+                "optimizer_enabled": True,
+                "daily_target_kwh": 10.0,
+                "daily_target_source": "config",
+                "loxone_outputs": {"power_setpoint_name": "Ernie_EAuto_Ziel_kW"},
+            }
+        ]
+        config_map = {
+            "LOXONE_TARGET_SOC_NAME": "Ernie_Ziel_SoC",
+            "LOXONE_TARGET_CHARGE_POWER_NAME": "Ernie_Ziel_LadeLeistung",
+            "LOXONE_TARGET_DISCHARGE_POWER_NAME": "Ernie_Ziel_Entladeleistung",
+            "LOXONE_CONTROL_CMD_NAME": "Ernie_Steuerbefehl",
+        }
+
+        with patch.object(lc.config, "get", side_effect=lambda name, **kw: config_map.get(name)), patch.object(
+            lc.config, "get_flexible_consumers", return_value=consumers
+        ):
+            snapshot = lc.build_sent_loxone_snapshot(
+                mode=0,
+                target_power_kw=0.0,
+                target_soc=80.0,
+                consumer_powers={"eauto": 2.5},
+                charging_contexts={},
+            )
+
+        assert snapshot["Ernie_EAuto_Ziel_kW"] == 2.5
+
 
 class TestSendHuaweiAndConsumers:
     def test_send_huawei_modbus_states_calls_all_outputs(self):
@@ -276,7 +322,7 @@ class TestSendHuaweiAndConsumers:
         mock_send.assert_any_call("Discharge", 1.5)
         mock_send.assert_any_call("Cmd", 2)
 
-    def test_send_flexible_consumer_states_skips_without_enable_name(self):
+    def test_send_flexible_consumer_states_skips_without_output(self):
         consumers = [
             {
                 "id": "hidden",

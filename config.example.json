@@ -61,13 +61,14 @@
             "id": "eauto",
             "name": "E-Auto",
             "nominal_power_kw": 3.5,
+            "min_power_kw": 1.4,
             "daily_target_source": "config",
             "min_on_quarterhours": 4,
             "path_log": "pfad/zum/eauto-log.csv",
             "signal_type": "power",
             "optimizer_enabled": true,
             "loxone_outputs": {
-                "enable_name": "Ernie_EAuto_LadeFreigabe"
+                "power_setpoint_name": "Ernie_EAuto_Ziel_kW"
             },
             "loxone_inputs": {
                 "power_name": "Merkername EAuto kW"

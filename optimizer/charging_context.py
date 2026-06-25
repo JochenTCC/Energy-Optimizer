@@ -446,6 +446,7 @@ def apply_charging_window_constraints(
     consumer: dict,
     schedule_indices: list[int],
     charging_context: dict | None = None,
+    consumer_power_vars: dict[str, list] | None = None,
 ) -> list[int]:
     """Setzt MILP-Nebenbedingungen für Ladezeitfenster; liefert die zulässigen Stunden."""
     cid = consumer["id"]
@@ -455,4 +456,6 @@ def apply_charging_window_constraints(
     blocked = set(schedule_indices) - set(eligible)
     for t in blocked:
         prob += consumer_on[cid][t] == 0
+        if consumer_power_vars and cid in consumer_power_vars:
+            prob += consumer_power_vars[cid][t] == 0
     return eligible

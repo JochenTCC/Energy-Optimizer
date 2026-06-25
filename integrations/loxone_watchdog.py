@@ -47,11 +47,17 @@ def expected_loxone_snapshot_from_run_state(state: dict[str, Any]) -> dict[str, 
     )
 
 
-def _tolerance_for_io(io_name: str, flex_enable_names: set[str]) -> float:
+def _tolerance_for_io(
+    io_name: str,
+    flex_enable_names: set[str],
+    flex_setpoint_names: set[str],
+) -> float:
     if io_name == config.get("LOXONE_CONTROL_CMD_NAME"):
         return 0.0
     if io_name in flex_enable_names:
         return 0.0
+    if io_name in flex_setpoint_names:
+        return POWER_TOLERANCE_KW
     if io_name == config.get("LOXONE_TARGET_SOC_NAME"):
         return SOC_TOLERANCE_PERCENT
     return POWER_TOLERANCE_KW
@@ -71,6 +77,11 @@ def verify_and_restore_loxone_states(
         for c in config.get_flexible_consumers(optimizer_only=True)
     }
     flex_enable_names.discard("")
+    flex_setpoint_names = {
+        str((c.get("loxone_outputs") or {}).get("power_setpoint_name", ""))
+        for c in config.get_flexible_consumers(optimizer_only=True)
+    }
+    flex_setpoint_names.discard("")
 
     for io_name, expected_value in expected.items():
         if not io_name:
@@ -84,7 +95,7 @@ def verify_and_restore_loxone_states(
             continue
 
         actual_value = float(actual_raw)
-        tolerance = _tolerance_for_io(io_name, flex_enable_names)
+        tolerance = _tolerance_for_io(io_name, flex_enable_names, flex_setpoint_names)
         if _values_match(expected_value, actual_value, tolerance):
             continue
 

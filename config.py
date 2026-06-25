@@ -222,7 +222,18 @@ class Config:
         if not isinstance(raw, dict):
             return {}
         enable_name = str(raw.get("enable_name", "")).strip()
-        return {"enable_name": enable_name} if enable_name else {}
+        setpoint_name = str(raw.get("power_setpoint_name", "")).strip()
+        if enable_name and setpoint_name:
+            raise ValueError(
+                "Kritischer Konfigurationsfehler: enable_name und power_setpoint_name "
+                "dürfen nicht gleichzeitig gesetzt sein."
+            )
+        out: dict[str, str] = {}
+        if enable_name:
+            out["enable_name"] = enable_name
+        if setpoint_name:
+            out["power_setpoint_name"] = setpoint_name
+        return out
 
     @staticmethod
     def _normalize_loxone_inputs(raw: dict | None) -> dict:
@@ -281,10 +292,20 @@ class Config:
             sched_lox = charging_schedule.get("loxone") or {}
             if sched_lox.get("charge_enable_name"):
                 loxone_outputs = {"enable_name": sched_lox["charge_enable_name"]}
+        consumer_id = str(raw["id"])
+        min_power_kw = None
+        if "min_power_kw" in raw:
+            min_power_kw = float(raw["min_power_kw"])
+        if loxone_outputs.get("power_setpoint_name") and min_power_kw is None:
+            raise ValueError(
+                f"Kritischer Konfigurationsfehler: flexible_consumers Eintrag '{consumer_id}' "
+                "benötigt min_power_kw bei power_setpoint_name."
+            )
         return {
-            "id": str(raw["id"]),
+            "id": consumer_id,
             "name": str(raw.get("name", raw["id"])),
             "nominal_power_kw": float(raw.get("nominal_power_kw", 0.0)),
+            "min_power_kw": min_power_kw,
             "daily_target_kwh": float(raw.get("daily_target_kwh", 0.0)),
             "daily_target_source": source,
             "loxone_target_kwh_name": str(raw.get("loxone_target_kwh_name", "")).strip(),
