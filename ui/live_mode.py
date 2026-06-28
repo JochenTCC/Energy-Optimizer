@@ -1,4 +1,4 @@
-"""Live-Modus: 24h-Simulation und Plausibilitäts-Debug."""
+"""Live-Modus: 24h-Simulation."""
 from __future__ import annotations
 
 from datetime import timedelta
@@ -8,7 +8,7 @@ import pandas as pd
 
 from integrations import awattar_client
 from data import consumer_targets, live_consumption, profile_manager
-from runtime_store import history_timeline, live_optimization_debug, run_state
+from runtime_store import history_timeline, run_state
 from optimizer import schedule as optimization_schedule
 import optimizer
 from ui.history_navigation import render_history_navigation
@@ -136,50 +136,6 @@ def _render_pending_live_sync(wait_sec: int, reason: str) -> bool:
     return True
 
 
-def render_plausibility_debug_panel(main_state: dict | None) -> None:
-    """Zeigt Abgleich main.py vs. App-Simulation und Pfad zum Debug-Snapshot."""
-    debug = live_optimization_debug.load_debug_snapshot(kind="live")
-    if not debug or debug.get("simulation_kind") != "live":
-        return
-
-    path = live_optimization_debug.debug_file_path("live")
-    plaus = debug.get("plausibility") or {}
-
-    with st.expander("🔍 Plausibilität main.py ↔ App-Simulation"):
-        st.caption(
-            f"Debug-Snapshot: `{path}` · Slot **{debug.get('quarter_hour_slot', '?')}** · "
-            f"Sync: **{debug.get('sync_reason', '?')}**"
-        )
-        if main_state and debug.get("main_run_completed_at") != main_state.get("completed_at"):
-            st.warning(
-                "Der gespeicherte Snapshot stammt von einem anderen main.py-Lauf als dem aktuellen Panel."
-            )
-
-        if plaus.get("available"):
-            if plaus.get("aligned"):
-                st.success("Stunde 0 (nach main.py-Overlay) stimmt mit dem Produktiv-Durchlauf überein.")
-            else:
-                st.error("Abweichungen in Stunde 0 (nach Overlay):")
-                for issue in plaus.get("issues", []):
-                    st.markdown(f"- {issue}")
-
-        plaus_raw = debug.get("plausibility_before_overlay") or {}
-        if plaus_raw.get("available") and not plaus_raw.get("aligned"):
-            st.info(
-                "Vor dem main.py-Overlay wich die reine App-Simulation in Stunde 0 ab — "
-                "das ist erwartbar, wenn main.py die maßgeblichen Produktivwerte liefert."
-            )
-            with st.container():
-                st.markdown("**Roh-Simulation Stunde 0 vs. main.py:**")
-                for issue in plaus_raw.get("issues", []):
-                    st.markdown(f"- {issue}")
-
-        st.caption(
-            "Die Datei enthält `main_run`, `simulation_rows_raw`, `simulation_rows` (24h) "
-            "und `baseline_rows` zum gemeinsamen Nachrechnen."
-        )
-
-
 @st.fragment(run_every=timedelta(seconds=10))
 def _live_optimization_fragment(current_soc: float) -> None:
     """MILP-Simulation: Einsparungen und Chart (Refresh nach main.py-Sync)."""
@@ -210,7 +166,6 @@ def _live_optimization_fragment(current_soc: float) -> None:
             render_optimization_results(
                 cached_savings, cached_df, baseline_df, matched_baseline_df
             )
-            render_plausibility_debug_panel(main_state)
         return
 
     ready, reason, wait_sec = optimization_schedule.live_simulation_readiness(
@@ -290,4 +245,3 @@ def _live_optimization_fragment(current_soc: float) -> None:
         render_optimization_results(
             savings_info, optimized_df, baseline_df, matched_baseline_df
         )
-        render_plausibility_debug_panel(main_state)
