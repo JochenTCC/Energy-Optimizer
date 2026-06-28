@@ -94,13 +94,6 @@ Historie aus `runtime/optimization_history.jsonl` (plus Legacy-CSV falls vorhand
 - Tabelle: Zeitpunkt, Modus, Zielwerte, Preis, Prognosen, Flex-Soll
 - Expander „Details zu einem Durchlauf“ für Einzelansicht
 
-## Plausibilität main.py ↔ App-Simulation (Debug)
-
-Nur Echtzeit, wenn Debug-Snapshot existiert (`runtime/live_optimization_debug.json`):
-
-- Abgleich Stunde 0 nach Overlay mit Produktiv-Durchlauf
-- Optional: Abweichung der reinen App-Simulation vor Overlay (erwartbar, wenn `main.py` maßgeblich ist)
-
 ## Countdown (Fußzeile)
 
 - **Optimierungs-Takt:** Viertelstunden (`:00` / `:15` / `:30` / `:45`)
