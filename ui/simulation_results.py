@@ -132,6 +132,8 @@ def render_history_timeline_results(result: HistoryTimelineResult) -> None:
         result.slot_costs_euro,
         result.slot_consumption_kwh,
         total_cost,
+        projected_savings_cumulative_euro=result.projected_savings_cumulative_euro,
+        latest_projected_savings_euro=result.latest_projected_savings_euro,
     )
 
 

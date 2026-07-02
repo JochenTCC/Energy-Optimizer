@@ -14,6 +14,7 @@ _CONSUMER_PV_FOLLOW_PATTERN = "/"
 _CONSUMER_IMMEDIATE_CHARGE_PATTERN = "+"
 _COLOR_BASELINE = "#7f8c8d"
 _COLOR_OPTIMIZED = "#e67e22"
+_COLOR_SAVINGS = "#27ae60"
 _COLOR_GRID_POWER = "#7f8c8d"
 _EXTRAPOLATED_TRACE_OPACITY = 0.5
 _PV_LINE_COLOR = "#f1c40f"
@@ -1135,11 +1136,44 @@ def render_price_savings_chart(
     )
 
 
+def add_projected_savings_trace(
+    fig: go.Figure,
+    uhrzeit: pd.Series,
+    slot_x: pd.Series,
+    projected_savings_cumulative_euro: list[float],
+    extrap_start: int | None = None,
+    extrap_end: int | None = None,
+) -> None:
+    """Kumulierte prognostizierte Ersparnis (Produktiv-Historie)."""
+    if not projected_savings_cumulative_euro:
+        return
+    length = len(slot_x)
+    savings_cum = pd.Series(projected_savings_cumulative_euro[:length], dtype=float)
+    segments = _trace_segments(length, extrap_start, extrap_end)
+    _add_segmented_hv_line(
+        fig,
+        slot_x,
+        savings_cum,
+        uhrzeit,
+        segments,
+        name="Ersparnis prognostiziert",
+        line_kwargs=dict(color=_COLOR_SAVINGS, width=2.5, dash="dot", shape="hv"),
+        extrapolated_dotted=True,
+        segment_hover_template=(
+            "Uhrzeit: %{customdata}<br>Ersparnis prognostiziert (kumuliert): %{y:.3f} €"
+            "<extra></extra>"
+        ),
+    )
+
+
 def render_history_optimization_chart(
     df: pd.DataFrame,
     slot_costs_euro: list[float],
     slot_consumption_kwh: list[float],
     total_cost_euro: float,
+    *,
+    projected_savings_cumulative_euro: list[float] | None = None,
+    latest_projected_savings_euro: float | None = None,
 ) -> None:
     """Zwei Charts für die Produktiv-Historie (Ist-Daten, 96 Viertelstunden-Slots)."""
     render_power_soc_chart(
@@ -1160,6 +1194,19 @@ def render_history_optimization_chart(
         extrap_start=extrap_start,
         extrap_end=extrap_end,
     )
+    has_projected_savings = bool(
+        projected_savings_cumulative_euro
+        and any(abs(value) > 1e-9 for value in projected_savings_cumulative_euro)
+    )
+    if has_projected_savings:
+        add_projected_savings_trace(
+            fig,
+            df["Uhrzeit"],
+            slot_x,
+            projected_savings_cumulative_euro or [],
+            extrap_start=extrap_start,
+            extrap_end=extrap_end,
+        )
     fig.update_layout(
         title="Kumulierte Kosten & Verbrauch — Produktiv-Ist",
         xaxis=_chart_xaxis_config(df["Uhrzeit"]),
@@ -1173,10 +1220,16 @@ def render_history_optimization_chart(
         legend=_chart_legend(),
         margin=dict(l=40, r=40, t=50, b=110),
     )
-    st.caption(
+    caption = (
         f"Gesamtkosten (Ist): **{total_cost_euro:.2f} €** · "
         "Kosten und Verbrauch aus gemessenen Produktiv-Durchläufen (15-Min-Takt)."
     )
+    if has_projected_savings and latest_projected_savings_euro is not None:
+        caption += (
+            f" Gestrichelte grüne Linie: kumulierte prognostizierte Ersparnis "
+            f"(letzte 24h-Prognose: **{latest_projected_savings_euro:+.2f} €** vs BL Ziel)."
+        )
+    st.caption(caption)
     st.plotly_chart(fig, width="stretch", key="history_cumulative_cost_chart")
 
 

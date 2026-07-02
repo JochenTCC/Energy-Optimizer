@@ -64,17 +64,17 @@ def _patch_main_dependencies(monkeypatch):
     )
 
 
-def test_event_run_uses_peek_and_skips_side_effects(monkeypatch):
+def test_event_run_uses_peek_and_books_live_delivery(monkeypatch):
     _patch_main_dependencies(monkeypatch)
     peek = MagicMock(return_value=1.5)
     update = MagicMock(return_value=1.5)
-    register = MagicMock()
+    register = MagicMock(return_value={})
     cons_data = MagicMock(return_value=0)
     saved: list[dict] = []
 
     monkeypatch.setattr(main_module.pv_tuner, "get_pv_delta_peek", peek)
     monkeypatch.setattr(main_module.pv_tuner, "get_pv_delta_and_update", update)
-    monkeypatch.setattr(main_module.optimizer, "register_consumer_hours", register)
+    monkeypatch.setattr(main_module.optimizer, "register_consumer_delivery", register)
     monkeypatch.setattr(main_module.cons_data_store, "record_and_maybe_flush", cons_data)
     monkeypatch.setattr(
         main_module.run_state,
@@ -88,7 +88,8 @@ def test_event_run_uses_peek_and_skips_side_effects(monkeypatch):
 
     peek.assert_called_once()
     update.assert_not_called()
-    register.assert_not_called()
+    register.assert_called_once()
+    assert register.call_args.kwargs["book_planned"] is False
     cons_data.assert_not_called()
     assert saved[0]["run_trigger"] == run_trigger
     assert saved[0]["event_trigger_snapshot"] == {"eauto_plugged_in": True}
@@ -104,7 +105,7 @@ def test_regular_run_uses_update_and_side_effects(monkeypatch):
 
     monkeypatch.setattr(main_module.pv_tuner, "get_pv_delta_peek", peek)
     monkeypatch.setattr(main_module.pv_tuner, "get_pv_delta_and_update", update)
-    monkeypatch.setattr(main_module.optimizer, "register_consumer_hours", register)
+    monkeypatch.setattr(main_module.optimizer, "register_consumer_delivery", register)
     monkeypatch.setattr(main_module.cons_data_store, "record_and_maybe_flush", cons_data)
     monkeypatch.setattr(
         main_module.run_state,
@@ -118,5 +119,6 @@ def test_regular_run_uses_update_and_side_effects(monkeypatch):
     update.assert_called_once()
     peek.assert_not_called()
     register.assert_called_once()
+    assert register.call_args.kwargs["book_planned"] is True
     cons_data.assert_called_once()
     assert saved[0]["run_trigger"] == TRIGGER_QUARTER_HOUR

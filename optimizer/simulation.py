@@ -558,6 +558,43 @@ def simulate_matched_baseline_horizon(
     return chart_rows
 
 
+def _round_savings_list(values: list | None, *, digits: int = 4) -> list[float]:
+    return [round(float(value), digits) for value in (values or [])]
+
+
+def build_savings_snapshot(savings_info: dict) -> dict:
+    """Kompakte Einsparungs-Kennzahlen für optimization_history (ohne Simulationszeilen)."""
+    required = (
+        "baseline_cost_euro",
+        "matched_baseline_cost_euro",
+        "optimized_cost_euro",
+        "savings_euro",
+        "savings_matched_euro",
+    )
+    for key in required:
+        if key not in savings_info:
+            raise ValueError(f"savings_info fehlt Feld {key!r}")
+
+    return {
+        "baseline_cost_euro": round(float(savings_info["baseline_cost_euro"]), 4),
+        "matched_baseline_cost_euro": round(
+            float(savings_info["matched_baseline_cost_euro"]), 4
+        ),
+        "optimized_cost_euro": round(float(savings_info["optimized_cost_euro"]), 4),
+        "savings_euro": round(float(savings_info["savings_euro"]), 4),
+        "savings_matched_euro": round(float(savings_info["savings_matched_euro"]), 4),
+        "hourly_savings_euro": _round_savings_list(
+            savings_info.get("hourly_savings_euro")
+        ),
+        "hourly_matched_baseline_cost_euro": _round_savings_list(
+            savings_info.get("hourly_matched_baseline_cost_euro")
+        ),
+        "hourly_optimized_cost_euro": _round_savings_list(
+            savings_info.get("hourly_optimized_cost_euro")
+        ),
+    }
+
+
 def calculate_optimization_savings(
     optimization_matrix: list,
     initial_soc: float,

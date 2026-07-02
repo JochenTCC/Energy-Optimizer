@@ -448,7 +448,7 @@
         },
         "forecast_when_absent": {
           "type": "boolean",
-          "description": "Nur bei daily_target_source=loxone: true = bei Abwesenheit (plugged_in≠1) Ladeplanung aus charging_schedule prognostizieren (car_available_from_hour, ready_by_hour, daily_rest_soc). false = E-Auto inaktiv bis Anschluss."
+          "description": "Nur bei daily_target_source=loxone: true = bei Abwesenheit (plugged_in≠1) Ladeplanung nur wenn Loxone eine parsebare Fertigstellungszeit (ready_by_time_name) liefert; false = E-Auto inaktiv bis Anschluss."
         },
         "target_soc_percent": {
           "type": "number",

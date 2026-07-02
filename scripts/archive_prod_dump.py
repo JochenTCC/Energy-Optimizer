@@ -22,19 +22,26 @@ ARCHIVE_FILES = (
 )
 
 
+def _dir_with_history(path: Path) -> Path | None:
+    if (path / "optimization_history.jsonl").is_file():
+        return path
+    return None
+
+
 def _resolve_source_dir(source: Path) -> Path:
     if source.is_dir():
-        if (source / "optimization_history.jsonl").is_file():
-            return source
-        nested = source / "data"
-        if nested.is_dir() and (nested / "optimization_history.jsonl").is_file():
-            return nested
-        extracted = source / "_full"
-        if extracted.is_dir() and (extracted / "optimization_history.jsonl").is_file():
-            return extracted
+        for candidate in (
+            source,
+            source / "runtime",
+            source / "data",
+            source / "_full",
+        ):
+            found = _dir_with_history(candidate)
+            if found is not None:
+                return found
         raise FileNotFoundError(
             f"Kein optimization_history.jsonl unter {source} "
-            "(erwartet Ordner, data/, _full/ oder .zip)"
+            "(erwartet Ordner, runtime/, data/, _full/ oder .zip)"
         )
     if source.is_file() and source.suffix.lower() == ".zip":
         target = source.parent / "_archive_extract"
@@ -43,7 +50,18 @@ def _resolve_source_dir(source: Path) -> Path:
         target.mkdir(parents=True)
         with zipfile.ZipFile(source, "r") as archive:
             archive.extractall(target)
-        return target
+        for candidate in (
+            target,
+            target / "runtime",
+            target / "data",
+        ):
+            found = _dir_with_history(candidate)
+            if found is not None:
+                return found
+        raise FileNotFoundError(
+            f"Kein optimization_history.jsonl in {source} "
+            "(ZIP mit runtime/ oder flachem Ordner erwartet)"
+        )
     raise FileNotFoundError(f"Quelle nicht gefunden: {source}")
 
 

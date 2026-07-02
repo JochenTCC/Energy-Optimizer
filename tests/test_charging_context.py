@@ -74,7 +74,7 @@ class TestAbsentAvailability:
 
 
 class TestLoxoneAbsentForecast:
-  def test_forecast_active_before_arrival(self):
+  def test_forecast_inactive_without_loxone_deadline(self):
       consumer = _eauto_consumer()
       horizon = datetime(2026, 6, 22, 17, 0)
       with patch.object(
@@ -84,14 +84,22 @@ class TestLoxoneAbsentForecast:
       ), _patch_eauto_capacity():
           ctx = cc.fetch_loxone_charging_context(consumer, horizon)
 
-      assert ctx["active"] is True
-      assert ctx["anticipated"] is True
-      assert ctx["plugged_in"] is False
-      assert ctx["available_from"] == datetime(2026, 6, 22, 19, 0)
-      assert ctx["deadline"] == datetime(2026, 6, 23, 7, 0)
-      assert ctx["use_time_window"] is True
-      assert ctx["target_kwh"] == pytest.approx(14.222, rel=1e-3)
-      assert "Prognose charging_schedule" in ctx["source_label"]
+      assert ctx["active"] is False
+      assert ctx["target_kwh"] == 0.0
+      assert "keine aktive Fertigstellungszeit" in ctx["source_label"]
+
+  def test_forecast_inactive_with_empty_loxone_deadline(self):
+      consumer = _eauto_consumer()
+      horizon = datetime(2026, 6, 22, 17, 0)
+      with patch.object(
+          cc.loxone_client, "fetch_loxone_generic_value", return_value=0
+      ), patch.object(
+          cc.loxone_client, "fetch_loxone_raw_value", return_value=""
+      ), _patch_eauto_capacity():
+          ctx = cc.fetch_loxone_charging_context(consumer, horizon)
+
+      assert ctx["active"] is False
+      assert ctx["target_kwh"] == 0.0
 
   def test_forecast_uses_loxone_fertig_um_when_absent(self):
       consumer = _eauto_consumer()

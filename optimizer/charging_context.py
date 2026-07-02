@@ -271,6 +271,11 @@ def _loxone_inactive_context(source_label: str) -> dict:
 
 def _loxone_absent_forecast_context(consumer: dict, horizon_start: datetime) -> dict:
     ready_raw = _loxone_ready_raw(consumer)
+    loxone_deadline = parse_loxone_ready_by_time(ready_raw, horizon_start)
+    if loxone_deadline is None:
+        return _loxone_inactive_context(
+            "loxone (abwesend, keine aktive Fertigstellungszeit in Loxone)"
+        )
     available_from = resolve_absent_availability(
         horizon_start, consumer, ready_raw=ready_raw
     )
@@ -278,13 +283,7 @@ def _loxone_absent_forecast_context(consumer: dict, horizon_start: datetime) -> 
         return _loxone_inactive_context(
             "loxone (abwesend, kein car_available_from_hour in Config)"
         )
-    deadline, from_loxone = resolve_charging_deadline(
-        consumer,
-        horizon_start,
-        available_from,
-        ready_raw=ready_raw,
-    )
-    if deadline is None or deadline <= available_from:
+    if loxone_deadline <= available_from:
         return _loxone_inactive_context(
             "loxone (abwesend, keine gültige Fertigstellungszeit)"
         )
@@ -297,19 +296,15 @@ def _loxone_absent_forecast_context(consumer: dict, horizon_start: datetime) -> 
         return _loxone_inactive_context(
             "loxone (abwesend, kein Ladeziel aus daily_rest_soc)"
         )
-    if from_loxone:
-        source_label = "loxone (abwesend, Prognose + FertigUm Loxone)"
-    else:
-        source_label = "loxone (abwesend, Prognose charging_schedule)"
     return {
         "active": True,
         "plugged_in": False,
         "anticipated": True,
         "available_from": available_from,
-        "deadline": deadline,
+        "deadline": loxone_deadline,
         "target_kwh": round(target_kwh, 3),
-        "use_time_window": not from_loxone,
-        "source_label": source_label,
+        "use_time_window": False,
+        "source_label": "loxone (abwesend, Prognose + FertigUm Loxone)",
     }
 
 
@@ -326,11 +321,7 @@ def fetch_loxone_charging_context(consumer: dict, horizon_start: datetime) -> di
         if sched.get("forecast_when_absent"):
             return _loxone_absent_forecast_context(consumer, horizon_start)
         return _loxone_inactive_context("loxone (nicht angeschlossen)")
-    ready_raw = (
-        loxone_client.fetch_loxone_raw_value(lox.get("ready_by_time_name", ""))
-        if lox.get("ready_by_time_name")
-        else None
-    )
+    ready_raw = _loxone_ready_raw(consumer)
     deadline = parse_loxone_ready_by_time(ready_raw, horizon_start)
     soc_val = (
         loxone_client.fetch_loxone_generic_value(lox.get("soc_at_plug_in_name", ""))
