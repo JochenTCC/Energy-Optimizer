@@ -1,0 +1,27 @@
+{
+  "id": "eauto_false_complete_2026-06-29",
+  "title": "E-Auto-Session faelschlich voll, Loxone-Sofortladen ohne Ernie",
+  "symptom": "Plan-Buchung setzte remaining=0 um 18:15; am 29.06. morgens Sofortladen ohne Ernie-Sollwerte",
+  "recorded_at": "2026-06-29",
+  "app_version": "1.10.6",
+  "archived_at": "2026-07-02T07:54:30+00:00",
+  "files": [
+    "optimization_history.jsonl",
+    "flexible_consumers_state.json",
+    "optimizer_run_state.json",
+    "live_optimization_debug.json",
+    "pv_counter_state.json"
+  ],
+  "regression": {
+    "session_start": "2026-06-28T09:32:01",
+    "deadline": "2026-06-29T07:45:00",
+    "corrected_target_kwh": 11.556,
+    "remaining_kwh_at_correction": 7.985,
+    "premature_remaining_zero_at": "2026-06-28T18:15:00",
+    "morning_immediate_charge_at": "2026-06-29T07:30:00",
+    "morning_remaining_zero_with_immediate_count_min": 4,
+    "min_live_kw_when_remaining_zero": 1.0,
+    "observed_planned_kwh_session_max": 8.32,
+    "observed_live_kwh_session_min": 9.0
+  }
+}

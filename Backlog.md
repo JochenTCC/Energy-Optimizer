@@ -1,10 +1,8 @@
 🗺️ Projekt-Roadmap & Backlog
 
 ## Offene Todos
-- [ ] E-Auto wurde am 29.06. nicht richtig aufgeladen - Verhalten prüfen
-- [] Verhalten fehlerhaft, wenn kein Ladewecker aktiv und Auto nicht angehängt ist 29.06.
 - [ ] PWM für E-Auto-Laden nur noch benutzen für Ströme < A_min, ansonsten ersetzen durch Mindestlademenge pro h (Zähler, der runterzählt und bei jedem Ladevorgang wieder geresettet wird -> Wenn Null, dann fünf Minuten laden mit Mindest-Strom)
-- [ ] Einsperpotenzial aufzeichnen, um Trends zu erkennen 
+- [ ] Optional den stündlichen Einspeisepreis von Awattar berücksichtigen und Potenzial-Simulation durchführen
 - [ ] Erinnerung am Monatsanfang für Einspeisepreis (E-Mail von Loxone!)
 - [ ] Bessere Verbrauchsoptimierung mit Geräten zur Temperaturkontrolle
   - [ ] Generell: Temperaturregelung bleibt eine "interne Logik"
@@ -70,6 +68,9 @@
   - [x] Ernie darüber Bescheid geben, wenn E-Auto SOFORT LADEN umgeschalten wird (als Event) und zur Berücksichtigung in der Optimierung
 - [x] Ergebnisse des Produktivlaufs in Sankey-Diagramm integrieren und getrennte Anzeige entfernen.
 - [x] Anzeige Plausibilität entfernen
+- [x] Verhalten fehlerhaft, wenn kein Ladewecker aktiv und Auto nicht angehängt ist 29.06.
+- [x] E-Auto wurde am 29.06. nicht richtig aufgeladen - Verhalten prüfen
+- [x] Einsperpotenzial aufzeichnen, um Trends zu erkennen 
 
 ### Log-Dateien (Review 2026-06)
 

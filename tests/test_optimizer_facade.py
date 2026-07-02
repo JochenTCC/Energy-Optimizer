@@ -24,6 +24,7 @@ def test_main_and_app_entry_points_are_callable() -> None:
         "battery_plan_kw_from_control",
         "register_consumer_hours",
         "overlay_main_run_on_rows",
+        "build_savings_snapshot",
         "calculate_optimization_savings",
     ):
         assert callable(getattr(optimizer, name)), f"optimizer.{name} ist nicht aufrufbar"

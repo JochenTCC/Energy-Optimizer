@@ -11,11 +11,13 @@ os.environ.setdefault("ENERGY_OPTIMIZER_OFFLINE", "1")
 
 from optimizer import charging_context as cc
 from optimizer import charging_session as cs
+from optimizer import delivery_tracking as dt
 from tests.fixtures import prod_dump_fixtures as pdf
 
 CASE_EAUTO = "eauto_deadline_missed_2026-06-27"
 CASE_URGENT = "eauto_urgent_deferred_cheap_hours_2026-06-28"
-ALL_CASES = (CASE_EAUTO, CASE_URGENT)
+CASE_FALSE_COMPLETE = "eauto_false_complete_2026-06-29"
+ALL_CASES = (CASE_EAUTO, CASE_URGENT, CASE_FALSE_COMPLETE)
 
 
 def _parse_ts(value: str) -> datetime:
@@ -182,6 +184,16 @@ def eauto_history() -> list[dict]:
 @pytest.fixture(scope="module")
 def urgent_manifest() -> dict:
     return pdf.load_manifest(CASE_URGENT)
+
+
+@pytest.fixture(scope="module")
+def false_complete_manifest() -> dict:
+    return pdf.load_manifest(CASE_FALSE_COMPLETE)
+
+
+@pytest.fixture(scope="module")
+def false_complete_history() -> list[dict]:
+    return pdf.load_jsonl(CASE_FALSE_COMPLETE)
 
 
 def test_prod_dump_archives_are_discoverable():
@@ -375,3 +387,95 @@ def test_prod_dump_urgent_rule_redundant_vs_deadline_only(urgent_manifest):
     assert without_urgent["breakdown"]["cheap_kwh"] == pytest.approx(
         with_urgent["breakdown"]["cheap_kwh"], abs=0.2
     )
+
+
+def _history_row_at(history: list[dict], prefix: str) -> dict:
+    for row in history:
+        if str(row.get("written_at", "")).startswith(prefix):
+            return row
+    raise AssertionError(f"Kein History-Eintrag mit Präfix {prefix!r}")
+
+
+def test_prod_dump_false_complete_documents_premature_zero(
+    false_complete_manifest,
+    false_complete_history,
+):
+    reg = false_complete_manifest["regression"]
+    zero_row = _history_row_at(
+        false_complete_history, reg["premature_remaining_zero_at"][:16]
+    )
+    rem = float((zero_row.get("consumer_remaining_kwh") or {}).get("eauto", -1))
+    assert rem == pytest.approx(0.0, abs=0.001)
+    live_kw = float((zero_row.get("flex_live_kw") or {}).get("eauto", 0.0))
+    assert live_kw >= float(reg["min_live_kw_when_remaining_zero"])
+
+
+def test_prod_dump_false_complete_morning_immediate_with_zero_remaining(
+    false_complete_manifest,
+    false_complete_history,
+):
+    reg = false_complete_manifest["regression"]
+    morning = _history_row_at(
+        false_complete_history, reg["morning_immediate_charge_at"][:16]
+    )
+    snap = morning.get("event_trigger_snapshot") or {}
+    rem = float((morning.get("consumer_remaining_kwh") or {}).get("eauto", -1))
+    assert snap.get("eauto_charge_immediate") is True
+    assert rem == pytest.approx(0.0, abs=0.001)
+
+    count = 0
+    window_start = _parse_ts(reg["morning_immediate_charge_at"])
+    window_end = _parse_ts(reg["deadline"]) + timedelta(hours=1)
+    for row in false_complete_history:
+        ts = _parse_ts(row["written_at"])
+        if not (window_start <= ts <= window_end):
+            continue
+        snap = row.get("event_trigger_snapshot") or {}
+        rem = float((row.get("consumer_remaining_kwh") or {}).get("eauto", -1))
+        if rem == 0.0 and snap.get("eauto_charge_immediate") is True:
+            count += 1
+    assert count >= int(reg["morning_remaining_zero_with_immediate_count_min"])
+
+
+def test_prod_dump_false_complete_plausibility_reopens_session(
+    false_complete_manifest,
+    false_complete_history,
+):
+    reg = false_complete_manifest["regression"]
+    consumer = _eauto_consumer()
+    ctx = {
+        "active": True,
+        "plugged_in": True,
+        "deadline": _parse_ts(reg["deadline"]),
+        "target_kwh": float(reg["corrected_target_kwh"]),
+        "use_time_window": False,
+    }
+    morning = _history_row_at(
+        false_complete_history, reg["morning_immediate_charge_at"][:16]
+    )
+    delivered = float(reg["corrected_target_kwh"])
+    live_kw = float((morning.get("flex_live_kw") or {}).get("eauto", 0.0))
+    effective, note = dt.assess_session_delivery(
+        consumer,
+        ctx,
+        delivered,
+        live_kw=live_kw,
+        trigger_snapshot=morning.get("event_trigger_snapshot"),
+    )
+    assert note is not None
+    assert note["role"] == "session_reopened"
+    assert effective < delivered
+
+
+def test_prod_dump_false_complete_live_booking_differs_from_planned(
+    false_complete_manifest,
+    false_complete_history,
+):
+    reg = false_complete_manifest["regression"]
+    start = _parse_ts(reg["session_start"])
+    end = _parse_ts(reg["premature_remaining_zero_at"])
+    planned_kwh = _integrate_kw(false_complete_history, start, end, "consumer_powers_kw")
+    live_kwh = _integrate_kw(false_complete_history, start, end, "flex_live_kw")
+    assert planned_kwh <= float(reg["observed_planned_kwh_session_max"]) + 0.5
+    assert live_kwh >= float(reg["observed_live_kwh_session_min"]) - 0.5
+    assert live_kwh > planned_kwh

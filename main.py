@@ -106,10 +106,15 @@ def main(run_trigger: str = TRIGGER_QUARTER_HOUR):
         targets,
         consumers=live_consumers,
     )
+    event_trigger_snapshot = fetch_trigger_snapshot(trigger_specs)
+    delivery_plausibility: dict = {}
     consumer_remaining = optimizer.get_consumer_remaining_kwh(
         consumer_daily_targets_kwh=targets,
         optimization_matrix=optimization_matrix,
         charging_contexts=charging_contexts,
+        live_flex_kw=flex_kw_for_matrix,
+        trigger_snapshot=event_trigger_snapshot,
+        delivery_plausibility=delivery_plausibility,
     )
     for consumer in live_consumers:
         lox = (consumer.get("charging_schedule") or {}).get("loxone") or {}
@@ -137,12 +142,6 @@ def main(run_trigger: str = TRIGGER_QUARTER_HOUR):
         sum(consumer_powers.values()),
         battery_params["max_power_kw"],
     )
-    if not event_run:
-        optimizer.register_consumer_hours(
-            consumer_powers,
-            charging_contexts=charging_contexts,
-            consumers=live_consumers,
-        )
 
     logger.info(
         "Berechnete Werte für Loxone -> MODE: %s | TARGET_POWER: %s kW | "
@@ -170,6 +169,50 @@ def main(run_trigger: str = TRIGGER_QUARTER_HOUR):
     total_kw = live_power["house"] if live_power else None
     flex_kw = loxone_client.fetch_flexible_consumers_live_kw(fallbacks=consumer_powers)
     logger.info("cons_data Flex live (kW): %s", flex_kw)
+
+    loxone_sent = loxone_client.build_sent_loxone_snapshot(
+        mode,
+        target_power,
+        target_soc,
+        consumer_powers,
+        charging_contexts,
+        consumer_pv_follow,
+    )
+    sent_flex_kw: dict[str, float] = {}
+    for consumer in live_consumers:
+        outputs = consumer.get("loxone_outputs") or {}
+        setpoint_name = outputs.get("power_setpoint_name", "")
+        if not setpoint_name:
+            continue
+        sent_flex_kw[consumer["id"]] = float(loxone_sent.get(setpoint_name, 0.0) or 0.0)
+
+    delivery_compliance = optimizer.register_consumer_delivery(
+        consumer_powers,
+        charging_contexts=charging_contexts,
+        consumers=live_consumers,
+        live_flex_kw=flex_kw,
+        sent_flex_kw=sent_flex_kw,
+        book_planned=not event_run,
+    )
+
+    savings_snapshot = None
+    try:
+        savings_info = optimizer.calculate_optimization_savings(
+            optimization_matrix,
+            float(current_soc),
+            consumer_daily_targets_kwh=targets,
+        )
+        savings_snapshot = optimizer.build_savings_snapshot(savings_info)
+        logger.info(
+            "Prognostizierte Ersparnis (24h): %.3f € vs BL Ziel "
+            "(%.3f € optimiert / %.3f € BL Ziel)",
+            savings_snapshot["savings_matched_euro"],
+            savings_snapshot["optimized_cost_euro"],
+            savings_snapshot["matched_baseline_cost_euro"],
+        )
+    except Exception as exc:
+        logger.warning("Einsparungs-Prognose konnte nicht berechnet werden: %s", exc)
+
     if not event_run:
         try:
             written = cons_data_store.record_and_maybe_flush(
@@ -185,16 +228,6 @@ def main(run_trigger: str = TRIGGER_QUARTER_HOUR):
     consumption_snapshot = None
     if live_power:
         consumption_snapshot = live_consumption.build_consumption_snapshot(live_power, flex_kw)
-
-    loxone_sent = loxone_client.build_sent_loxone_snapshot(
-        mode,
-        target_power,
-        target_soc,
-        consumer_powers,
-        charging_contexts,
-        consumer_pv_follow,
-    )
-    event_trigger_snapshot = fetch_trigger_snapshot(trigger_specs)
 
     try:
         run_payload = {
@@ -226,6 +259,9 @@ def main(run_trigger: str = TRIGGER_QUARTER_HOUR):
                 k: int(v) for k, v in consumer_pv_follow.items()
             },
             "flex_live_kw": flex_kw,
+            "delivery_compliance": delivery_compliance,
+            "delivery_plausibility": delivery_plausibility,
+            "savings_snapshot": savings_snapshot,
             "consumption_snapshot": consumption_snapshot,
             "current_hour": int(current_hour),
         }

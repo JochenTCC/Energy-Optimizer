@@ -28,6 +28,11 @@ from .charging_session import (
     normalize_consumer_state,
     session_delivered_kwh,
 )
+from .delivery_tracking import (
+    assess_session_delivery,
+    booking_power_kw,
+    build_delivery_compliance_row,
+)
 from .battery import (
     MODE_AUTOMATIK,
     MODE_ENTLADESPERRE,
@@ -45,6 +50,7 @@ from .battery import (
 from .milp import milp_optimizer
 from .simulation import (
     calculate_optimization_savings,
+    build_savings_snapshot,
     calculate_step_cost_euro_from_row as _calculate_step_cost_euro_from_row,
     delivered_flex_kwh_from_rows as _delivered_flex_kwh_from_rows,
     flexible_consumer_power_kw as _flexible_consumer_power_kw,
@@ -86,11 +92,13 @@ __all__ = [
     "build_applied_targets_detail",
     "build_baseline_targets_detail",
     "build_energy_comparison_detail",
+    "build_savings_snapshot",
     "calculate_optimization_savings",
     "get_consumer_remaining_kwh",
     "get_spa_remaining_kwh",
     "milp_optimizer",
     "overlay_main_run_on_rows",
+    "register_consumer_delivery",
     "register_consumer_hours",
     "register_spa_hour",
     "resolve_applied_daily_targets",
@@ -200,6 +208,10 @@ def get_consumer_remaining_kwh(
     optimization_matrix: list | None = None,
     consumer_daily_targets_kwh: dict | None = None,
     charging_contexts: dict[str, dict] | None = None,
+    *,
+    live_flex_kw: dict[str, float] | None = None,
+    trigger_snapshot: dict | None = None,
+    delivery_plausibility: dict[str, dict] | None = None,
 ) -> dict[str, float]:
     """Verbleibende Zielenergie aller optimierbaren Verbraucher (inkl. Loxone E-Auto)."""
     from data import consumer_targets
@@ -222,12 +234,24 @@ def get_consumer_remaining_kwh(
     else:
         daily_targets = consumer_targets.resolve_consumer_daily_targets()
     remaining = {}
+    plausibility = delivery_plausibility if delivery_plausibility is not None else {}
+    plausibility.clear()
     for consumer in active:
         cid = consumer["id"]
         daily_target = float(daily_targets.get(cid, consumer["daily_target_kwh"]))
         ctx = (contexts or {}).get(cid)
         if is_charging_session_context(consumer, ctx):
-            already = session_delivered_kwh(sessions, cid)
+            booked = session_delivered_kwh(sessions, cid)
+            live_kw = (live_flex_kw or {}).get(cid)
+            already, note = assess_session_delivery(
+                consumer,
+                ctx,
+                booked,
+                live_kw=live_kw,
+                trigger_snapshot=trigger_snapshot,
+            )
+            if note is not None:
+                plausibility[cid] = note
         else:
             already = float(delivered.get(cid, 0.0))
         remaining[cid] = max(0.0, daily_target - already)
@@ -239,33 +263,77 @@ def _optimization_interval_hours() -> float:
     return schedule.optimization_interval_hours()
 
 
-def register_consumer_hours(
+def register_consumer_delivery(
     consumer_powers: dict[str, float],
     charging_contexts: dict[str, dict] | None = None,
     consumers: list | None = None,
-) -> None:
-    """Bucht die gelieferte Energie aller Verbraucher im aktuellen Optimierungsintervall."""
-    if not consumer_powers:
-        return
+    *,
+    live_flex_kw: dict[str, float] | None = None,
+    sent_flex_kw: dict[str, float] | None = None,
+    book_planned: bool = True,
+) -> dict[str, dict]:
+    """Bucht gelieferte Energie und liefert Soll-Ist-Kennzahlen je Verbraucher."""
     interval_h = _optimization_interval_hours()
     active = _active_consumers(consumers)
     consumers_by_id = _consumers_by_id(active)
     state = _load_consumer_state(charging_contexts, active)
     delivered = dict(state.get("delivered", {}))
     sessions = dict(state.get("charging_sessions", {}))
-    for cid, power_kw in consumer_powers.items():
+    compliance: dict[str, dict] = {}
+
+    for consumer in active:
+        cid = consumer["id"]
+        planned_kw = float(consumer_powers.get(cid, 0.0) or 0.0)
+        live_kw = (live_flex_kw or {}).get(cid)
+        sent_kw = (sent_flex_kw or {}).get(cid)
+        ctx = (charging_contexts or {}).get(cid)
+        power_kw = booking_power_kw(
+            consumer,
+            ctx,
+            planned_kw=planned_kw,
+            live_kw=live_kw,
+            book_planned=book_planned,
+        )
+        compliance[cid] = build_delivery_compliance_row(
+            consumer,
+            ctx,
+            planned_kw=planned_kw,
+            live_kw=live_kw,
+            sent_kw=sent_kw,
+            booked_kw=power_kw,
+        )
         if power_kw <= 0:
             continue
         delta_kwh = power_kw * interval_h
-        consumer = consumers_by_id.get(cid)
-        ctx = (charging_contexts or {}).get(cid)
-        if consumer is not None and is_charging_session_context(consumer, ctx):
+        if is_charging_session_context(consumer, ctx):
             add_session_delivery(sessions, cid, delta_kwh)
         else:
             delivered[cid] = round(float(delivered.get(cid, 0.0)) + delta_kwh, 3)
+
     state["delivered"] = delivered
     state["charging_sessions"] = sessions
     _save_consumer_state(state)
+    return compliance
+
+
+def register_consumer_hours(
+    consumer_powers: dict[str, float],
+    charging_contexts: dict[str, dict] | None = None,
+    consumers: list | None = None,
+    *,
+    live_flex_kw: dict[str, float] | None = None,
+    sent_flex_kw: dict[str, float] | None = None,
+    book_planned: bool = True,
+) -> dict[str, dict]:
+    """Legacy-Alias für register_consumer_delivery."""
+    return register_consumer_delivery(
+        consumer_powers,
+        charging_contexts=charging_contexts,
+        consumers=consumers,
+        live_flex_kw=live_flex_kw,
+        sent_flex_kw=sent_flex_kw,
+        book_planned=book_planned,
+    )
 
 
 def get_spa_remaining_kwh() -> float:

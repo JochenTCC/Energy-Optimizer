@@ -31,6 +31,9 @@ class HistoryTimelineResult:
     cumulative_costs_euro: list[float]
     slot_consumption_kwh: list[float]
     cumulative_consumption_kwh: list[float]
+    projected_savings_cumulative_euro: list[float]
+    projected_savings_available: bool
+    latest_projected_savings_euro: float | None
     present_slot_count: int
     held_slot_count: int
     missing_slot_count: int
@@ -211,6 +214,87 @@ def _cumulative(values: list[float]) -> list[float]:
     return result
 
 
+def _entry_savings_snapshot(entry: dict[str, Any]) -> dict[str, Any] | None:
+    snapshot = entry.get("savings_snapshot")
+    if not isinstance(snapshot, dict):
+        return None
+    if not snapshot.get("hourly_savings_euro"):
+        return None
+    return snapshot
+
+
+def _projected_hourly_savings_from_slots(
+    by_slot: dict[datetime, dict[str, Any]],
+    slot_starts: list[datetime],
+) -> list[float]:
+    """
+    Pro Clock-Stunde: Stunden-Ersparnis aus dem letzten Lauf dieser Stunde.
+
+    Verwendet hourly_savings_euro[0] (Ersparnis für die laufende Stunde).
+    Fehlende Stunden werden mit 0.0 befüllt.
+    """
+    hours = len(slot_starts) // 4
+    hourly: list[float] = []
+    step = timedelta(minutes=QUARTER_HOUR_MINUTES)
+    for hour in range(hours):
+        hour_start = slot_starts[hour * 4]
+        entry = None
+        for quarter in range(4):
+            slot = hour_start + step * quarter
+            candidate = by_slot.get(slot)
+            if candidate is not None and _entry_savings_snapshot(candidate) is not None:
+                entry = candidate
+        if entry is None:
+            hourly.append(0.0)
+            continue
+        snapshot = _entry_savings_snapshot(entry)
+        assert snapshot is not None
+        values = snapshot.get("hourly_savings_euro") or []
+        hourly.append(float(values[0]) if values else 0.0)
+    return hourly
+
+
+def _hourly_to_slot_cumulative(hourly: list[float], slot_count: int) -> list[float]:
+    """Kumulierte Stunden-Ersparnis auf Viertelstunden-Slots (HV-Linie)."""
+    if not hourly:
+        return [0.0] * slot_count
+    hourly_cum: list[float] = []
+    total = 0.0
+    for value in hourly:
+        total += float(value)
+        hourly_cum.append(round(total, 4))
+    slot_values: list[float] = []
+    for hour_total in hourly_cum:
+        slot_values.extend([hour_total] * 4)
+    if len(slot_values) < slot_count:
+        slot_values.extend([slot_values[-1] if slot_values else 0.0] * (slot_count - len(slot_values)))
+    return slot_values[:slot_count]
+
+
+def _latest_projected_savings_euro(
+    by_slot: dict[datetime, dict[str, Any]],
+) -> float | None:
+    latest_at: datetime | None = None
+    latest_value: float | None = None
+    for completed, entry in (
+        (_parse_completed_at(entry), entry)
+        for entry in by_slot.values()
+    ):
+        if completed is None:
+            continue
+        snapshot = _entry_savings_snapshot(entry)
+        if snapshot is None:
+            continue
+        if latest_at is None or completed > latest_at:
+            latest_at = completed
+            latest_value = float(snapshot.get("savings_matched_euro", 0.0))
+    return latest_value
+
+
+def _projected_savings_available(by_slot: dict[datetime, dict[str, Any]]) -> bool:
+    return any(_entry_savings_snapshot(entry) is not None for entry in by_slot.values())
+
+
 def build_history_timeline(
     offset_days: int,
     now: datetime | None = None,
@@ -245,6 +329,10 @@ def build_history_timeline(
 
     slot_costs = [_slot_cost_euro(row, sell_price_cent) for row in rows]
     slot_kwh = [_slot_consumption_kwh(row) for row in rows]
+    slot_starts = _slot_starts(window_start)
+    projected_hourly = _projected_hourly_savings_from_slots(by_slot, slot_starts)
+    projected_savings_cum = _hourly_to_slot_cumulative(projected_hourly, len(slot_starts))
+    savings_available = _projected_savings_available(by_slot)
 
     return HistoryTimelineResult(
         rows=rows,
@@ -252,6 +340,9 @@ def build_history_timeline(
         cumulative_costs_euro=_cumulative(slot_costs),
         slot_consumption_kwh=slot_kwh,
         cumulative_consumption_kwh=_cumulative(slot_kwh),
+        projected_savings_cumulative_euro=projected_savings_cum,
+        projected_savings_available=savings_available,
+        latest_projected_savings_euro=_latest_projected_savings_euro(by_slot),
         present_slot_count=present,
         held_slot_count=held,
         missing_slot_count=missing,
