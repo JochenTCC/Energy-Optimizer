@@ -1,6 +1,8 @@
 *.csv
+!tests/fixtures/backtesting/cons_data_hourly.csv
 config.py
 config.json
+!tests/fixtures/backtesting/config.json
 config/config.json
 config/backtesting_scenarios.json
 config/remote_backtesting.json

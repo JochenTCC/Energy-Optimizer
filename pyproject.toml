@@ -49,4 +49,5 @@ include = [
 testpaths = ["tests"]
 markers = [
     "requires_loxone: Integrationstest gegen echten Loxone-Miniserver",
+    "slow: Längerer Backtesting- oder MILP-Integrationslauf",
 ]

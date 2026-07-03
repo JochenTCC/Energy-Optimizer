@@ -1,0 +1,25 @@
+{
+    "cbc_gap_rel": 0.10,
+    "cbc_strict_time_limit_sec": 3,
+    "scenarios": [
+        {
+            "id": "fixture_5kwh_fixed",
+            "label": "Fixture 5 kWh fixe Einspeise",
+            "settings": {
+                "k_push_cent": 3.5,
+                "feed_in_mode": "fixed",
+                "pv_tilt": 18,
+                "pv_azimuth": 28,
+                "pv_kwp": 6.0,
+                "battery_max_power_kw": 2.5,
+                "battery_efficiency": 0.95,
+                "battery_capacity_kwh": 5.0,
+                "battery_min_soc": 10.0,
+                "battery_max_soc": 100.0,
+                "threshold_power": 0.02,
+                "latitude": 47.404,
+                "longitude": 9.743
+            }
+        }
+    ]
+}
