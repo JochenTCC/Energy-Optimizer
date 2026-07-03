@@ -31,3 +31,7 @@ Wenn die API für späte Stunden des 24h-Horizonts noch keine Preise liefert, **
 ## Historische Preise
 
 Für **Historischer Tag** und **Backtesting**: `file_paths_battery_simulation.price_source`, `price_provider`, `price_range` und ggf. `path_price` (Energy-Charts-CSV, Zone `energy_charts_bzn`).
+
+### Monatliche Fixtarife (Backtesting)
+
+In `config/backtesting_scenarios.json` kann `fixed_monthly_feed_in_rates` die aWATTar-SUNNY-Fixwerte pro Monat enthalten. Bei Szenarien mit `feed_in_mode: "fixed"` nutzt das Backtesting diese Tabelle statt des konstanten `k_push_cent` aus dem Szenario. Live und der Modus **Historischer Tag** verwenden weiterhin `runtime_settings.k_push_cent`.

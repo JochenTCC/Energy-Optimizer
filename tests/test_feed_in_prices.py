@@ -1,6 +1,8 @@
 """Tests für stündliche vs. fixe Einspeisevergütung."""
 from __future__ import annotations
 
+from datetime import datetime
+
 import pytest
 
 from data.feed_in_prices import (
@@ -13,6 +15,7 @@ from data.feed_in_prices import (
     k_push_act_for_matrix_row,
     resolve_k_push_act,
     validate_feed_in_mode,
+    validate_fixed_monthly_feed_in_rates,
 )
 
 
@@ -79,3 +82,60 @@ def test_k_push_act_for_matrix_row_prefers_matrix_value():
 def test_k_push_act_for_matrix_row_uses_fallback():
     row = {"k_act": 30.0}
     assert k_push_act_for_matrix_row(row, 3.5) == 3.5
+
+
+def test_fixed_mode_uses_monthly_tariff_from_backtesting_table():
+    tariffs = validate_fixed_monthly_feed_in_rates([
+        {"year": 2026, "month": 6, "tariff_cent_kwh": 3.60},
+        {"year": 2026, "month": 7, "tariff_cent_kwh": 6.46},
+    ])
+    settings = FeedInSettings(
+        mode=FEED_IN_MODE_FIXED,
+        k_push_cent=99.0,
+        fee_factor=0.0,
+        fix_cent=0.0,
+        monthly_fixed_tariffs=tariffs,
+    )
+    june = datetime(2026, 6, 25, 12, 0)
+    july = datetime(2026, 7, 1, 0, 0)
+    assert resolve_k_push_act(None, settings, slot_datetime=june) == pytest.approx(3.60)
+    assert resolve_k_push_act(None, settings, slot_datetime=july) == pytest.approx(6.46)
+
+
+def test_fixed_mode_monthly_tariff_requires_slot_datetime():
+    tariffs = validate_fixed_monthly_feed_in_rates([
+        {"year": 2026, "month": 6, "tariff_cent_kwh": 3.60},
+    ])
+    settings = FeedInSettings(
+        mode=FEED_IN_MODE_FIXED,
+        k_push_cent=3.5,
+        fee_factor=0.0,
+        fix_cent=0.0,
+        monthly_fixed_tariffs=tariffs,
+    )
+    with pytest.raises(ValueError, match="slot_datetime"):
+        resolve_k_push_act(None, settings)
+
+
+def test_enrich_matrix_fixed_mode_uses_slot_month():
+    matrix = [
+        {
+            "hour": 0,
+            "k_act": 20.0,
+            "expected_p_pv": 1.0,
+            "expected_p_act": 1.0,
+            "slot_datetime": datetime(2026, 6, 25, 10, 0),
+        }
+    ]
+    tariffs = validate_fixed_monthly_feed_in_rates([
+        {"year": 2026, "month": 6, "tariff_cent_kwh": 3.60},
+    ])
+    settings = FeedInSettings(
+        mode=FEED_IN_MODE_FIXED,
+        k_push_cent=99.0,
+        fee_factor=0.0,
+        fix_cent=0.0,
+        monthly_fixed_tariffs=tariffs,
+    )
+    enrich_matrix_feed_in_prices(matrix, settings)
+    assert matrix[0]["k_push_act"] == pytest.approx(3.60)

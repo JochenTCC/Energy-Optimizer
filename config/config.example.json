@@ -13,6 +13,12 @@
         "tie_break_on_epsilon": 0.001,
         "tie_break_time_epsilon": 0.0001
     },
+    "battery_wear": {
+        "enabled": true,
+        "replacement_cost_euro": 1500,
+        "expected_cycles": 6000,
+        "cycle_cost_fraction": 0.5
+    },
     "system": {
         "global_timeout": 10,
         "loop_timeout": 900,

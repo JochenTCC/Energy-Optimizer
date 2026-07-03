@@ -387,7 +387,7 @@ def main(argv: list[str] | None = None):
         f"24h-Fenster endend um ready_by_hour (z. B. {ready_h})"
     )
 
-    ref_settings = config.get_feed_in_settings()
+    ref_settings = config.get_backtesting_feed_in_settings()
     scenario_labels = config.get_scenario_labels()
     labels = _all_labels(scenario_labels)
 

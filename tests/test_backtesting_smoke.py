@@ -123,7 +123,7 @@ def test_logged_day_milp_skips_urgent_deadline_constraint(
         smoke_anchor.to_pydatetime(),
         historical_cache,
         smoke_prices_df,
-        feed_in_settings=config.get_feed_in_settings(
+        feed_in_settings=config.get_backtesting_feed_in_settings(
             runtime_override=runtime_scenario_params
         ),
     )
@@ -185,7 +185,7 @@ def test_backtesting_reference_costs_single_window(
     runtime_scenario_params: dict,
 ):
     day = smoke_anchor.normalize()
-    ref_settings = config.get_feed_in_settings(runtime_override=runtime_scenario_params)
+    ref_settings = config.get_backtesting_feed_in_settings(runtime_override=runtime_scenario_params)
     df = compute_historical_reference_costs(
         day,
         day,

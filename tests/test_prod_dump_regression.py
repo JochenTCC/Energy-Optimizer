@@ -157,7 +157,7 @@ def _solve_urgent_dump_milp(
         "live_modus_a_min_remaining_kwh": 2.8,
         "tie_break_on_epsilon": 0.001,
         "tie_break_time_epsilon": 0.0001,
-    })
+    }, wear_cent_per_kwh=0.0)
     _add_consumer_delivery_constraints(
         model,
         matrix,

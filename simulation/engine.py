@@ -306,7 +306,9 @@ def compute_historical_reference_costs(
             slot_datetimes, total_load, pv_profile, brutto_prices, epex_prices
         ):
             timestamps.append(slot_dt)
-            k_push = feed_in_prices.resolve_k_push_act(epex, feed_in_settings)
+            k_push = feed_in_prices.resolve_k_push_act(
+                epex, feed_in_settings, slot_datetime=slot_dt
+            )
             costs.append(
                 _hour_cost_without_optimization(load, pv, price, k_push)
             )
@@ -421,7 +423,7 @@ def run_simulation(
         )
 
     battery_params = _scenario_to_battery_params(scenario_params)
-    feed_in_settings = config.get_feed_in_settings(runtime_override=scenario_params)
+    feed_in_settings = config.get_backtesting_feed_in_settings(runtime_override=scenario_params)
     gap_token = set_cbc_gap_rel_override(config.get_backtesting_cbc_gap_rel())
     limit_token = set_cbc_strict_time_limit_override(
         config.get_backtesting_cbc_strict_time_limit_sec()

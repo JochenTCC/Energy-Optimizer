@@ -17,6 +17,10 @@
       "$ref": "#/definitions/eauto_milp",
       "description": "E-Auto MILP: Live-Schwelle Modus A/B und Tie-Break-Koeffizienten (Pflicht)."
     },
+    "battery_wear": {
+      "$ref": "#/definitions/battery_wear",
+      "description": "Batterieverschleiß in der MILP-Zielfunktion (lineares Amortisationsmodell)."
+    },
     "system": {
       "$ref": "#/definitions/system",
       "description": "HTTP-Timeouts und Intervall der Optimierungs-Schleife (main.py)."
@@ -98,6 +102,33 @@
           "type": "number",
           "minimum": 0,
           "description": "ε₂ für ε₂·Σ t·on[t] in der MILP-Zielfunktion (E-Auto); soll ≪ min(k_act) sein."
+        }
+      }
+    },
+    "battery_wear": {
+      "type": "object",
+      "description": "Verschleißkosten für Batterie-Durchsatz (Laden + Entladen) in der MILP-Zielfunktion.",
+      "required": ["enabled"],
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "false = kein Verschleiß-Term (explizit deaktiviert); true = Parameter unten erforderlich."
+        },
+        "replacement_cost_euro": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Ersatzkosten der Batterie in Euro (z. B. 1500 für 5 kWh)."
+        },
+        "expected_cycles": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Angenommene Vollzyklen bis Ersatz (z. B. 6000)."
+        },
+        "cycle_cost_fraction": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "description": "Anteil der Ersatzkosten, der zyklenbedingt ist (Rest: Kalenderalterung), z. B. 0.5."
         }
       }
     },

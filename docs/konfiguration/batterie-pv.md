@@ -17,6 +17,21 @@ Diese Parameter beschreiben die physische Anlage und fließen in die MILP-Optimi
 | `battery_end_soc_equals_start` | bool | SOC am Ende des 24h-Horizonts = Start-SOC (verhindert künstliches „Ausverkaufen“ am Planungsende) |
 | `threshold_power` | Anteil | Relativ zu `battery_max_power_kw` (z. B. `0.2` = 20 %). Schwellwert für Modus-Erkennung und Entscheidung Zwangsentladen vs. Automatik |
 
+## Batterieverschleiß (`battery_wear`)
+
+Lineares Amortisationsmodell in der MILP-Zielfunktion. Pro kWh Durchsatz (Laden **oder** Entladen) wird ein Verschleiß-Anteil addiert:
+
+`ct/kWh = cycle_cost_fraction × replacement_cost_euro / expected_cycles / battery_capacity_kwh × 100`
+
+Beispiel (5 kWh, 1500 €, 6000 Zyklen, 50 % zyklenbedingt): **2,5 ct/kWh**.
+
+| Parameter | Bedeutung |
+|-----------|-----------|
+| `enabled` | `false` = kein Verschleiß-Term (explizit aus); `true` = Parameter unten Pflicht |
+| `replacement_cost_euro` | Ersatzkosten der Batterie |
+| `expected_cycles` | Angenommene Vollzyklen bis Ersatz |
+| `cycle_cost_fraction` | Anteil der Kosten durch Zyklen (Rest: Kalenderalterung) |
+
 ## Sidebar vs. `config.json`
 
 In der App-Sidebar sind dieselben Werte editierbar (Leistungsschwelle dort in **Prozent** der max. Batterieleistung). Nach „Alle Änderungen übernehmen“ landen sie in `runtime_settings`.
