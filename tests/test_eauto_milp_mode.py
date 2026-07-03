@@ -268,7 +268,7 @@ class TestEautoTieBreak:
         )
         from optimizer.milp import _add_consumer_delivery_constraints, _add_milp_objective
 
-        _add_milp_objective(model, matrix, 3.5, params)
+        _add_milp_objective(model, matrix, 3.5, params, wear_cent_per_kwh=0.0)
         _add_consumer_delivery_constraints(
             model,
             matrix,

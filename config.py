@@ -661,6 +661,16 @@ class Config:
 
         return validate_eauto_milp_params(self._raw_config.get("eauto_milp"))
 
+    def get_battery_wear_cent_per_kwh(self, capacity_kwh: float) -> float:
+        """Verschleiß ct/kWh Durchsatz für MILP; 0 wenn battery_wear.enabled=false."""
+        from optimizer.battery_wear import (
+            battery_wear_cent_per_kwh_from_config,
+            validate_battery_wear_config,
+        )
+
+        wear = validate_battery_wear_config(self._raw_config.get("battery_wear"))
+        return battery_wear_cent_per_kwh_from_config(wear, float(capacity_kwh))
+
     def get_swimspa_settings(self) -> dict:
         """Legacy-Hilfsfunktion: liefert den SwimSpa-Verbraucher oder Defaults."""
         consumer = self._consumer_by_id("swimspa")
@@ -680,6 +690,31 @@ class Config:
         runtime = runtime_override if runtime_override is not None else self._raw_config["runtime_settings"]
         awattar = self._raw_config.get("awattar", {})
         return feed_in_settings_from_dict(runtime, awattar)
+
+    def get_backtesting_fixed_monthly_feed_in_rates(
+        self,
+    ) -> tuple[tuple[int, int, float], ...] | None:
+        from data.feed_in_prices import validate_fixed_monthly_feed_in_rates
+
+        raw = self._load_backtesting_scenarios_document().get("fixed_monthly_feed_in_rates")
+        if raw is None:
+            return None
+        return validate_fixed_monthly_feed_in_rates(raw)
+
+    def get_backtesting_feed_in_settings(self, runtime_override: dict | None = None):
+        """Einspeise-Settings für Backtesting inkl. monatlicher Fixtarife."""
+        from data.feed_in_prices import FEED_IN_MODE_FIXED, feed_in_settings_from_dict, validate_feed_in_mode
+
+        runtime = runtime_override if runtime_override is not None else self._raw_config["runtime_settings"]
+        awattar = self._raw_config.get("awattar", {})
+        monthly = None
+        if validate_feed_in_mode(runtime.get("feed_in_mode", FEED_IN_MODE_FIXED)) == FEED_IN_MODE_FIXED:
+            monthly = self.get_backtesting_fixed_monthly_feed_in_rates()
+        return feed_in_settings_from_dict(
+            runtime,
+            awattar,
+            monthly_fixed_tariffs=monthly,
+        )
 
     def get_threshold_power(self) -> float:
         """Relativer Leistungsschwellenwert (Anteil von battery_max_power_kw)."""
@@ -927,12 +962,20 @@ def get_eauto_milp_params() -> dict[str, float]:
     return CONFIG.get_eauto_milp_params()
 
 
+def get_battery_wear_cent_per_kwh(capacity_kwh: float) -> float:
+    return CONFIG.get_battery_wear_cent_per_kwh(capacity_kwh)
+
+
 def get_push_price_cent() -> float:
     return CONFIG.get_push_price_cent()
 
 
 def get_feed_in_settings(runtime_override: dict | None = None):
     return CONFIG.get_feed_in_settings(runtime_override=runtime_override)
+
+
+def get_backtesting_feed_in_settings(runtime_override: dict | None = None):
+    return CONFIG.get_backtesting_feed_in_settings(runtime_override=runtime_override)
 
 
 def get_threshold_power() -> float:

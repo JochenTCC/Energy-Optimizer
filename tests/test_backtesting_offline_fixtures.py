@@ -118,7 +118,7 @@ def test_reference_costs_on_fixture(
 
     del backtesting_fixtures
     day = pd.Timestamp(LOW_EAUTO_DAY)
-    ref_settings = config.get_feed_in_settings(runtime_override=fixture_scenario)
+    ref_settings = config.get_backtesting_feed_in_settings(runtime_override=fixture_scenario)
     df = compute_historical_reference_costs(
         day,
         day,

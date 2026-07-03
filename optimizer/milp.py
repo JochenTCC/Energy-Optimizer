@@ -416,6 +416,8 @@ def _add_milp_objective(
     matrix: list[dict[str, Any]],
     fallback_k_push: float,
     eauto_milp_params: dict[str, float] | None,
+    *,
+    wear_cent_per_kwh: float,
 ) -> None:
     energy_cost = pulp.lpSum([
         model.p_grid_buy[t] * matrix[t]["k_act"]
@@ -423,6 +425,12 @@ def _add_milp_objective(
         * k_push_act_for_matrix_row(matrix[t], fallback_k_push)
         for t in range(model.horizon)
     ])
+    wear_cost = 0.0
+    if wear_cent_per_kwh > 0.0:
+        wear_cost = wear_cent_per_kwh * pulp.lpSum(
+            model.p_charge[t] + model.p_discharge[t]
+            for t in range(model.horizon)
+        )
     tie_break = 0.0
     if eauto_milp_params and "eauto" in model.consumer_on:
         on_vars = model.consumer_on["eauto"]
@@ -431,7 +439,7 @@ def _add_milp_objective(
         tie_break = eps_on * pulp.lpSum(on_vars) + eps_time * pulp.lpSum(
             t * on_vars[t] for t in range(len(on_vars))
         )
-    model.prob += energy_cost + tie_break
+    model.prob += energy_cost + wear_cost + tie_break
 
 
 def _add_consumer_delivery_constraints(
@@ -841,7 +849,16 @@ def milp_optimizer(
         remaining,
         eauto_milp_params,
     )
-    _add_milp_objective(model, matrix, fallback_k_push, eauto_milp_params)
+    wear_cent_per_kwh = config.get_battery_wear_cent_per_kwh(
+        battery_params["battery_capacity_kwh"]
+    )
+    _add_milp_objective(
+        model,
+        matrix,
+        fallback_k_push,
+        eauto_milp_params,
+        wear_cent_per_kwh=wear_cent_per_kwh,
+    )
     logged_simulation = bool(
         matrix and matrix[0].get("consumption_mode") == "logged_day"
     )

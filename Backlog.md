@@ -1,170 +1,91 @@
 🗺️ Projekt-Roadmap & Backlog
 
 ## Offene Todos
-- [ ] **E-Auto-MILP: optionale Nacharbeiten** (Stand 2026-07-03)
-  - Plausibilität weiter verbessern (verbleibend ~32/333 unter neuer Validierung); Auswertung: `scripts/analyze_plausibility_failures.py`.
-  - **Hybrid-Lieferung / Preset-Rest:** experimentell verworfen (Jahres-Backtest 2025: Plausibilität 181–301 vs. 303/333 Referenz).
-  - **Verknüpfung:** urgent-Regel-Review; Prod-Dump-`xfail` (Live); PWM/Mindestlademenge E-Auto.
-- [ ] Batterieschädigung als Straffaktor in Optimierung einführen (lineares Amortisationsmodell, Angenommene Zyklenzahl 6000 - Gesamtkosten für Batterie (5 kWh) 1500€ anteilig (weil zeitliche Alterung auch zuschlägt) --> Ein Hub = 0.5*1500/6000€)
+
+**Verknüpfung:** urgent-Regel-Review (bis ca. 2026-07-12) ↔ Prod-Dump-`xfail` (Live, Modus A) ↔ PWM/Mindestlademenge E-Auto.
+
 - [ ] **End-SOC-Randbedingung im Live-Modus reviewen** (`battery_end_soc_equals_start`)
   - Aktuell testweise deaktiviert; prüfen, ob `SOC Ende == SOC Start` am 24h-Horizont für Live sinnvoll bleibt oder angepasst werden soll
   - Offen: `end_soc_equals_start` wird in `_scenario_to_battery_params()` noch nicht an Backtesting-Szenarien durchgereicht
-- [ ] PWM für E-Auto-Laden nur noch benutzen für Ströme < A_min, ansonsten ersetzen durch Mindestlademenge pro h (Zähler, der runterzählt und bei jedem Ladevorgang wieder geresettet wird -> Wenn Null, dann fünf Minuten laden mit Mindest-Strom)
+- [ ] PWM für E-Auto-Laden nur noch benutzen für Ströme < A_min, ansonsten ersetzen durch Mindestlademenge pro h (Zähler, der runterzählt und bei jedem Ladevorgang wieder geresettet wird → wenn Null, fünf Minuten laden mit Mindest-Strom)
 - [ ] Erinnerung am Monatsanfang für Einspeisepreis (E-Mail von Loxone!)
 - [ ] Bessere Verbrauchsoptimierung mit Geräten zur Temperaturkontrolle
   - [ ] Gefrierschrank (Prio2)
-  - [ ] Wärmepumpe (Prio3) - Nur indirekte Steuerung über Anpassung der Solltemperaturen
+  - [ ] Wärmepumpe (Prio3) — nur indirekte Steuerung über Anpassung der Solltemperaturen
 - [ ] Nutzung des Swim-Spa Filters reviewen (läuft derzeit ständig?)
-  - Es gibt ein Signal "Ernie_Swimspa_Filter_Sollstunden", das angibt, wie lange der Filter laufen soll in den nächsten 24 Stunden
-  - Es gibt ein Steuersignal "Ernie_Filter_Freigabe", mit dem der Filter ein- und ausgeschaltet werden kann
-  - Ernie muss dafür sorgen, dass die Sollstunden in den nächsten 24 wieder auf Null kommen
-  - Der Filter braucht eine bestimmte Leistung
-  - In Loxone werden die Laufzeiten auf- und runter-integriert
-- [ ] **urgent-Regel auf Notwendigkeit prüfen** (Review bis ca. **2026-07-12**, zwei Wochen nach Einführung der Observability)
-  - Auswertung: `urgent_rule_observability` in `energy_optimizer.log` und `optimization_history.jsonl` (`role`: `redundant` / `nachholen` / `nur_urgent_fenster`)
-  - Akzeptanz: Wenn durchgehend nur `redundant` → Nebenbedingung entfernen (reicht Gesamt-Deadline + Kostenminimierung); sonst behalten und kurz begründen
+  - Signal `Ernie_Swimspa_Filter_Sollstunden` (Sollstunden in 24 h), Steuerung `Ernie_Filter_Freigabe`
+  - Ernie: Sollstunden in 24 h auf Null; Filterleistung; Laufzeiten in Loxone integriert
+- [ ] **urgent-Regel auf Notwendigkeit prüfen** (Review bis ca. **2026-07-12**)
+  - Auswertung: `urgent_rule_observability` in Log + `optimization_history.jsonl` (`role`: `redundant` / `nachholen` / `nur_urgent_fenster`)
+  - Akzeptanz: durchgehend nur `redundant` → Nebenbedingung entfernen; sonst behalten und begründen
 - [ ] **Prod-Dump-Regression: urgent-Nebenbedingung infeasible** (Stand 2026-07-03, Commit `a743318`)
-  - Fixture: `eauto_urgent_deferred_cheap_hours_2026-06-28` (~7,99 kWh Rest bei `remaining_kwh_at_correction`)
-  - **Symptom (Live, Modus A):** MILP mit `include_urgent_deadline_constraint=True` → CBC **Infeasible**; ohne urgent → **Optimal** (~6,59 kWh in günstigen Stunden). Unverändert nach E-Auto Phase 1+2 (Backtesting betroffen nicht).
-  - **Betroffene Tests** (`@pytest.mark.xfail` in `tests/test_prod_dump_regression.py`):
-    - `test_prod_dump_milp_prefers_cheap_hours_after_urgent_fix`
-    - `test_prod_dump_urgent_rule_redundant_vs_deadline_only`
-  - **Nächster Schritt:** Live urgent + Modus A prüfen; `xfail` entfernen wenn feasible.
-- [ ] Verbrauchshistorie anzeigbar Machen im Live Modus (ist nur unzulänglich implementiert)
-  - [x] Erster Schritt ist erledigt
-  - [ ] Es muss noch ein Weg gefunden werden, wie die tatsächlichen Verläufe angezeigt werden können, um Diskrepanzen zu erkennen
-  - [ ] Der neue Modus muss noch mit dem alten Verfahren (Historischer Tag) vereinheitlicht werden. Eine Idee wäre, den Betriebsmodus links zu entfernen und bei Offline-Anzeige zwischen geloggten und neu optimierten Daten umschalten zu können - dann könnte ein Vergleich früherer Optimierungen mit aktueller angeschaut werden - ähnlich wie Vergleich Soll <> Ist
-- [ ] Empfehlungsmodus für Waschmaschine und Geschirrspüler (Input: Laufzeit, mittlere Leistung / Output: Zeithorizont 6h: Güte des Startzeitpunkts)
+  - Fixture: `eauto_urgent_deferred_cheap_hours_2026-06-28` (~7,99 kWh Rest)
+  - Live Modus A: MILP mit urgent → **Infeasible**; ohne urgent → **Optimal**
+  - `@pytest.mark.xfail` in `tests/test_prod_dump_regression.py` (2 Tests)
+  - Nächster Schritt: Live urgent + Modus A prüfen; `xfail` entfernen wenn feasible
+- [ ] Verbrauchshistorie im Live-Modus (nur unzulänglich implementiert)
+  - [x] Erster Schritt erledigt
+  - [ ] Ist-Verläufe anzeigen (Diskrepanzen erkennen)
+  - [ ] Vereinheitlichung mit „Historischer Tag“ (Modus-Umschaltung geloggt vs. optimiert)
+- [ ] Empfehlungsmodus Waschmaschine / Geschirrspüler (Laufzeit, Leistung → Startgüte in 6 h)
+- [ ] **E-Auto-MILP: optionale Nacharbeiten**
+  - **Hybrid-Lieferung / Preset-Rest:** experimentell verworfen (Jahres-Backtest 2025)
 - [ ] **Adaptives PV-Tuning wieder aktivieren** (`pv_accuracy_log.csv` / `log_pv_comparison`)
-  - Lesen + Anwenden des Korrekturfaktors läuft noch (`calculate_tuning_factor`, `pv_forecast`, Sidebar)
-  - Schreiben ist unterbrochen: `log_pv_comparison()` wird nirgends aufgerufen → Faktor bleibt praktisch bei 1,0
-  - `get_pv_delta_and_update()` (Zähler-Delta) nutzen, aber Regel für Vergleich mit Prognose klären (15-Min-Takt vs. Stunden-kW)
-  - Akzeptanz: CSV wächst wieder; Sidebar-Faktor ≠ 1,0 bei messbarer Abweichung; Synology-Mount für Log ggf. zurück in Compose
-     
+  - Schreiben unterbrochen: `log_pv_comparison()` nicht angebunden → Faktor bleibt bei 1,0
+  - Akzeptanz: CSV wächst; Sidebar-Faktor ≠ 1,0 bei Abweichung
+
 ## Erledigte Punkte
 
+### Optimierung & Einspeise (2026-07-03)
+
+- [x] **Batterieschädigung als Straffaktor in der MILP-Zielfunktion**
+  - `optimizer/battery_wear.py`, Config-Block `battery_wear`; Durchsatz-Modell (2,5 ct/kWh bei 5 kWh: 1500 € / 6000 Zyklen / 50 % zyklenbedingt)
+  - Jahres-Backtest 2025: ~33 €/J weniger Nettonutzen vs. ohne Verschleiß; Einsparung ~416 € (10 kWh dynamisch) — Parameter **plausibel**
+- [x] **Monatliche Fix-Einspeisetarife im Backtesting**
+  - `fixed_monthly_feed_in_rates` in `backtesting_scenarios.json`; Tarif = Kalendermonat der Stunde
+  - `get_backtesting_feed_in_settings()`; Randfenster Dez 2024 ergänzt
+  - Jahres-Backtest 2025: **333/333** Plausibilität (Logs `backtesting_2025_wear_monthly.log`)
+
 ### Backtesting & CBC (2026-07-03)
+
 - [x] **Grundlast-Validierung (Backtesting)**
-  - `simulation/baseload_validation.py`: stündliche Grundlast aus `Total − Flex` (skaliert, wenn Flex > Total in Einzelstunden).
-  - `validate_window_consumption`: getrennte Prüfung Grundlast + Flex + Gesamt; Meta `baseload_adjustment_kwh`.
-  - `scripts/analyze_plausibility_failures.py` für Fehlerfenster-Auswertung.
-  - Jahres-Backtest 2025 (10 kWh dynamisch): **301/333** Plausibilität, **739,72 €** (neue Validierung; Log `backtesting_2025_baseload.log`).
+  - `simulation/baseload_validation.py`; getrennte Plausibilität Grundlast + Flex + Gesamt
+  - `scripts/analyze_plausibility_failures.py`
 - [x] **E-Auto-MILP (Phase 1–4)**
-  - **Phase 1** (`c8a20c9`): bei `logged_day` kein `consumer_p` für E-Auto; MILP mit festem `P_nom × on[t]`.
-  - **Phase 2** (`c3d74e9`): `remaining_kwh ≤ P_nom` → Preset außerhalb MILP (`eauto_preset_power_now`, `split_eauto_preset`, `fixed_flex_kw_t0`).
-  - **Phase 3+4** (`fe37f71`): Live Modus A↔B; Tie-Break **ε₁·Σ on[t] + ε₂·Σ t·on[t]**.
-  - Config: Block `eauto_milp`; Tests `tests/test_eauto_milp_mode.py`.
-  - Jahres-Backtest 2025 (alte Gesamt-Validierung): Plausibilität **303/333**, 10 kWh dynamisch **774,51 €** (`backtesting_2025_phase34.log`).
-- [x] **UTF-8 für Backtesting-Logs** — Commits `c8a20c9`, `a292adc`
-  - `logger_config.configure_utf8_stdio`, `attach_utf8_log_file`; `scripts/run_backtesting --log-file`; `scripts/bootstrap_runtime.py`; `.vscode/settings.json` (Windows-Terminal `PYTHONUTF8`).
-- [x] **CBC-Performance: zweistufiger Solver**
-  - `optimizer/cbc_solver.py`: Strict mit Timeout (**3 s**), Fallback auf `gapRel=10 %`; Log bei fehlender Optimalität (`INFO` in `run_backtesting`).
-  - Config: `cbc_gap_rel`, `cbc_strict_time_limit_sec` in `backtesting_scenarios.json` (+ Schema); Env-Overrides für Benchmarks (`ENERGY_OPTIMIZER_CBC_*`, `ENERGY_OPTIMIZER_CBC_STRICT=1`).
-  - `optimizer/milp.py` nutzt `solve_with_strict_fallback` statt barem `PULP_CBC_CMD`.
-- [x] **CBC-Gap-Diagnose & Benchmark-Tag** (Vorarbeit zu Phase 1)
-  - `scripts/bench_cbc_gaps.py`, `scripts/analyze_benchmark_window.py` — siehe Phase-1-Ergebnis oben.
-- [x] **Backtesting urgent / Zeitfenster (Vorarbeit)**
-  - `optimizer/milp.py`: urgent-Nebenbedingung für `consumption_mode == "logged_day"` aus; Live: einfache `urgent_charging_indices`-Logik.
-  - `use_time_window` bleibt `True` im historischen Pfad; Smoke-Test `tests/test_backtesting_smoke.py`.
-- [x] **`run_backtesting` parallelisiert**
-  - `--workers N` (Standard 1): Szenarien parallel via `ProcessPoolExecutor` (SoC-Kette bleibt pro Szenario sequentiell).
-  - Beispiel: `python -m scripts.run_backtesting --start-month 8 --end-month 8 --workers 4` (~71 s für Aug 2025).
-- [x] **Dynamische Einspeise (Awattar SUNNY Spot)**
-  - `data/feed_in_prices.py`: `EPEX − fee_factor×|EPEX| + fix`; Config `awattar.feed_in_fee_factor`, `feed_in_mode` in Szenarien.
-  - Vorzeichen in Kostenformel geprüft (Export bei negativem EPEX = Kosten, nicht Erlös).
-  - **MILP-Zielfunktion:** stündliches `k_push_act` aus Matrix (`k_push_act_for_matrix_row`) — Abrechnung und Optimierung konsistent.
-  - August 2025 Backtest: Runtime **4,39 €** vs. dynamisch **4,47 €** (vor MILP-Fix ~15 € Abstand durch falsches flat `k_push=6,4` im Solver).
+  - Phase 1–4: logged_day binär, Preset, Live Modus A/B, Tie-Break; Config `eauto_milp`
+  - Jahres-Backtest 2025 (Phase 3+4): 303/333 Plausibilität, 10 kWh dynamisch 774,51 € (`backtesting_2025_phase34.log`)
+- [x] **UTF-8 für Backtesting-Logs**
+- [x] **CBC zweistufiger Solver** (`cbc_gap_rel`, Strict-Timeout 3 s)
+- [x] **CBC-Gap-Diagnose** (`scripts/bench_cbc_gaps.py`, `analyze_benchmark_window.py`)
+- [x] **Backtesting urgent / Zeitfenster** (logged_day ohne urgent-Nebenbedingung)
+- [x] **`run_backtesting` parallelisiert** (`--workers N`)
+- [x] **Dynamische Einspeise (Awattar SUNNY Spot)** + MILP `k_push_act` aus Matrix
 
-- [x] Lineare Programmireung in optimizer.py einbauen (forecast_pv und forecast_consumption berücksichtigen)
-- [x] Deployment auf Synology NAS einrichten
-- [x] Aktuellen Ladezustand in Sankey-Diagramm verschieben (oben rausnehmen)
-- [x] Versionsnummer einführen und anzeigen (Github-Release-Nr?)
-- [x] Umgang mit historischen Verbrauchsdaten nochmal prüfen (wie funktioniert das genau, wie sollte mit Großverbrauchern umgegangen werden, wie gehen neue Daten ein) 
-- [x] E-Auto / Swim-Spa / Wärmepumpe in die Optimierung mit reinnehmen mit Empfehlung, wann der beste Startzeitpunkt wäre bzw. autonomes Starten. 
-- [x] Fiktive Simulation der historischen Daten mit einer größeren Batterie
-- [x] Zulässigen Maximalstrom für E-Auto Laden für Ernie bereitstellen
-- [x] Optimierung von main.py wird in App nicht richtig übernommen (kleinen Zeitversatz einbauen?) 
-- [x] Vergangene Optimierungen anzeigbar Machen im Live Modus (debugging) 
-- [x] Testsuite für 24h-Optimierung mit historischen Daten aufbauen
-- [x] Dateistruktur aufräumen
-- [x] Dateigrößen prüfen und ggf. refaktorieren
-- [x] Ladeenergie für E-Auto anpassen (ist derzeit zu klein)
-- [x] Ansicht Produktiv-Durchlauf wird nicht korrekt aktualisiert
-- [x] Bei E-Auto wahrscheinliche Abwesenheite implementieren
-- [x] Prüfen, ob ältere Programm-Logs noch benötigt werden *(2026-06: siehe unten)*
-- [x] Steuersignale von main.py scheinen in Loxone wieder auf andere Werte gesetzt zu werden - Debug-Tool erstellen und Verhalten prüfen.
-  — Da hat wohl eine alte noch laufende Instant von main.py regelmäßig dazwischengefunkt.
-- [x] Chart für Ersparnis separat unter die anderen Zeitverläufe (kleiner?) packen. Vielleicht gemeinsam mit den stündlichen Kosten.  
-  - die Balken müssen bei Einspeisung noch richtig dargestellt werden.
-- [x] Simulation hat immer ein 24h-Zeithorizont - wenn nötig, mit gespiegelten Kosten des Vortags
-- [x] "Silent-Modus" einführen, damit Tests in der Dev-Umgebung laufen können, während Produktiv-Variante läuft
-- [x] Kostenchart fix skalieren (nicht flexibel)
-- [x] Möglichkeit prüfen, ob variable Leistung bei E-Auto möglich und sinnvoll wäre
-- [x] Prüfen, ob sich PV-Überschuss-Modus bei E-Auto sinnvoll einsetzen lässt. --> Ja ist möglich und sinnvoll
-- [x] PV_Follow Modus in Loxone implementieren und beides testen
-- [x] Zusätzliche Balken im Chart einfügen, die eingespeiste Energie anzeigen (ist als Linienverlau implementiert)
-- [x] Kommunikation mit Bew-Meldern (Hue) prüfen (war ein Programmierfehler in loxone_publish)
-- [x] Logik und UI für E-Auto verbessern
-  - [x]Logik zum Zurücksetzen des Rest-SOC ist in Loxone implementiert - muss aber noch getestet werden. Rest-SOC wird beim Abstecken des Autos zurückgesetzt (auf 10%)
-  - [x] Optimierung ausserplanmäßig anstoßen, wenn E-Auto angeschlossen wurde? --> umgesetzt (event_trigger in main.py)
-  - [x] Ernie darüber Bescheid geben, wenn E-Auto SOFORT LADEN umgeschalten wird (als Event) und zur Berücksichtigung in der Optimierung
-- [x] Ergebnisse des Produktivlaufs in Sankey-Diagramm integrieren und getrennte Anzeige entfernen.
-- [x] Anzeige Plausibilität entfernen
-- [x] Verhalten fehlerhaft, wenn kein Ladewecker aktiv und Auto nicht angehängt ist 29.06.
-- [x] E-Auto wurde am 29.06. nicht richtig aufgeladen - Verhalten prüfen
-- [x] Einspeisepotenzial aufzeichnen, um Trends zu erkennen 
-- [x] Optional den stündlichen Einspeisepreis von Awattar berücksichtigen und Potenzial-Simulation durchführen *(erweitert 2026-07-03: dynamisches `feed_in_mode`, Backtesting-Szenario, siehe oben)*
-- [x] Bessere Verbrauchsoptimierung mit Geräten zur Temperaturkontrolle
-  - [x] Generell: Temperaturregelung bleibt eine "interne Logik"
-  - [x] Generell: Ernie soll ein Prognose-Modell für Energiebedarf erstellen (mit der Zeit) - Einfaches Knotenmodell mit angenommener Wärmekapazität und Wärmeleitfähigkeit nach aussen.
-  - [x] Generell: Folgende Temperaturen werden zur Verfügung gestellt: Soll- / Ist-Temperatur / Umgebungstemperatur (für Prognosemodell) / Erlaubte Differenz (bzw. Min- / Max Temp)
-  - [x] Swim-Spa (Prio1) Hat großes Potenzial, da derzeit oft Energie vorgesehen wird, die gar nicht gebraucht wird - kann aber auch andersrum sein
-    - [x] Für Temperaturvorhersage des Pools werden auch Außentemp-Vorhersagen benötigt
+### Ältere Meilensteine (Kurz)
 
+- [x] MILP-Optimierung (PV/Verbrauch), NAS-Deployment, Sankey/UI, Versionierung
+- [x] Flexible Verbraucher (E-Auto, SwimSpa, WP), historische Simulation, Testsuite 24 h
+- [x] E-Auto: variable Leistung, PV-Follow, Event-Trigger, SOFORT-LADEN, Loxone-Debug
+- [x] Charts (Ersparnis, Einspeisung), Silent-Modus, 24h-Horizont, Refactoring
+- [x] Thermische Modelle (Swim-Spa Prio1, WP indirekt), dynamische Einspeise (Vorstufe)
+- [x] Packaging 7a–7d (pyproject, Bootstrap, Build, Streamlit extern)
 
 ### Log-Dateien (Review 2026-06)
 
 | Datei | Status | Aktion |
 |-------|--------|--------|
-| `runtime/optimization_history.jsonl` | **kanonisch** | Produktiv-Historie (main + App-Panel) |
-| `runtime/energy_optimizer.log` | **aktiv** | Python-Logging (rotierend, 5×5 MB) |
-| `runtime/optimizer_run_state.json` | **aktiv** | Letzter main-Durchlauf für App |
-| `runtime/live_optimization_debug.json` | **aktiv** | App-24h-Debug-Snapshot |
-| `runtime/system_history_log.csv` | **Legacy, nur Lesen** | Schreiben in main.py entfernt; App liest alte Einträge noch mit |
-| `runtime/pv_accuracy_log.csv` | **Lesen aktiv, Schreiben aus** | `log_pv_comparison` in main anbinden (siehe Backlog) |
-| `backtesting_log.json` | **nur Dev** | Backtesting-Modus, nicht für Prod-NAS |
-
-Offen: Legacy-CSV irgendwann archivieren und `_load_legacy_csv_history` entfernen, wenn JSONL die komplette Historie abdeckt.
+| `runtime/optimization_history.jsonl` | **kanonisch** | Produktiv-Historie |
+| `runtime/energy_optimizer.log` | **aktiv** | Rotierend 5×5 MB |
+| `runtime/optimizer_run_state.json` | **aktiv** | Letzter main-Durchlauf |
+| `runtime/live_optimization_debug.json` | **aktiv** | App-24h-Debug |
+| `runtime/system_history_log.csv` | **Legacy, nur Lesen** | Archivieren wenn JSONL reicht |
+| `runtime/pv_accuracy_log.csv` | **Lesen aktiv, Schreiben aus** | siehe Backlog PV-Tuning |
+| `backtesting_log.json` | **nur Dev** | nicht für Prod-NAS |
 
 ## Packaging & Deployment
 
-Ziel: reproduzierbares Build/Deploy und weniger manuelle Schritte — ohne Änderungen an der Optimierungslogik.
+Empfohlene Reihenfolge offen: **7e → 7f**
 
-Empfohlene Reihenfolge: 7b → 7c → 7a → 7d → 7e → 7f
-
-- [x] **7b — Container-Bootstrap automatisieren**
-  - Entrypoint + `scripts/bootstrap_runtime` (legt fehlende Dateien an, überschreibt nie)
-  - Persistenz unter `config/` und `runtime/` (vereinfachte Compose-Mounts)
-  - Config-Drift-Hinweise (`config/config.example.json` vs. Anwender-config, kein Auto-Merge)
-  - Migration: `scripts/migrate_persist_layout.py`; Doku: [docs/einrichtung/container.md](docs/einrichtung/container.md)
-  - Akzeptanz: frischer Container startet ohne manuelles Anlegen von Dateien
-- [x] **7c — Build-Pipeline vereinheitlichen**
-  - Kanonisch: `python -m scripts.build_container` / `build-container.ps1` (linux/amd64, Tags latest + Version)
-  - Synology-Compose mit 7b abgeglichen; Deploy per `pull` + `up`
-  - Doku: [docs/einrichtung/container.md](docs/einrichtung/container.md), [README.md](README.md)
-- [x] **7a — Projekt-Metadaten (`pyproject.toml`)**
-  - Version aus `version.py` (`[tool.setuptools.dynamic]`)
-  - Abhängigkeiten in `pyproject.toml`; `requirements.txt` → `pip install .`
-  - `[project.scripts]`: ernie-bootstrap, ernie-build-image, ernie-verify-loxone, …
-  - Akzeptanz: `pip install -e .[dev]`, `pytest` grün
-- [x] **7d — Streamlit extern bereitstellen**
-  - Separater Service/Port im Compose (`optimizer-worker` + `optimizer-ui`)
-  - Synology Reverse Proxy (HTTPS, Let's Encrypt) → `127.0.0.1:8501`; WebSocket-Header in der DSM
-  - Fritzbox: 80 + 443 → NAS (8501 nur intern); Doku: [docs/einrichtung/container.md](docs/einrichtung/container.md)
-  - Akzeptanz: App von außerhalb des NAS erreichbar (Netzwerk/VPN vorausgesetzt)
-- [ ] **7e — Prod/Dev-Datensync**
-  - Skript für `runtime/`, relevante CSVs, optional config-Template hin und zurück
-  - Akzeptanz: dokumentierter Ablauf Dev ↔ Produktiv ohne Copy-Paste
-- [ ] **7f — Loxberry-Container evaluieren (erst wenn auf Loxberry 4 umgestellt wurde) **
-  - Erst nach 7b/7c; separates Compose oder Anleitung
-  - Akzeptanz: Go/No-Go mit kurzer Notiz im README
+- [x] **7a–7d** — pyproject, Bootstrap, Build-Pipeline, Streamlit extern ([container.md](docs/einrichtung/container.md))
+- [ ] **7e — Prod/Dev-Datensync** — Skript runtime/ + CSVs; dokumentierter Ablauf Dev ↔ Prod
+- [ ] **7f — Loxberry-Container** — erst nach Loxberry 4; Go/No-Go im README

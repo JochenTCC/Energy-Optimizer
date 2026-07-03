@@ -313,7 +313,7 @@ def main() -> None:
     )
     cache = HistoricalDataCache()
     cache.load()
-    feed_in = config.get_feed_in_settings(runtime_override=scenario_params)
+    feed_in = config.get_backtesting_feed_in_settings(runtime_override=scenario_params)
     slots = window_slot_datetimes(anchor)
     _, totals, _, _ = cache.get_window_consumption(slots)
 
