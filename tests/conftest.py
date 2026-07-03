@@ -52,3 +52,7 @@ def pytest_configure(config):
         "markers",
         "requires_loxone: Integrationstest gegen echten Loxone-Miniserver",
     )
+    config.addinivalue_line(
+        "markers",
+        "slow: Längerer Backtesting- oder MILP-Integrationslauf",
+    )
