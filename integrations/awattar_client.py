@@ -2,19 +2,20 @@
 import requests
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
+from zoneinfo import ZoneInfo
 import config
 from data.market_prices import awattar_fetch_window, normalize_price_slot
 
-def fetch_awattar_prices() -> Optional[List[Dict[str, Any]]]:
+def fetch_awattar_prices(
+    planning_end: datetime | None = None,
+) -> Optional[List[Dict[str, Any]]]:
     """
     Holt die aktuellen Marktpreise von Awattar.
-    
-    Returns:
-        Optional[List[Dict[str, Any]]]: Eine Liste von Dictionaries mit Preisdaten,
-                                       oder None im Fehlerfall.
+
+    planning_end: optionales Ende des Planungshorizonts (z. B. zweiter Sonnenuntergang).
     """
     try:
-        start, end = awattar_fetch_window()
+        start, end = awattar_fetch_window(planning_end)
         start_ms = int(start.timestamp() * 1000)
         end_ms = int((end + timedelta(hours=1)).timestamp() * 1000)
         response = requests.get(
@@ -29,7 +30,8 @@ def fetch_awattar_prices() -> Optional[List[Dict[str, Any]]]:
         if 'data' not in data:
             print("🚨 Fehler: Unerwartete API-Struktur von Awattar (Key 'data' fehlt).")
             return None
-            
+
+        planning_tz = ZoneInfo(config.get_planning_timezone())
         prices: List[Dict[str, Any]] = []
         for entry in data['data']:
             # Absicherung gegen fehlerhafte Felder im JSON
@@ -37,7 +39,7 @@ def fetch_awattar_prices() -> Optional[List[Dict[str, Any]]]:
                 continue
                 
             dt = normalize_price_slot(
-                datetime.fromtimestamp(entry['start_timestamp'] / 1000)
+                datetime.fromtimestamp(entry['start_timestamp'] / 1000, tz=planning_tz)
             )
             
             # Umrechnung von EUR/MWh in Cent/kWh: (X / 10)

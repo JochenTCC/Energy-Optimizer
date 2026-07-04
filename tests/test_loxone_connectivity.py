@@ -36,6 +36,18 @@ class TestReadCheckValidation:
         assert lc._binary_valid(1.0) is None
         assert lc._binary_valid(0.5) is not None
 
+    def test_read_check_missing_text_io_is_warning(self):
+        with patch.object(lc.loxone_client, "fetch_loxone_raw_value", return_value=None):
+            result = lc._read_check(
+                "Event-Trigger Test",
+                "Ernie_EAuto_FertigUm",
+                read_raw=True,
+                warn_if_missing=True,
+            )
+        assert result.passed is False
+        assert result.severity == "warning"
+        assert lc._check_counts_as_ok(result) is True
+
 
 class TestCollectReadChecks:
     def test_collects_flexible_consumer_ios(self):

@@ -19,6 +19,12 @@ class LoxoneCheck:
     io_name: str
     passed: bool
     detail: str
+    severity: str = "error"
+
+
+def _check_counts_as_ok(item: LoxoneCheck) -> bool:
+    """True wenn die Prüfung den Gesamtstatus nicht negativ beeinflusst."""
+    return item.passed or item.severity == "warning"
 
 
 def loxone_env_configured() -> bool:
@@ -43,6 +49,7 @@ def _read_check(
     *,
     validate: Callable[[float], str | None] | None = None,
     read_raw: bool = False,
+    warn_if_missing: bool = False,
 ) -> LoxoneCheck:
     io_name = str(io_name or "").strip()
     if not io_name:
@@ -51,7 +58,10 @@ def _read_check(
     if read_raw:
         raw = loxone_client.fetch_loxone_raw_value(io_name)
         if raw is None:
-            return LoxoneCheck(label, io_name, False, "Lesen fehlgeschlagen (kein Wert)")
+            detail = "Lesen fehlgeschlagen (kein Wert)"
+            if warn_if_missing:
+                return LoxoneCheck(label, io_name, False, detail, severity="warning")
+            return LoxoneCheck(label, io_name, False, detail)
         return LoxoneCheck(label, io_name, True, f"raw={raw!r}")
 
     value = loxone_client.fetch_loxone_generic_value(io_name)
@@ -142,7 +152,13 @@ def collect_read_checks() -> list[tuple[str, str, dict]]:
                 checks.append((label, io_name, opts))
         ready_name = lox.get("ready_by_time_name", "")
         if ready_name:
-            checks.append((f"Verbraucher {cid} Fertig-um", ready_name, {"read_raw": True}))
+            checks.append(
+                (
+                    f"Verbraucher {cid} Fertig-um",
+                    ready_name,
+                    {"read_raw": True, "warn_if_missing": True},
+                )
+            )
 
         thermal = consumer.get("thermal_control") or {}
         if thermal.get("enabled"):
@@ -161,7 +177,13 @@ def collect_read_checks() -> list[tuple[str, str, dict]]:
         label = trigger.get("label") or trigger["id"]
         io_name = trigger["loxone_name"]
         if trigger["signal_type"] == "text":
-            checks.append((f"Event-Trigger {label}", io_name, {"read_raw": True}))
+            checks.append(
+                (
+                    f"Event-Trigger {label}",
+                    io_name,
+                    {"read_raw": True, "warn_if_missing": True},
+                )
+            )
         elif trigger["signal_type"] == "analog":
             checks.append((f"Event-Trigger {label}", io_name, {"validate": _soc_valid}))
         else:
@@ -255,4 +277,4 @@ def verify_loxone_setup(
         results.append(check_ftp_log_available())
     if include_roundtrip:
         results.append(check_roundtrip_soc())
-    return all(item.passed for item in results), results
+    return all(_check_counts_as_ok(item) for item in results), results

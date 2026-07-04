@@ -10,10 +10,12 @@ load_dotenv()
 from runtime_store.persist_paths import (
     resolve_backtesting_scenarios_json_path,
     resolve_config_json_path,
+    resolve_local_settings_json_path,
 )
 
 CONFIG_JSON_PATH = resolve_config_json_path()
 BACKTESTING_SCENARIOS_JSON_PATH = resolve_backtesting_scenarios_json_path()
+LOCAL_SETTINGS_JSON_PATH = resolve_local_settings_json_path()
 
 
 class Config:
@@ -21,10 +23,12 @@ class Config:
         self,
         config_path: str = CONFIG_JSON_PATH,
         backtesting_scenarios_path: str = BACKTESTING_SCENARIOS_JSON_PATH,
+        local_settings_path: str = LOCAL_SETTINGS_JSON_PATH,
         require_loxone_credentials: bool | None = None,
     ):
         self.config_path = config_path
         self.backtesting_scenarios_path = backtesting_scenarios_path
+        self.local_settings_path = local_settings_path
         if require_loxone_credentials is None:
             require_loxone_credentials = os.getenv("ENERGY_OPTIMIZER_OFFLINE") != "1"
         self.require_loxone_credentials = require_loxone_credentials
@@ -92,16 +96,32 @@ class Config:
         return rel
 
     @staticmethod
-    def _load_loxone_silent_mode(raw_config: dict) -> bool:
-        raw = raw_config.get("system", {}).get("loxone_silent_mode")
+    def _load_loxone_silent_mode(raw_config: dict, local_settings: dict, local_settings_path: str) -> bool:
+        if "loxone_silent_mode" in raw_config.get("system", {}):
+            raise ValueError(
+                "Kritischer Konfigurationsfehler: system.loxone_silent_mode gehört nicht mehr "
+                f"in config.json — bitte in '{local_settings_path}' setzen."
+            )
+        raw = local_settings.get("loxone_silent_mode")
         if raw is None:
             return False
         if not isinstance(raw, bool):
             raise ValueError(
-                "Kritischer Konfigurationsfehler: system.loxone_silent_mode "
+                f"Kritischer Konfigurationsfehler: loxone_silent_mode in '{local_settings_path}' "
                 "muss true oder false sein."
             )
         return raw
+
+    def _load_local_settings_document(self) -> dict:
+        path = self.local_settings_path
+        if not os.path.isfile(path):
+            return {}
+        try:
+            return self._read_json_dict(path)
+        except json.JSONDecodeError as e:
+            raise ValueError(
+                f"Kritischer Fehler: '{path}' enthält ungültiges JSON: {e}"
+            ) from e
 
     @staticmethod
     def _load_event_trigger_enabled(raw_config: dict) -> bool:
@@ -213,7 +233,12 @@ class Config:
 
         self.GLOBAL_TIMEOUT = self._get_strict(self._raw_config, ["system", "global_timeout"])
         self.LOOP_TIMEOUT = self._get_strict(self._raw_config, ["system", "loop_timeout"])
-        self.LOXONE_SILENT_MODE = self._load_loxone_silent_mode(self._raw_config)
+        local_settings = self._load_local_settings_document()
+        self.LOXONE_SILENT_MODE = self._load_loxone_silent_mode(
+            self._raw_config,
+            local_settings,
+            self.local_settings_path,
+        )
         self.EVENT_TRIGGER_ENABLED = self._load_event_trigger_enabled(self._raw_config)
         self.EVENT_POLL_INTERVAL_SEC = self._load_event_poll_interval_sec(self._raw_config)
         self.EVENT_TRIGGERS = self._load_event_triggers()
@@ -610,6 +635,31 @@ class Config:
 
         self.LATITUDE = self._get_strict(self._raw_config, ["runtime_settings", "latitude"])
         self.LONGITUDE = self._get_strict(self._raw_config, ["runtime_settings", "longitude"])
+        self.PLANNING_TIMEZONE = self._get_strict(
+            self._raw_config, ["runtime_settings", "timezone_name"]
+        )
+        planning_raw = self._raw_config.get("planning_horizon", {})
+        if not isinstance(planning_raw, dict):
+            raise ValueError(
+                "Kritischer Konfigurationsfehler: Block 'planning_horizon' ist ungültig."
+            )
+        mode_raw = planning_raw.get("mode")
+        if mode_raw is None:
+            raise ValueError(
+                "Kritischer Konfigurationsfehler: planning_horizon.mode fehlt in config.json."
+            )
+        self.PLANNING_HORIZON_MODE = str(mode_raw)
+
+    def get_planning_timezone(self) -> str:
+        return str(self.PLANNING_TIMEZONE)
+
+    def is_sunset_planning_horizon(self) -> bool:
+        if self.PLANNING_HORIZON_MODE != "sunset_window":
+            raise ValueError(
+                "Unbekannter planning_horizon.mode "
+                f"'{self.PLANNING_HORIZON_MODE}' — erwartet 'sunset_window'."
+            )
+        return True
 
     def get(self, name: str, default=None, cast=None):
         value = getattr(self, name, default)
@@ -929,12 +979,14 @@ CONFIG = Config()
 
 def reinit_config() -> None:
     """Lädt die Konfiguration neu (z. B. nach Bootstrap mit neu angelegter config.json)."""
-    global CONFIG, CONFIG_JSON_PATH, BACKTESTING_SCENARIOS_JSON_PATH
+    global CONFIG, CONFIG_JSON_PATH, BACKTESTING_SCENARIOS_JSON_PATH, LOCAL_SETTINGS_JSON_PATH
     CONFIG_JSON_PATH = resolve_config_json_path()
     BACKTESTING_SCENARIOS_JSON_PATH = resolve_backtesting_scenarios_json_path()
+    LOCAL_SETTINGS_JSON_PATH = resolve_local_settings_json_path()
     CONFIG = Config(
         config_path=CONFIG_JSON_PATH,
         backtesting_scenarios_path=BACKTESTING_SCENARIOS_JSON_PATH,
+        local_settings_path=LOCAL_SETTINGS_JSON_PATH,
     )
 
 
@@ -980,6 +1032,14 @@ def get_backtesting_feed_in_settings(runtime_override: dict | None = None):
 
 def get_threshold_power() -> float:
     return CONFIG.get_threshold_power()
+
+
+def get_planning_timezone() -> str:
+    return CONFIG.get_planning_timezone()
+
+
+def is_sunset_planning_horizon() -> bool:
+    return CONFIG.is_sunset_planning_horizon()
 
 
 def get_global_timeout(default: int = 5) -> int:

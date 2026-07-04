@@ -4,9 +4,17 @@
 
 **Verknüpfung:** urgent-Regel-Review (bis ca. 2026-07-12) ↔ Prod-Dump-`xfail` (Live, Modus A) ↔ PWM/Mindestlademenge E-Auto.
 
-- [ ] **End-SOC-Randbedingung im Live-Modus reviewen** (`battery_end_soc_equals_start`)
-  - Aktuell testweise deaktiviert; prüfen, ob `SOC Ende == SOC Start` am 24h-Horizont für Live sinnvoll bleibt oder angepasst werden soll
-  - Offen: `end_soc_equals_start` wird in `_scenario_to_battery_params()` noch nicht an Backtesting-Szenarien durchgereicht
+- [ ] **Sunset-Planungshorizont + SOC_min am Sonnenaufgang** (Branch `feature/sunset-planning-horizon`)
+  - Spec: [docs/spec/planning-horizon-sunset.md](docs/spec/planning-horizon-sunset.md)
+  - Fenster: Jetzt→SA₁ + SA₁→SA₂; harte SOC-Randbedingung am nächsten Sonnenaufgang; danach frei bis SA₂
+  - Ersetzt `battery_end_soc_equals_start` im Live-Betrieb (deprecated)
+  - UI Live: sunrise→sunrise; Zonen grau (Vergangenheit) / neutral (jetzt→SA) / grün (Rest); SA₂-Ausblick Phase 2
+  - Backtesting: unverändert E-Auto-`ready_by_hour`-Anker, SOC am Fensterende frei, Kette zum nächsten Fenster
+  - [x] Phase 1: `data/planning_window.py` + Tests
+  - [x] Phase 2: Matrix/Preise/PV generalisieren, MILP SOC-Anker
+  - [x] Phase 3: `main.py`, Live-Simulation — **Live-Durchlauf verifiziert 2026-07-04**
+  - [ ] Phase 4: UI sunrise→sunrise mit Zonenfarben
+  - [ ] **Preis-Spiegelung:** statt einzelner Spiegelquelle (gleiche Uhrzeit, bis 7 Tage zurück) ggf. **Mittelung über mehrere vergangene Tage** prüfen — Genauigkeit/Robustheit vs. Einfachheit; Kontext `data/market_prices.py` (`resolve_market_slots`)
 - [ ] PWM für E-Auto-Laden nur noch benutzen für Ströme < A_min, ansonsten ersetzen durch Mindestlademenge pro h (Zähler, der runterzählt und bei jedem Ladevorgang wieder geresettet wird → wenn Null, fünf Minuten laden mit Mindest-Strom)
 - [ ] Erinnerung am Monatsanfang für Einspeisepreis (E-Mail von Loxone!)
 - [ ] Bessere Verbrauchsoptimierung mit Geräten zur Temperaturkontrolle
@@ -36,6 +44,28 @@
 
 ## Erledigte Punkte
 
+### Konfiguration Dev/Prod (2026-07-04)
+
+- [x] **Zentrale `config.json` über NAS-Pfad adressierbar**
+  - Pfad per `ENERGY_OPTIMIZER_CONFIG_PATH` (in `.env`, siehe `.env.example`); Dev-Beispiel: `\\DS-KO-DO-2\docker\energy_optimizer\config\config.json`
+  - Fallback unverändert: `config/config.json` → Legacy `config.json` im Projektroot
+  - Docker/Synology: Volume `./config` → `config/config.json` im Container
+- [x] **`loxone_silent_mode` in lokale Datei ausgelagert**
+  - Maschinenspezifisch: `runtime/local_settings.json` (Vorlage `runtime/local_settings.example.json`)
+  - Optional: `ENERGY_OPTIMIZER_LOCAL_SETTINGS_PATH`; Bootstrap legt fehlende Datei an
+  - Aus zentraler `config.json` / Schema / Example entfernt; verbleibender Schlüssel dort → klare Fehlermeldung
+  - Tests: `tests/test_local_settings.py`
+
+### Sunset-Planungshorizont Live (2026-07-04)
+
+- [x] **Phasen 1–3:** Fenster `Jetzt→SA₂`, SOC_min am Sonnenaufgang, variable Optimierungsmatrix
+  - Spec: [docs/spec/planning-horizon-sunset.md](docs/spec/planning-horizon-sunset.md)
+  - Day-Ahead für variable Fensterlänge (`resolve_market_slots`); aWATTar-Abruf bis SA₂
+  - Preis-Spiegelung: gleiche Uhrzeit, bis 7 Tage zurück; aWATTar-Lookback für Spiegelquellen
+  - Zeitzonen-Ausrichtung Planungs-Slots ↔ aWATTar (`Europe/Vienna`)
+  - Loxone-Verify: fehlende E-Auto-Fertig-Uhrzeit nur **Warnung** (nicht angeschlossen)
+- [ ] **Phase 4 offen:** UI sunrise→sunrise mit Zonenfarben (grau/neutral/grün)
+
 ### Optimierung & Einspeise (2026-07-03)
 
 - [x] **Batterieschädigung als Straffaktor in der MILP-Zielfunktion**
@@ -44,7 +74,7 @@
 - [x] **Monatliche Fix-Einspeisetarife im Backtesting**
   - `fixed_monthly_feed_in_rates` in `backtesting_scenarios.json`; Tarif = Kalendermonat der Stunde
   - `get_backtesting_feed_in_settings()`; Randfenster Dez 2024 ergänzt
-  - Jahres-Backtest 2025: **333/333** Plausibilität (Logs `backtesting_2025_wear_monthly.log`)
+  - Jahres-Backtest 2025: **333/333** Plausibilität (Log `backtesting_logs/backtesting_2025_wear_monthly.log`)
 
 ### Backtesting & CBC (2026-07-03)
 
@@ -53,7 +83,7 @@
   - `scripts/analyze_plausibility_failures.py`
 - [x] **E-Auto-MILP (Phase 1–4)**
   - Phase 1–4: logged_day binär, Preset, Live Modus A/B, Tie-Break; Config `eauto_milp`
-  - Jahres-Backtest 2025 (Phase 3+4): 303/333 Plausibilität, 10 kWh dynamisch 774,51 € (`backtesting_2025_phase34.log`)
+  - Jahres-Backtest 2025 (Phase 3+4): 303/333 Plausibilität, 10 kWh dynamisch 774,51 € (`backtesting_logs/backtesting_2025_phase34.log`)
 - [x] **UTF-8 für Backtesting-Logs**
 - [x] **CBC zweistufiger Solver** (`cbc_gap_rel`, Strict-Timeout 3 s)
 - [x] **CBC-Gap-Diagnose** (`scripts/bench_cbc_gaps.py`, `analyze_benchmark_window.py`)

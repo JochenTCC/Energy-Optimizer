@@ -47,7 +47,9 @@ def _write_config(tmp_path, system_block: dict) -> str:
             "threshold_power": 0.2,
             "latitude": 47.0,
             "longitude": 9.0,
+            "timezone_name": "Europe/Vienna",
         },
+        "planning_horizon": {"mode": "sunset_window"},
         "file_paths_battery_simulation": {
             "path_cons_data": "runtime/cons_data_hourly.csv",
         },

@@ -38,7 +38,12 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 def _print_results(results: list) -> None:
     for item in results:
-        status = "OK" if item.passed else "FEHLER"
+        if item.passed:
+            status = "OK"
+        elif item.severity == "warning":
+            status = "WARNUNG"
+        else:
+            status = "FEHLER"
         target = f" ({item.io_name})" if item.io_name else ""
         print(f"[{status}] {item.label}{target}: {item.detail}")
 
@@ -66,7 +71,9 @@ def main(argv: list[str] | None = None) -> int:
         print("\nAlle Loxone-Prüfungen erfolgreich.")
         return 0
 
-    failed = sum(1 for item in results if not item.passed)
+    failed = sum(
+        1 for item in results if not item.passed and item.severity != "warning"
+    )
     print(f"\n{failed} von {len(results)} Prüfungen fehlgeschlagen.", file=sys.stderr)
     return 1
 
