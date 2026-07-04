@@ -10,16 +10,43 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import config
+from data.planning_window import align_to_planning_timezone
 from optimizer import battery as bat
 from optimizer.consumer_power import uses_pv_follow
 from optimizer.schedule import QUARTER_HOUR_MINUTES, quarter_hour_slot_start
 from optimizer.simulation import calculate_step_cost_euro_from_row, flexible_consumer_power_kw
-from optimizer.targets import consumer_column_name, consumer_pv_follow_column_name
+from optimizer.targets import (
+    consumer_column_name,
+    consumer_immediate_charge_column_name,
+    consumer_pv_follow_column_name,
+)
 
 from . import optimization_history
 
 SLOTS_PER_DAY = 96
 SLOT_DURATION_HOURS = QUARTER_HOUR_MINUTES / 60.0
+
+SLOT_PRESENT = "present"
+SLOT_HELD = "held"
+SLOT_MISSING = "missing"
+
+
+@dataclass(frozen=True)
+class ChartHistoryResult:
+    """15-Min-Slots aus dem Produktiv-Log für ein beliebiges Chart-Fenster."""
+
+    rows: list[dict[str, Any]]
+    slot_starts: tuple[datetime, ...]
+    slot_qualities: tuple[str, ...]
+    slot_costs_euro: list[float]
+    cumulative_costs_euro: list[float]
+    slot_consumption_kwh: list[float]
+    cumulative_consumption_kwh: list[float]
+    present_slot_count: int
+    held_slot_count: int
+    missing_slot_count: int
+    window_start: datetime
+    window_end_exclusive: datetime
 
 
 @dataclass(frozen=True)
@@ -37,6 +64,7 @@ class HistoryTimelineResult:
     present_slot_count: int
     held_slot_count: int
     missing_slot_count: int
+    slot_qualities: tuple[str, ...]
     window_start: datetime
     window_end: datetime
     anchor_slot: datetime
@@ -89,26 +117,65 @@ def _slot_starts(window_start: datetime) -> list[datetime]:
     return [window_start + step * index for index in range(SLOTS_PER_DAY)]
 
 
-def _format_slot_time(slot_start: datetime) -> str:
+def _format_slot_time(slot_start: datetime, *, include_date: bool = False) -> str:
+    if include_date:
+        return slot_start.strftime("%d.%m. %H:%M")
     return slot_start.strftime("%H:%M")
+
+
+def _align_log_timestamp(moment: datetime) -> datetime:
+    return align_to_planning_timezone(moment, config.get_planning_timezone())
 
 
 def _parse_completed_at(entry: dict[str, Any]) -> datetime | None:
     text = entry.get("completed_at")
+    parsed: datetime | None
     if isinstance(text, datetime):
-        return text
-    if text:
+        parsed = text
+    elif text:
         try:
-            return datetime.fromisoformat(str(text))
+            parsed = datetime.fromisoformat(str(text))
         except ValueError:
-            pass
-    written = entry.get("written_at")
-    if not written:
-        return None
-    try:
-        return datetime.fromisoformat(str(written))
-    except ValueError:
-        return None
+            parsed = None
+    else:
+        parsed = None
+    if parsed is None:
+        written = entry.get("written_at")
+        if not written:
+            return None
+        try:
+            parsed = datetime.fromisoformat(str(written))
+        except ValueError:
+            return None
+    return _align_log_timestamp(parsed)
+
+
+def quarter_hour_slots_between(
+    window_start: datetime,
+    window_end_exclusive: datetime,
+) -> tuple[datetime, ...]:
+    """Viertelstunden-Slots in [window_start, window_end_exclusive)."""
+    if window_start.tzinfo is None or window_end_exclusive.tzinfo is None:
+        raise ValueError("window_start und window_end_exclusive müssen timezone-aware sein.")
+    if window_end_exclusive <= window_start:
+        return ()
+    step = timedelta(minutes=QUARTER_HOUR_MINUTES)
+    slot = _coerce_slot_start(window_start)
+    end_bound = _coerce_slot_start(window_end_exclusive)
+    if window_end_exclusive > end_bound:
+        end_bound += step
+    slots: list[datetime] = []
+    while slot < end_bound and slot < window_end_exclusive:
+        slots.append(slot)
+        slot += step
+    return tuple(slots)
+
+
+def _coerce_slot_start(slot_start: datetime) -> datetime:
+    """Slot-Schlüssel für Log-Lookup (aware, Planungs-TZ)."""
+    if slot_start.tzinfo is None:
+        return quarter_hour_slot_start(_align_log_timestamp(slot_start))
+    return quarter_hour_slot_start(slot_start)
 
 
 def _index_entries_by_slot(
@@ -161,14 +228,50 @@ def _consumer_kw_from_entry(
     return float(flex_kw.get(consumer_id, 0.0) or 0.0)
 
 
-def entry_to_chart_row(entry: dict[str, Any], slot_start: datetime) -> dict[str, Any]:
+def _immediate_charge_flags_from_entry(entry: dict[str, Any] | None) -> dict[str, int]:
+    """Sofort-Laden-Flags aus dem gespeicherten charging_contexts (falls vorhanden)."""
+    contexts = (entry or {}).get("charging_contexts") or {}
+    flags: dict[str, int] = {}
+    for consumer in config.get_flexible_consumers(optimizer_only=True):
+        cid = consumer["id"]
+        ctx = contexts.get(cid) or {}
+        flags[consumer_immediate_charge_column_name(consumer)] = (
+            1 if ctx.get("immediate_charge") else 0
+        )
+    return flags
+
+
+def _feed_in_price_cent_from_entry(entry: dict[str, Any] | None) -> float:
+    """Einspeisevergütung aus k_push_act im Log, sonst fixer Config-Fallback."""
+    if entry is not None and entry.get("k_push_act") is not None:
+        return round(float(entry["k_push_act"]), 4)
+    return round(config.get_push_price_cent(), 4)
+
+
+def _append_milp_table_columns(row: dict[str, Any], entry: dict[str, Any] | None) -> None:
+    """
+    Spalten, die nur in MILP-Chart-Zeilen vorkommen — für die Tabelle mit Defaults befüllen.
+
+    Einspeisevergütung: k_push_act aus dem Produktiv-Lauf, sonst Config-Fallback.
+    sofort_laden: aus charging_contexts des Produktiv-Laufs, sonst 0.
+    """
+    row["Einspeisevergütung (Cent/kWh)"] = _feed_in_price_cent_from_entry(entry)
+    row.update(_immediate_charge_flags_from_entry(entry))
+
+
+def entry_to_chart_row(
+    entry: dict[str, Any],
+    slot_start: datetime,
+    *,
+    include_date: bool = False,
+) -> dict[str, Any]:
     """Baut eine Chart-Zeile aus einem Produktiv-Durchlauf."""
     mode = int(entry.get("mode", bat.MODE_AUTOMATIK))
     target_power = float(entry.get("target_power_kw", 0.0) or 0.0)
     pv, baseload, battery_plan = _power_kw_from_entry(entry)
     row: dict[str, Any] = {
         "slot_datetime": slot_start,
-        "Uhrzeit": _format_slot_time(slot_start),
+        "Uhrzeit": _format_slot_time(slot_start, include_date=include_date),
         "Strompreis (Cent/kWh)": round(float(entry.get("market_price_cent", 0.0) or 0.0), 4),
         "Preis extrapoliert": False,
         "PV-Prognose (kW)": round(pv, 3),
@@ -187,13 +290,32 @@ def entry_to_chart_row(entry: dict[str, Any], slot_start: datetime) -> dict[str,
         baseload + flexible_consumer_power_kw(row) - pv + battery_plan,
         2,
     )
+    _append_milp_table_columns(row, entry)
     return row
 
 
-def _hold_forward_row(previous: dict[str, Any], slot_start: datetime) -> dict[str, Any]:
+def _zero_flex_power(row: dict[str, Any]) -> None:
+    """Hold-Forward gilt für SoC/Preis — flexible Verbraucher bleiben aus."""
+    for consumer in config.get_flexible_consumers(optimizer_only=True):
+        row[consumer_column_name(consumer)] = 0.0
+        if uses_pv_follow(consumer):
+            row[consumer_pv_follow_column_name(consumer)] = 0
+    pv = float(row.get("PV-Prognose (kW)", 0.0) or 0.0)
+    baseload = float(row.get("Verbrauch-Prognose (kW)", 0.0) or 0.0)
+    battery_plan = float(row.get("Geplante Batterie-Aktion (kW)", 0.0) or 0.0)
+    row["Netzbezug (kW)"] = round(baseload - pv + battery_plan, 2)
+
+
+def _hold_forward_row(
+    previous: dict[str, Any],
+    slot_start: datetime,
+    *,
+    include_date: bool = False,
+) -> dict[str, Any]:
     row = dict(previous)
     row["slot_datetime"] = slot_start
-    row["Uhrzeit"] = _format_slot_time(slot_start)
+    row["Uhrzeit"] = _format_slot_time(slot_start, include_date=include_date)
+    _zero_flex_power(row)
     return row
 
 
@@ -243,7 +365,7 @@ def _projected_hourly_savings_from_slots(
         entry = None
         for quarter in range(4):
             slot = hour_start + step * quarter
-            candidate = by_slot.get(slot)
+            candidate = by_slot.get(_coerce_slot_start(slot))
             if candidate is not None and _entry_savings_snapshot(candidate) is not None:
                 entry = candidate
         if entry is None:
@@ -297,6 +419,92 @@ def _projected_savings_available(by_slot: dict[datetime, dict[str, Any]]) -> boo
     return any(_entry_savings_snapshot(entry) is not None for entry in by_slot.values())
 
 
+def _build_rows_for_slot_starts(
+    slot_starts: tuple[datetime, ...] | list[datetime],
+    *,
+    include_date: bool = False,
+) -> tuple[list[dict[str, Any]], tuple[str, ...], int, int, int]:
+    if not slot_starts:
+        return [], (), 0, 0, 0
+    starts = tuple(slot_starts)
+    window_start = _coerce_slot_start(starts[0])
+    window_end = _coerce_slot_start(starts[-1]) + timedelta(minutes=QUARTER_HOUR_MINUTES)
+    entries = optimization_history.load_replay_entries_between(window_start, window_end)
+    by_slot = _index_entries_by_slot(entries)
+    rows: list[dict[str, Any]] = []
+    qualities: list[str] = []
+    present = held = missing = 0
+    last_row: dict[str, Any] | None = None
+    for slot_start in starts:
+        slot_key = _coerce_slot_start(slot_start)
+        entry = by_slot.get(slot_key)
+        if entry is not None:
+            row = entry_to_chart_row(entry, slot_key, include_date=include_date)
+            present += 1
+            last_row = row
+            qualities.append(SLOT_PRESENT)
+        elif last_row is not None:
+            row = _hold_forward_row(last_row, slot_key, include_date=include_date)
+            held += 1
+            qualities.append(SLOT_HELD)
+        else:
+            row = _empty_chart_row(slot_key, include_date=include_date)
+            missing += 1
+            qualities.append(SLOT_MISSING)
+        rows.append(row)
+    return rows, tuple(qualities), present, held, missing
+
+
+def build_chart_history(
+    window_start: datetime,
+    window_end_exclusive: datetime,
+) -> ChartHistoryResult:
+    """
+    Rekonstruiert 15-Min-Ist-Daten für [window_start, window_end_exclusive).
+
+    Fensterende = letzte abgeschlossene volle Stunde (Spec Phase 2).
+    """
+    if window_start.tzinfo is None or window_end_exclusive.tzinfo is None:
+        raise ValueError("window_start und window_end_exclusive müssen timezone-aware sein.")
+    if window_end_exclusive <= window_start:
+        return ChartHistoryResult(
+            rows=[],
+            slot_starts=(),
+            slot_qualities=(),
+            slot_costs_euro=[],
+            cumulative_costs_euro=[],
+            slot_consumption_kwh=[],
+            cumulative_consumption_kwh=[],
+            present_slot_count=0,
+            held_slot_count=0,
+            missing_slot_count=0,
+            window_start=window_start,
+            window_end_exclusive=window_end_exclusive,
+        )
+    slot_starts = quarter_hour_slots_between(window_start, window_end_exclusive)
+    rows, qualities, present, held, missing = _build_rows_for_slot_starts(
+        slot_starts,
+        include_date=True,
+    )
+    sell_price_cent = config.get_push_price_cent()
+    slot_costs = [_slot_cost_euro(row, sell_price_cent) for row in rows]
+    slot_kwh = [_slot_consumption_kwh(row) for row in rows]
+    return ChartHistoryResult(
+        rows=rows,
+        slot_starts=slot_starts,
+        slot_qualities=qualities,
+        slot_costs_euro=slot_costs,
+        cumulative_costs_euro=_cumulative(slot_costs),
+        slot_consumption_kwh=slot_kwh,
+        cumulative_consumption_kwh=_cumulative(slot_kwh),
+        present_slot_count=present,
+        held_slot_count=held,
+        missing_slot_count=missing,
+        window_start=window_start,
+        window_end_exclusive=window_end_exclusive,
+    )
+
+
 def build_history_timeline(
     offset_days: int,
     now: datetime | None = None,
@@ -304,34 +512,17 @@ def build_history_timeline(
     """
     Rekonstruiert 96 Viertelstunden-Slots für ein vergangenes 24h-Fenster.
 
-    Fehlende Slots: Hold-Forward des letzten bekannten Werts (Preis/SoC/Leistung).
+    Fehlende Slots: Hold-Forward des letzten bekannten Werts (Preis/SoC; Flex = 0 kW).
     """
     window_start, window_end, anchor = history_window_bounds(offset_days, now)
+    slot_starts = _slot_starts(window_start)
+    rows, qualities, present, held, missing = _build_rows_for_slot_starts(slot_starts)
     entries = optimization_history.load_replay_entries_between(window_start, window_end)
     by_slot = _index_entries_by_slot(entries)
     sell_price_cent = config.get_push_price_cent()
 
-    rows: list[dict[str, Any]] = []
-    present = held = missing = 0
-    last_row: dict[str, Any] | None = None
-
-    for slot_start in _slot_starts(window_start):
-        entry = by_slot.get(slot_start)
-        if entry is not None:
-            row = entry_to_chart_row(entry, slot_start)
-            present += 1
-            last_row = row
-        elif last_row is not None:
-            row = _hold_forward_row(last_row, slot_start)
-            held += 1
-        else:
-            row = _empty_chart_row(slot_start)
-            missing += 1
-        rows.append(row)
-
     slot_costs = [_slot_cost_euro(row, sell_price_cent) for row in rows]
     slot_kwh = [_slot_consumption_kwh(row) for row in rows]
-    slot_starts = _slot_starts(window_start)
     projected_hourly = _projected_hourly_savings_from_slots(by_slot, slot_starts)
     projected_savings_cum = _hourly_to_slot_cumulative(projected_hourly, len(slot_starts))
     savings_available = _projected_savings_available(by_slot)
@@ -348,6 +539,7 @@ def build_history_timeline(
         present_slot_count=present,
         held_slot_count=held,
         missing_slot_count=missing,
+        slot_qualities=qualities,
         window_start=window_start,
         window_end=window_end,
         anchor_slot=anchor,
@@ -355,10 +547,14 @@ def build_history_timeline(
     )
 
 
-def _empty_chart_row(slot_start: datetime) -> dict[str, Any]:
+def _empty_chart_row(
+    slot_start: datetime,
+    *,
+    include_date: bool = False,
+) -> dict[str, Any]:
     row: dict[str, Any] = {
         "slot_datetime": slot_start,
-        "Uhrzeit": _format_slot_time(slot_start),
+        "Uhrzeit": _format_slot_time(slot_start, include_date=include_date),
         "Strompreis (Cent/kWh)": 0.0,
         "Preis extrapoliert": False,
         "PV-Prognose (kW)": 0.0,
@@ -372,6 +568,7 @@ def _empty_chart_row(slot_start: datetime) -> dict[str, Any]:
         row[consumer_column_name(consumer)] = 0.0
         if uses_pv_follow(consumer):
             row[consumer_pv_follow_column_name(consumer)] = 0
+    _append_milp_table_columns(row, None)
     return row
 
 

@@ -7,6 +7,7 @@ import config
 import logger_config
 from integrations import awattar_client, loxone_client
 from data import profile_manager, consumer_targets, pv_tuner, cons_data_store, live_consumption
+from data.feed_in_prices import k_push_act_for_matrix_row
 from runtime_store import run_state, optimization_history
 from runtime_store.single_instance import SingleInstanceError, ensure_single_instance
 from optimizer import schedule as optimization_schedule
@@ -297,6 +298,13 @@ def main(run_trigger: str = TRIGGER_QUARTER_HOUR):
             "soc_percent": round(float(current_soc), 2),
             "pv_delta_kwh": round(float(pv_delta), 4),
             "market_price_cent": round(float(current_market_item["price_buy"]), 4),
+            "k_push_act": round(
+                k_push_act_for_matrix_row(
+                    current_market_item,
+                    config.get_push_price_cent(),
+                ),
+                4,
+            ),
             "forecast_pv_kw": round(float(optimization_matrix[0]["expected_p_pv"]), 3),
             "forecast_consumption_kw": round(float(optimization_matrix[0]["expected_p_act"]), 3),
             "mode": int(mode),

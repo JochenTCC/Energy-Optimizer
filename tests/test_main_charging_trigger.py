@@ -151,3 +151,4 @@ def test_regular_run_uses_update_and_side_effects(monkeypatch):
     assert register.call_args.kwargs["book_planned"] is True
     cons_data.assert_called_once()
     assert saved[0]["run_trigger"] == TRIGGER_QUARTER_HOUR
+    assert saved[0]["k_push_act"] == main_module.config.get_push_price_cent()

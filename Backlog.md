@@ -6,7 +6,7 @@
 
 - [ ] **UI Sunset-2-Sunset (Spec v0.5)** — [docs/spec/ui-sunset2sunset.md](docs/spec/ui-sunset2sunset.md)
   - Ersetzt Modi **Echtzeit** + **Historischer Tag**, Button **Produktiv-Archiv**, Live/History-Grenze; Prod: `ENERGY_OPTIMIZER_UI_MODES=sunset2sunset,backtesting`
-  - **Phase 2 — Vergangenheit füllen:** Produktiv-Log (`history_timeline`, 15 min) in grauem Bereich; Grenze an **voller Stunde** (laufende Stunde wie heute unsichtbar bis Stundenwechsel); ab voller Stunde 1h-MILP; Sankey + Countdown **immer**; **Simulationsergebnis-Tabelle** (`ui/simulation_results.py`) im grauen Bereich korrekt befüllen (15-min-Ist + stündliche MILP-Slots, konsistent zum Chart)
+  - **Phase 2 — Vergangenheit füllen (Charts, offen):** Produktiv-Log (`history_timeline`, 15 min) im **grauen Chart-Bereich**; Grenze an **voller Stunde**; ab voller Stunde 1h-MILP in Charts; Sankey + Countdown **immer**; Darstellung konsistent zur Simulations-Tabelle
   - **Phase 3 — Charts & Kennzahlen:** Chart 2 getrennt „Ist bisher“ (Log) vs. „Prognose optimiert“ (MILP); grün ab erstem `Preis extrapoliert`; Marker SA₀/SA₁/SA₂, Jetzt-Linie; alte Pfade `history_offset_days`, `render_historical_*` aus Prod-UI entfernen
   - **Phase 4 — Docs & Tests:** `docs/ui/betriebsmodi.md`, `docker-compose-synology.yml`, Tests (`test_planning_window`, Navigation, gemischte Auflösung)
   - **Follow-ups (nach v0.5):** siehe unten Soll/Ist + Nachrechnung Backtesting
@@ -77,6 +77,14 @@ bodentemperaturen_nach_monat = {
 - [ ] Generisches E-Auto-Modell - für bessere Wiederverwendbarkeit
 
 ## Erledigte Punkte
+
+### UI Sunset-2-Sunset Phase 2 — Simulations-Tabelle (2026-07-04)
+
+- [x] **Daten-Schicht:** `build_chart_history`, `build_chart_display_context` — 15-min Produktiv-Log + stündliche MILP-Slots für die Tabelle
+- [x] **Simulationsergebnis-Tabelle:** Log/MILP-Mix, Spalte Datenquelle, orange/hellorange für fehlende/gehaltene Log-Slots (`ui/simulation_results.py`, `st.table` + Styler)
+- [x] **Produktiv-Log:** `k_push_act` in `main.py` / `optimization_history.jsonl`; Einspeisevergütung und `sofort_laden` in Tabellenzeilen aus Log-Kontext
+- [x] **TZ-Fix:** naive `completed_at`-Zeitstempel für Log-Lookup in Planungszeitzone
+- [x] **Tests:** `test_chart_history`, `test_simulation_results_table`
 
 ### Dev-Umgebung NAS-Produktiv-Log (2026-07-04)
 

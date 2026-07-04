@@ -148,6 +148,7 @@ def test_format_gap_notice():
         present_slot_count=80,
         held_slot_count=10,
         missing_slot_count=6,
+        slot_qualities=(),
         window_start=ANCHOR,
         window_end=ANCHOR,
         anchor_slot=ANCHOR,
