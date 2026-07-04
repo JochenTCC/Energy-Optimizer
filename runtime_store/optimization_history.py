@@ -16,6 +16,7 @@ from typing import Any
 import pandas as pd
 
 import config
+from data.planning_window import align_to_planning_timezone
 from .file_metadata import OPTIMIZATION_HISTORY_SCHEMA, stamp_payload, strip_metadata
 from .persist_paths import legacy_history_csv_file
 
@@ -353,8 +354,16 @@ def _mode_from_label(mode_label: str) -> int:
     return 0
 
 
+def _align_replay_timestamp(moment: datetime) -> datetime:
+    """Naive JSONL-Zeitstempel in die Planungszeitzone bringen."""
+    return align_to_planning_timezone(moment, config.get_planning_timezone())
+
+
 def _completed_in_window(completed: datetime, start: datetime, end: datetime) -> bool:
-    return start <= completed < end
+    completed_aligned = _align_replay_timestamp(completed)
+    start_aligned = _align_replay_timestamp(start)
+    end_aligned = _align_replay_timestamp(end)
+    return start_aligned <= completed_aligned < end_aligned
 
 
 def load_replay_entries_between(

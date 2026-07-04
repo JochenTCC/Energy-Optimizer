@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import config
@@ -16,6 +16,25 @@ from data.planning_window import (
     ui_chart_zones,
 )
 from runtime_store import optimization_history
+from runtime_store.history_timeline import (
+    ChartHistoryResult,
+    build_chart_history,
+)
+
+SLOT_MILP = "milp"
+
+
+@dataclass(frozen=True)
+class ChartDisplayContext:
+    """Gemischte Chart-/Tabellen-Zeilen: Produktiv-Log (15 min) + MILP (1 h)."""
+
+    rows: list[dict]
+    slot_datetimes: tuple[datetime, ...]
+    slot_qualities: tuple[str, ...]
+    history_slot_count: int
+    history_result: ChartHistoryResult | None
+    gap_notice: str | None
+    history_only: bool
 
 
 @dataclass(frozen=True)
@@ -157,6 +176,103 @@ def align_rows_to_chart_slots(
         else:
             aligned.append(_empty_chart_row(slot))
     return aligned
+
+
+def _hourly_tail_rows(
+    sim_rows: list[dict],
+    chart: UiChartWindow,
+    from_slot: datetime,
+) -> tuple[list[dict], tuple[datetime, ...]]:
+    aligned = align_rows_to_chart_slots(sim_rows, chart)
+    tail_rows: list[dict] = []
+    tail_slots: list[datetime] = []
+    for slot, row in zip(chart.slot_datetimes, aligned):
+        if slot >= from_slot:
+            tail_rows.append(row)
+            tail_slots.append(slot)
+    return tail_rows, tuple(tail_slots)
+
+
+def _history_gap_notice(result: ChartHistoryResult | None) -> str | None:
+    if result is None or not result.rows:
+        return None
+    parts: list[str] = []
+    if result.missing_slot_count:
+        parts.append(f"{result.missing_slot_count} Viertelstunden-Slots ohne Log-Daten")
+    if result.held_slot_count:
+        parts.append(f"{result.held_slot_count} Slots mit letztem bekannten Wert aufgefüllt")
+    if not parts:
+        return None
+    return " · ".join(parts)
+
+
+def build_chart_display_context(
+    chart_context: LiveChartContext,
+    sim_rows: list[dict] | None,
+) -> ChartDisplayContext:
+    """
+    Mischt Produktiv-Log (15 min, grauer Bereich) mit MILP-Stunden (ab voller Stunde).
+
+    Segment SA₁→SA₂: nur MILP. Vergangene SA-Zyklen: nur Log.
+    """
+    chart = chart_context.chart_window
+    rows_input = sim_rows or []
+    is_live_segment = (
+        chart_context.cycle_offset == 0 and chart_context.segment_index == 0
+    )
+
+    if chart.segment_index == 1:
+        hourly_rows = align_rows_to_chart_slots(rows_input, chart)
+        qualities = tuple(SLOT_MILP for _ in hourly_rows)
+        return ChartDisplayContext(
+            rows=hourly_rows,
+            slot_datetimes=chart.slot_datetimes,
+            slot_qualities=qualities,
+            history_slot_count=0,
+            history_result=None,
+            gap_notice=None,
+            history_only=False,
+        )
+
+    if not is_live_segment:
+        history_end = chart.end + timedelta(hours=1)
+        history = build_chart_history(chart.start, history_end)
+        return ChartDisplayContext(
+            rows=history.rows,
+            slot_datetimes=history.slot_starts,
+            slot_qualities=history.slot_qualities,
+            history_slot_count=len(history.rows),
+            history_result=history,
+            gap_notice=_history_gap_notice(history),
+            history_only=True,
+        )
+
+    history_end = chart_context.zones.history.end
+    if history_end <= chart.start:
+        hourly_rows = align_rows_to_chart_slots(rows_input, chart)
+        qualities = tuple(SLOT_MILP for _ in hourly_rows)
+        return ChartDisplayContext(
+            rows=hourly_rows,
+            slot_datetimes=chart.slot_datetimes,
+            slot_qualities=qualities,
+            history_slot_count=0,
+            history_result=None,
+            gap_notice=None,
+            history_only=False,
+        )
+
+    history = build_chart_history(chart.start, history_end)
+    hourly_rows, hourly_slots = _hourly_tail_rows(rows_input, chart, history_end)
+    qualities = history.slot_qualities + tuple(SLOT_MILP for _ in hourly_rows)
+    return ChartDisplayContext(
+        rows=history.rows + hourly_rows,
+        slot_datetimes=history.slot_starts + hourly_slots,
+        slot_qualities=qualities,
+        history_slot_count=len(history.rows),
+        history_result=history,
+        gap_notice=_history_gap_notice(history),
+        history_only=False,
+    )
 
 
 def align_hourly_values_to_chart_slots(

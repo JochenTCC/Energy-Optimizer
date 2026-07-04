@@ -7,10 +7,18 @@ import streamlit as st
 import pandas as pd
 
 from runtime_store import live_optimization_debug
-from runtime_store.history_timeline import HistoryTimelineResult, format_gap_notice
+from runtime_store.history_timeline import (
+    HistoryTimelineResult,
+    SLOT_HELD,
+    SLOT_MISSING,
+    SLOT_PRESENT,
+    format_gap_notice,
+)
 from ui.chart_context import (
     LiveChartContext,
+    SLOT_MILP,
     align_rows_to_chart_slots,
+    build_chart_display_context,
     savings_view_for_chart,
 )
 from ui.charts import build_sun_markers, render_history_optimization_chart, render_optimization_chart
@@ -71,16 +79,92 @@ def render_applied_targets(savings: dict) -> None:
         )
 
 
+_TABLE_MISSING_ROW_COLOR = "background-color: #ffe0b2;"
+_TABLE_HELD_ROW_COLOR = "background-color: #fff3e0;"
+_SLOT_QUALITY_LABELS = {
+    SLOT_PRESENT: "Produktiv-Log",
+    SLOT_HELD: "Produktiv-Log (gehalten)",
+    SLOT_MISSING: "fehlend",
+    SLOT_MILP: "MILP",
+}
+
+
+def _slot_quality_label(quality: str) -> str:
+    return _SLOT_QUALITY_LABELS.get(quality, quality)
+
+
+def _quality_at_row(row_index, frame_index: pd.Index, qualities: tuple[str, ...]) -> str:
+    position = int(frame_index.get_loc(row_index))
+    return qualities[position]
+
+
+def _style_simulation_table(
+    df: pd.DataFrame,
+    slot_qualities: tuple[str, ...],
+) -> pd.io.formats.style.Styler:
+    """
+    Zeilen-Hintergrund für fehlende/ gehaltene Log-Slots.
+
+    st.dataframe unterstützt Styler.apply, aber nicht zuverlässig mit hide() —
+    Qualitäten liegen daher außerhalb des DataFrames.
+    """
+
+    def _highlight_row(row: pd.Series):
+        quality = _quality_at_row(row.name, df.index, slot_qualities)
+        if quality == SLOT_MISSING:
+            color = _TABLE_MISSING_ROW_COLOR
+        elif quality == SLOT_HELD:
+            color = _TABLE_HELD_ROW_COLOR
+        else:
+            color = None
+        if color is None:
+            return [None] * len(row)
+        return [color] * len(row)
+
+    return df.style.apply(_highlight_row, axis=1)
+
+
+def _render_simulation_table(
+    df: pd.DataFrame,
+    slot_qualities: tuple[str, ...] | None,
+) -> None:
+    display_df = df.copy()
+    if slot_qualities is not None:
+        if len(slot_qualities) != len(display_df):
+            raise ValueError(
+                f"slot_qualities ({len(slot_qualities)}) passt nicht zur Tabelle "
+                f"({len(display_df)} Zeilen)."
+            )
+        display_df["Datenquelle"] = [_slot_quality_label(q) for q in slot_qualities]
+    if "slot_datetime" in display_df.columns:
+        display_df = display_df.drop(columns=["slot_datetime"])
+
+    has_gap_styles = slot_qualities is not None and any(
+        quality in (SLOT_MISSING, SLOT_HELD) for quality in slot_qualities
+    )
+    if has_gap_styles:
+        # st.table rendert Pandas-Styler (Zeilenfarben) zuverlässiger als st.dataframe.
+        st.table(_style_simulation_table(display_df, slot_qualities))
+    else:
+        st.dataframe(display_df, width="stretch", hide_index=True)
+
+
 def render_simulation_details(
     df: pd.DataFrame,
     title: str = "📋 Simulations-Details (Nächste 24 Stunden)",
+    *,
+    slot_qualities: tuple[str, ...] | None = None,
+    gap_notice: str | None = None,
 ) -> None:
     with st.expander(title):
+        if gap_notice:
+            st.warning(gap_notice)
         st.markdown(
-            "Hier sind die exakten mathematischen Stundenslots aufgelistet, "
-            "die als Grundlage für den Chart dienen:"
+            "Slots wie im Chart: **Produktiv-Log** (15 min, grauer Bereich) und "
+            "**MILP** (1 h ab voller Stunde). "
+            "**Orange** = kein Log-Eintrag · **hellorange** = Hold-Forward (gehalten)."
         )
-        st.dataframe(df, width="stretch")
+        _render_simulation_table(df, slot_qualities)
 
 
 def render_optimization_results(
@@ -99,6 +183,9 @@ def render_optimization_results(
     savings_view = savings_info
     display_df = optimized_df
     display_matched = matched_baseline_df
+    table_df = display_df
+    table_qualities: tuple[str, ...] | None = None
+    table_gap_notice: str | None = None
     sun_markers = None
     if chart_context is not None and optimization_matrix is not None:
         savings_view = savings_view_for_chart(
@@ -106,6 +193,13 @@ def render_optimization_results(
             optimization_matrix,
             chart_context.chart_window,
         )
+        display_ctx = build_chart_display_context(
+            chart_context,
+            optimized_df.to_dict("records"),
+        )
+        table_df = pd.DataFrame(display_ctx.rows)
+        table_qualities = display_ctx.slot_qualities
+        table_gap_notice = display_ctx.gap_notice
         display_df = pd.DataFrame(
             align_rows_to_chart_slots(
                 optimized_df.to_dict("records"),
@@ -155,7 +249,12 @@ def render_optimization_results(
             table_title = (
                 "📋 Simulations-Details (Sunset-2-Sunset-Fenster)"
             )
-        render_simulation_details(display_df, title=table_title)
+        render_simulation_details(
+            table_df,
+            title=table_title,
+            slot_qualities=table_qualities,
+            gap_notice=table_gap_notice,
+        )
 
 
 def render_history_timeline_results(result: HistoryTimelineResult) -> None:
@@ -180,6 +279,12 @@ def render_history_timeline_results(result: HistoryTimelineResult) -> None:
         total_cost,
         projected_savings_cumulative_euro=result.projected_savings_cumulative_euro,
         latest_projected_savings_euro=result.latest_projected_savings_euro,
+    )
+    render_simulation_details(
+        df,
+        title="📋 Simulations-Details (Produktiv-Historie, 15 min)",
+        slot_qualities=result.slot_qualities,
+        gap_notice=format_gap_notice(result),
     )
 
 
