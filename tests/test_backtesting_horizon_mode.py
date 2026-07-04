@@ -117,12 +117,15 @@ class TestSunsetHorizonSizing:
         assert min(lengths) > BACKTESTING_STEP_HOURS
         assert max(lengths) <= BACKTESTING_STEP_HOURS + 20
 
-    def test_sunrise_index_within_output_step(self):
+    def test_sunrise_index_within_or_at_output_boundary(self):
         scenario = fixture_scenario_params()
+        outside = 0
         for day in JUNE_SAMPLE_DAYS:
             anchor = window_anchor_for_date(day.date())
             _, sunrise_index = compute_sunset_planning_at_anchor(anchor, scenario)
-            assert sunrise_index < BACKTESTING_STEP_HOURS
+            if sunrise_index >= BACKTESTING_STEP_HOURS:
+                outside += 1
+        assert outside == 0, "Sommer-Fixture: Sonnenaufgang erwartet innerhalb 24h"
 
     def test_truncation_limits_simulation_to_output_step(self):
         scenario = fixture_scenario_params()
