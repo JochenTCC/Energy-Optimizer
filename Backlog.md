@@ -66,6 +66,15 @@ bodentemperaturen_nach_monat = {
 
 ## Erledigte Punkte
 
+### Cursor Session-Abschluss (2026-07-04)
+
+- [x] **Zweiphasiger Session-Abschluss automatisieren**
+  - Phase 1: `Backlog.md` pflegen, alle offenen Änderungen committen und pushen (bei lokalen/temporären Dateien nachfragen)
+  - Phase 2: optional Docker-Image bauen und nach ghcr.io pushen (`python -m scripts.build_container --push`)
+  - Skill: `.cursor/skills/session-abschluss/SKILL.md`; Rule: `.cursor/rules/session-abschluss.mdc`
+  - Hook: `docker push` erfordert explizite Bestätigung (`.cursor/hooks/approve_docker_push.py`)
+  - Trigger: „Session beenden“, „Backlog sync“, „Commit und Push“
+
 ### Konfiguration Dev/Prod (2026-07-04)
 
 - [x] **Zentrale `config.json` über NAS-Pfad adressierbar**
