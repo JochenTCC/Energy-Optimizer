@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": "python .cursor/hooks/approve_docker_push.py",
+        "matcher": "docker push"
+      }
+    ]
+  }
+}
