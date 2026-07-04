@@ -1,6 +1,8 @@
 """Horizont-Simulation (optimiert, Baseline) und Kostenberechnung."""
 from __future__ import annotations
 
+from datetime import datetime
+
 import config
 from .charging_context import (
     apply_horizon_charging_limits,
@@ -63,6 +65,29 @@ def flexible_consumer_power_kw(row: dict) -> float:
     )
 
 
+def _format_chart_uhrzeit(row: dict) -> str:
+    slot_dt = row.get("slot_datetime")
+    if isinstance(slot_dt, datetime):
+        return slot_dt.strftime("%d.%m. %H:%M")
+    hour = row.get("hour", 0)
+    return f"{int(hour):02d}:00"
+
+
+def _relative_sunrise_index(
+    sunrise_soc_min_index: int | None,
+    slice_start: int,
+    slice_len: int,
+) -> int | None:
+    if sunrise_soc_min_index is None:
+        return None
+    if sunrise_soc_min_index < slice_start:
+        return None
+    rel = sunrise_soc_min_index - slice_start
+    if rel < 0 or rel >= slice_len:
+        return None
+    return rel
+
+
 def _simulate_single_hour_optimizer(
     remaining_matrix: list,
     row: dict,
@@ -75,9 +100,16 @@ def _simulate_single_hour_optimizer(
     flex_indices: list[int] | None,
     charging_contexts: dict[str, dict] | None,
     terminal_soc_percent: float | None,
+    sunrise_soc_min_index: int | None,
+    matrix_hour_index: int,
 ) -> tuple[float, dict, int, float]:
     """Simuliert eine einzelne Stunde im optimierten Pfad (Huawei-Logik für die Batterie)."""
     h = row["hour"]
+    rel_sunrise = _relative_sunrise_index(
+        sunrise_soc_min_index,
+        matrix_hour_index,
+        len(remaining_matrix),
+    )
     mode, target_power, target_soc, consumer_powers, consumer_pv_follow, _, _ = milp_optimizer(
         remaining_matrix,
         h,
@@ -90,6 +122,7 @@ def _simulate_single_hour_optimizer(
         flex_indices=flex_indices,
         charging_contexts=charging_contexts,
         terminal_soc_percent=terminal_soc_percent,
+        sunrise_soc_min_index=rel_sunrise,
     )
     pv = row["expected_p_pv"]
     con = row["expected_p_act"]
@@ -110,7 +143,7 @@ def _simulate_single_hour_optimizer(
     )
     p_grid = con + total_flex_power - pv + round(batt_action, 2)
     chart_row = {
-        "Uhrzeit": f"{h:02d}:00",
+        "Uhrzeit": _format_chart_uhrzeit(row),
         **_chart_price_fields(row),
         "PV-Prognose (kW)": pv,
         "Verbrauch-Prognose (kW)": con,
@@ -198,6 +231,7 @@ def simulate_horizon(
     charging_contexts: dict[str, dict] | None = None,
     matrix_prepared: bool = False,
     simulation_hour_offset: int | None = None,
+    sunrise_soc_min_index: int | None = None,
 ) -> list:
     """Simuliert einen rollierenden Optimierungshorizont über die gesamte Matrix."""
     if not matrix_prepared:
@@ -230,6 +264,7 @@ def simulate_horizon(
     )
     horizon_limits = apply_horizon_charging_limits(horizon_limits, charging_contexts)
     delivered_horizon: dict[str, float] = {c["id"]: 0.0 for c in consumers_cfg}
+    terminal_soc_percent = None if sunrise_soc_min_index is not None else initial_soc
     for i, row in enumerate(optimization_matrix):
         if simulation_hour_offset is not None:
             from optimizer.cbc_events import set_cbc_milp_context
@@ -255,7 +290,9 @@ def simulate_horizon(
             spa_remaining_kwh=None,
             flex_indices=list(range(len(remaining_slice))),
             charging_contexts=charging_contexts,
-            terminal_soc_percent=initial_soc,
+            terminal_soc_percent=terminal_soc_percent,
+            sunrise_soc_min_index=sunrise_soc_min_index,
+            matrix_hour_index=i,
         )
         flex_capped = _cap_flex_delivery(
             chart_row, consumers_cfg, horizon_limits, delivered_horizon
@@ -623,6 +660,7 @@ def calculate_optimization_savings(
     optimization_matrix: list,
     initial_soc: float,
     consumer_daily_targets_kwh: dict[str, float] | None = None,
+    sunrise_soc_min_index: int | None = None,
 ) -> dict:
     """Berechnet die Einsparung in Euro gegenüber einer nicht-optimierten Baseline-Simulation."""
     from .charge_immediate import prepare_optimization_matrix
@@ -632,13 +670,14 @@ def calculate_optimization_savings(
         optimization_matrix,
         consumer_daily_targets_kwh,
     )
-    optimized_rows = simulate_24h_horizon(
+    optimized_rows = simulate_horizon(
         matrix,
         initial_soc,
         consumer_daily_targets_kwh=targets,
         verbose=False,
         charging_contexts=charging_contexts,
         matrix_prepared=True,
+        sunrise_soc_min_index=sunrise_soc_min_index,
     )
     baseline_rows = simulate_baseline_horizon(
         matrix, initial_soc, charging_contexts=charging_contexts

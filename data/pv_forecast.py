@@ -42,7 +42,7 @@ def _check_and_fetch_api_data(url: str, kwp: float) -> Optional[dict]:
 
 def _map_hourly_data_to_vector(hourly_watts: dict, target_hours: list) -> tuple[list, bool]:
     """Mappt API-Daten auf die Zielstunden. Returns (pv_vector, success)."""
-    pv_vector = [0.0] * 24
+    pv_vector = [0.0] * len(target_hours)
     success_count = 0
     
     for idx, target_dt in enumerate(target_hours):
@@ -53,7 +53,10 @@ def _map_hourly_data_to_vector(hourly_watts: dict, target_hours: list) -> tuple[
             success_count += 1
     
     if success_count > 0:
-        print(f"✅ PV-Ertragsprognose erfolgreich bereitgestellt ({success_count}/24 Stunden gemappt. Max: {max(pv_vector)} kW).")
+        print(
+            f"✅ PV-Ertragsprognose erfolgreich bereitgestellt "
+            f"({success_count}/{len(target_hours)} Stunden gemappt. Max: {max(pv_vector)} kW)."
+        )
         return pv_vector, True
     
     return pv_vector, False
@@ -61,7 +64,7 @@ def _map_hourly_data_to_vector(hourly_watts: dict, target_hours: list) -> tuple[
 
 def _generate_seasonal_fallback(target_hours: list, kwp: float) -> list:
     """Generiert eine saisonale Fallback-Prognose."""
-    pv_vector = [0.0] * 24
+    pv_vector = [0.0] * len(target_hours)
     current_month = datetime.now().month
     
     if current_month in [11, 12, 1]:
@@ -92,13 +95,14 @@ def _apply_tuning_factor(pv_vector: list) -> list:
     return tuned_vector
 
 
-def get_hourly_pv_forecast() -> List[float]:
+def get_hourly_pv_forecast_for_hours(target_hours: list) -> List[float]:
     """
-    Holt die stündliche PV-Prognose für die nächsten 24 Stunden (ab der aktuellen Stunde).
-    Gibt eine Liste mit exakt 24 Float-Werten (in kW) zurück.
-    Schützt die forecast.solar API durch ein integriertes 15-Minuten-Caching.
-    Wendet das adaptive PV-Tuning konsistent auf API-Daten und Fallbacks an.
+    PV-Prognose (kW) für die übergebenen Stunden-Slots.
+    Wendet adaptives PV-Tuning auf API-Daten und Fallbacks an.
     """
+    if not target_hours:
+        raise ValueError("get_hourly_pv_forecast_for_hours erfordert mindestens eine Zielstunde.")
+
     lat = config.get('LATITUDE', cast=float)
     lon = config.get('LONGITUDE', cast=float)
     tilt = config.get('PV_TILT', cast=float)
@@ -106,23 +110,29 @@ def get_hourly_pv_forecast() -> List[float]:
     kwp = config.get('PV_KWP', cast=float)
 
     url = f"https://api.forecast.solar/estimate/{lat}/{lon}/{tilt}/{azimuth}/{kwp}"
-    
-    now = datetime.now().replace(minute=0, second=0, microsecond=0)
-    target_hours = [now + timedelta(hours=i) for i in range(24)]
-    
     hourly_watts = _check_and_fetch_api_data(url, kwp)
-    
-    # 1. Versuch: API- / Cache-Daten mappen
+
     if hourly_watts:
         pv_vector, success = _map_hourly_data_to_vector(hourly_watts, target_hours)
         if success:
-            # NEU: Auch die erfolgreichen API-Daten werden nun getuned
             return _apply_tuning_factor(pv_vector)
-        print("⚠️ API-/Cache-Daten empfangen, aber keine passenden Zeitstempel für die nächsten 24h gefunden. Nutze Fallback.")
+        print(
+            "⚠️ API-/Cache-Daten empfangen, aber keine passenden Zeitstempel für "
+            f"die {len(target_hours)} Zielstunden gefunden. Nutze Fallback."
+        )
 
-    # 2. Versuch (Fallback): Saisonaler Vektor generieren
     pv_vector = _generate_seasonal_fallback(target_hours, kwp)
     return _apply_tuning_factor(pv_vector)
+
+
+def get_hourly_pv_forecast() -> List[float]:
+    """
+    Holt die stündliche PV-Prognose für die nächsten 24 Stunden (ab der aktuellen Stunde).
+    Schützt die forecast.solar API durch ein integriertes 15-Minuten-Caching.
+    """
+    now = datetime.now().replace(minute=0, second=0, microsecond=0)
+    target_hours = [now + timedelta(hours=i) for i in range(24)]
+    return get_hourly_pv_forecast_for_hours(target_hours)
 
 
 if __name__ == "__main__":

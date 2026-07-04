@@ -28,6 +28,8 @@ from runtime_store.persist_paths import (
     resolve_config_json_path,
     resolve_config_schema_template_path,
     resolve_config_template_path,
+    resolve_local_settings_json_path,
+    resolve_local_settings_template_path,
     runtime_dir,
     total_consumption_profiles_file,
 )
@@ -164,6 +166,26 @@ def _bootstrap_backtesting_scenarios_json() -> bool:
     )
 
 
+def _bootstrap_local_settings_json() -> bool:
+    settings_path = resolve_local_settings_json_path()
+    template_path = resolve_local_settings_template_path()
+    if not _is_missing_file(settings_path):
+        return False
+    if os.path.isfile(template_path):
+        _ensure_parent_dir(settings_path)
+        shutil.copyfile(template_path, settings_path)
+        logger.info(
+            "bootstrap: %s aus %s angelegt.",
+            settings_path,
+            template_path,
+        )
+        return True
+    return _create_file_if_missing(
+        settings_path,
+        lambda: _write_json(settings_path, {"loxone_silent_mode": False}),
+    )
+
+
 def _bootstrap_cons_data_pending() -> bool:
     path = cons_data_pending_file()
     payload = stamp_payload(
@@ -221,6 +243,8 @@ def run() -> None:
         created.append(os.path.join("config", "backtesting_scenarios.schema.json"))
     if _bootstrap_backtesting_scenarios_json():
         created.append(resolve_backtesting_scenarios_json_path())
+    if _bootstrap_local_settings_json():
+        created.append(resolve_local_settings_json_path())
     if _bootstrap_cons_data_csv():
         created.append(default_cons_data_file())
     if _bootstrap_cons_data_pending():

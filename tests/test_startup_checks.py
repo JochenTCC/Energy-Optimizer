@@ -71,3 +71,26 @@ class TestRunLoxoneVerifyOnStartup:
             ),
         ):
             sc.run_loxone_verify_on_startup()
+
+    def test_warning_severity_does_not_count_as_failed(self, monkeypatch):
+        monkeypatch.delenv("ENERGY_OPTIMIZER_STRICT_LOXONE_VERIFY", raising=False)
+        with (
+            patch.object(sc, "loxone_env_configured", return_value=True),
+            patch.object(
+                sc,
+                "verify_loxone_setup",
+                return_value=(
+                    True,
+                    [
+                        LoxoneCheck(
+                            "Event-Trigger E-Auto Fertig-Uhrzeit",
+                            "Ernie_EAuto_FertigUm",
+                            False,
+                            "Lesen fehlgeschlagen (kein Wert)",
+                            severity="warning",
+                        )
+                    ],
+                ),
+            ),
+        ):
+            sc.run_loxone_verify_on_startup()

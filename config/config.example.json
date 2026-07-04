@@ -22,7 +22,6 @@
     "system": {
         "global_timeout": 10,
         "loop_timeout": 900,
-        "loxone_silent_mode": false,
         "event_trigger_enabled": true,
         "event_poll_interval_sec": 60,
         "event_triggers": [
@@ -73,10 +72,14 @@
         "battery_capacity_kwh": 5.0,
         "battery_min_soc": 10.0,
         "battery_max_soc": 100.0,
-        "battery_end_soc_equals_start": true,
+        "battery_end_soc_equals_start": false,
         "threshold_power": 0.02,
         "latitude": 48,
-        "longitude": 10
+        "longitude": 10,
+        "timezone_name": "Europe/Vienna"
+    },
+    "planning_horizon": {
+        "mode": "sunset_window"
     },
     "flexible_consumers": [
         {
@@ -101,7 +104,7 @@
                 "setpoint_c": 36.5,
                 "tolerance_c": 1.0,
                 "water_volume_liters": 6000,
-                "heat_loss_kw_per_k": null,
+                "heat_loss_kw_per_k": 0.1,
                 "heating_efficiency": 0.95,
                 "heating_power_threshold_kw": 2.0,
                 "actual_temp_step_c": 0.5,

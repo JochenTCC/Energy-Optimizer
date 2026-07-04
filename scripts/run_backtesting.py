@@ -126,8 +126,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         "--log-file",
         metavar="PFAD",
         help=(
-            "Zusätzliche UTF-8-Logdatei (empfohlen statt Shell-Umleitung "
-            "z. B. '> log.txt' unter Windows)."
+            "Zusätzliche UTF-8-Logdatei (empfohlen: backtesting_logs/lauf.log; "
+            "nicht Shell-Umleitung unter Windows)."
         ),
     )
     return parser

@@ -5,12 +5,22 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from zoneinfo import ZoneInfo
+
 from data.market_prices import (
     PRICE_SOURCE_DAY_AHEAD,
     PRICE_SOURCE_MIRRORED,
     index_market_data_by_slot,
+    normalize_price_slot,
     resolve_24h_market_slots,
+    resolve_market_slots,
 )
+
+VIENNA = ZoneInfo("Europe/Vienna")
+
+
+def _slot(year: int, month: int, day: int, hour: int) -> datetime:
+    return datetime(year, month, day, hour, 0, tzinfo=VIENNA)
 
 
 def _market_entry(slot: datetime, price: float) -> dict:
@@ -51,7 +61,7 @@ def test_resolve_24h_mirrors_missing_slots_from_previous_day():
     assert resolved[0]["price_source"] == PRICE_SOURCE_DAY_AHEAD
     assert resolved[0]["price_buy"] == 10.0
     assert resolved[-1]["price_source"] == PRICE_SOURCE_MIRRORED
-    assert resolved[-1]["mirrored_from"] == datetime(2026, 6, 24, 9, 0, 0)
+    assert resolved[-1]["mirrored_from"] == _slot(2026, 6, 24, 9)
     assert resolved[-1]["price_buy"] == 9.0
 
 
@@ -64,10 +74,80 @@ def test_resolve_24h_raises_when_mirror_source_missing():
         resolve_24h_market_slots(market_data, target_hours)
 
 
+def test_resolve_24h_accepts_variable_horizon_length():
+    start = datetime(2026, 6, 24, 8, 0, 0)
+    target_hours = [start + timedelta(hours=i) for i in range(37)]
+    market_data = [
+        _market_entry(start + timedelta(hours=i), 10.0 + i)
+        for i in range(37)
+    ]
+
+    resolved = resolve_24h_market_slots(market_data, target_hours)
+
+    assert len(resolved) == 37
+
+
+def test_resolve_market_slots_mirrors_from_earlier_day_when_previous_day_missing():
+    start = datetime(2026, 6, 24, 8, 0, 0)
+    target_hours = [datetime(2026, 6, 26, 20, 0, 0)]
+    market_data = [_market_entry(datetime(2026, 6, 24, 20, 0, 0), 15.5)]
+
+    resolved = resolve_market_slots(market_data, target_hours)
+
+    assert len(resolved) == 1
+    assert resolved[0]["price_source"] == PRICE_SOURCE_MIRRORED
+    assert resolved[0]["mirrored_from"] == _slot(2026, 6, 24, 20)
+    assert resolved[0]["price_buy"] == 15.5
+
+
+def test_resolve_market_slots_supports_variable_length():
+    start = datetime(2026, 6, 24, 8, 0, 0)
+    target_hours = [start + timedelta(hours=i) for i in range(36)]
+    market_data = [
+        _market_entry(start + timedelta(hours=i), 10.0 + i)
+        for i in range(36)
+    ]
+
+    resolved = resolve_market_slots(market_data, target_hours)
+
+    assert len(resolved) == 36
+    assert all(slot["price_source"] == PRICE_SOURCE_DAY_AHEAD for slot in resolved)
+
+
 def test_index_market_data_averages_duplicate_slots():
     slot = datetime(2026, 6, 24, 8, 0, 0)
     indexed = index_market_data_by_slot([
         _market_entry(slot, 10.0),
         _market_entry(slot, 20.0),
     ])
-    assert indexed[slot]["price_buy"] == 15.0
+    assert indexed[normalize_price_slot(slot)]["price_buy"] == 15.0
+
+
+def test_awattar_fetch_window_accepts_timezone_aware_planning_end():
+    from zoneinfo import ZoneInfo
+
+    from data.market_prices import MAX_MIRROR_LOOKBACK_DAYS, awattar_fetch_window
+
+    tz = ZoneInfo("Europe/Vienna")
+    planning_end = datetime(2026, 7, 5, 21, 19, tzinfo=tz)
+    start, end = awattar_fetch_window(planning_end)
+    assert end.tzinfo is not None
+    assert end >= datetime.now(tz).replace(minute=0, second=0, microsecond=0)
+    assert start.tzinfo == end.tzinfo
+    today_midnight = datetime.now(tz).replace(hour=0, minute=0, second=0, microsecond=0)
+    assert start == today_midnight - timedelta(days=MAX_MIRROR_LOOKBACK_DAYS)
+
+
+def test_resolve_market_slots_matches_aware_target_with_naive_market_data():
+    from zoneinfo import ZoneInfo
+
+    tz = ZoneInfo("Europe/Vienna")
+    slot = datetime(2026, 7, 4, 9, 0, tzinfo=tz)
+    target_hours = [slot]
+    market_data = [_market_entry(datetime(2026, 7, 4, 9, 0, 0), 12.34)]
+
+    resolved = resolve_market_slots(market_data, target_hours)
+
+    assert len(resolved) == 1
+    assert resolved[0]["price_source"] == PRICE_SOURCE_DAY_AHEAD
+    assert resolved[0]["price_buy"] == 12.34

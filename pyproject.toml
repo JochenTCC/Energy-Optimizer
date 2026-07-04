@@ -15,6 +15,7 @@ dependencies = [
     "pandas>=2.0.0",
     "pulp>=2.8.0",
     "python-dotenv>=1.0.0",
+    "astral>=3.2",
 ]
 
 [project.optional-dependencies]

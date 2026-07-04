@@ -169,12 +169,18 @@ def _build_optimization_matrix(
     target_hours: list | None = None,
 ) -> list:
     """Erstellt die Optimierungs-Matrix mit Preis-, Verbrauchs- und PV-Daten."""
-    if target_hours is None or len(target_hours) != 24:
+    if target_hours is None or len(target_hours) < 1:
         raise ValueError(
-            "_build_optimization_matrix erfordert genau 24 target_hours für das Live-Fenster."
+            "_build_optimization_matrix erfordert mindestens eine Zielstunde."
+        )
+    if not (
+        len(forecast_consumption) == len(target_hours) == len(forecast_pv)
+    ):
+        raise ValueError(
+            "forecast_consumption, forecast_pv und target_hours müssen gleiche Länge haben."
         )
 
-    price_slots = market_prices.resolve_24h_market_slots(market_data, target_hours)
+    price_slots = market_prices.resolve_market_slots(market_data, target_hours)
     optimization_matrix = []
 
     for i, price_slot in enumerate(price_slots):
@@ -240,6 +246,72 @@ def _load_flexible_consumer_hourly_profiles(target_hours: List) -> dict[str, Lis
         return {cid: [0.0] * len(target_hours) for cid in profiles}
 
     return profiles
+
+
+def compute_live_planning_window(now: datetime | None = None):
+    """
+    Berechnet das Sunset-Planungsfenster für den Live-Betrieb.
+
+    now muss timezone-aware sein oder wird aus config.get_planning_timezone() abgeleitet.
+    """
+    from zoneinfo import ZoneInfo
+
+    from .planning_window import compute_planning_window
+
+    tz_name = config.get_planning_timezone()
+    tz = ZoneInfo(tz_name)
+    if now is None:
+        now = datetime.now(tz)
+    elif now.tzinfo is None:
+        raise ValueError(
+            "compute_live_planning_window: now muss timezone-aware sein "
+            f"(z. B. ZoneInfo('{tz_name}'))."
+        )
+    else:
+        now = now.astimezone(tz)
+
+    lat = config.get("LATITUDE", cast=float)
+    lon = config.get("LONGITUDE", cast=float)
+    return compute_planning_window(now, lat, lon, tz_name)
+
+
+def build_live_planning_matrix(market_data: list, window) -> list:
+    """Baut die Live-Optimierungsmatrix für ein Sunset-Planungsfenster."""
+    check_and_update_profile_if_new_month()
+    target_hours = list(window.slot_datetimes)
+
+    forecast_consumption = _load_consumption_profile(target_hours)
+    forecast_total = _load_total_consumption_profile(target_hours)
+    flex_profiles = _load_flexible_consumer_hourly_profiles(target_hours)
+    forecast_pv = pv_forecast.get_hourly_pv_forecast_for_hours(target_hours)
+    optimization_matrix = _build_optimization_matrix(
+        market_data,
+        forecast_consumption,
+        forecast_pv,
+        forecast_total_consumption=forecast_total,
+        target_hours=target_hours,
+    )
+    for i, row in enumerate(optimization_matrix):
+        row["expected_flex_kw"] = {
+            cid: flex_profiles[cid][i]
+            for cid in flex_profiles
+        }
+
+    mirrored_share = market_prices.mirrored_price_share(
+        [
+            {
+                "price_source": row.get("price_source"),
+            }
+            for row in optimization_matrix
+        ]
+    )
+    if mirrored_share > 0.2:
+        print(
+            f"⚠️ Preis-Spiegelung: {mirrored_share:.0%} der {len(optimization_matrix)} "
+            "Planungs-Slots ohne Day-Ahead-Preis."
+        )
+
+    return optimization_matrix
 
 
 def get_forecast_vectors(market_data) -> Tuple[List[float], List[float], List[dict]]:

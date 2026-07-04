@@ -400,6 +400,22 @@ def _add_terminal_soc_constraint(model: MilpHorizonModel, e_terminal: float) -> 
     model.prob += model.e_batt[model.horizon - 1] == e_terminal
 
 
+def _add_sunrise_soc_min_constraint(
+    model: MilpHorizonModel,
+    sunrise_index: int,
+    e_min_kwh: float,
+) -> None:
+    """SOC am Sonnenaufgang-Slot = SOC_min (Live Sunset-Horizont)."""
+    if model.horizon < 1:
+        return
+    if sunrise_index < 0 or sunrise_index >= model.horizon:
+        raise ValueError(
+            f"sunrise_soc_min_index {sunrise_index} liegt außerhalb des Horizonts "
+            f"(0..{model.horizon - 1})."
+        )
+    model.prob += model.e_batt[sunrise_index] == e_min_kwh
+
+
 def _terminal_soc_energy_kwh(
     battery_params: dict,
     current_soc: float,
@@ -799,6 +815,7 @@ def milp_optimizer(
     flex_indices: list[int] | None = None,
     charging_contexts: dict[str, dict] | None = None,
     terminal_soc_percent: float | None = None,
+    sunrise_soc_min_index: int | None = None,
 ) -> tuple[int, float, float, dict[str, float], dict[str, int], dict[str, float]]:
     """
     Berechnet den optimalen Betriebsmodus und die Ziel-Leistung für den Loxone Miniserver.
@@ -815,7 +832,7 @@ def milp_optimizer(
     active = _active_consumers(consumers)
     remaining = _remaining_kwh_by_consumer(active, consumer_remaining_kwh, spa_remaining_kwh)
 
-    horizon = min(24, len(matrix))
+    horizon = len(matrix)
     day_indices = _day_indices(matrix, horizon)
     schedule_indices = flex_indices if flex_indices is not None else day_indices
     contexts = charging_contexts or {}
@@ -871,7 +888,16 @@ def milp_optimizer(
         verbose,
         include_urgent_deadline_constraint=not logged_simulation,
     )
-    if e_terminal := _terminal_soc_energy_kwh(
+    if sunrise_soc_min_index is not None:
+        e_min = (battery_params["min_soc"] / 100.0) * battery_params["battery_capacity_kwh"]
+        _add_sunrise_soc_min_constraint(model, sunrise_soc_min_index, e_min)
+        if verbose:
+            logger.info(
+                "MILP SOC-Anker Sonnenaufgang: Slot %d = %.1f %%",
+                sunrise_soc_min_index,
+                battery_params["min_soc"],
+            )
+    elif e_terminal := _terminal_soc_energy_kwh(
         battery_params, current_soc, terminal_soc_percent
     ):
         _add_terminal_soc_constraint(model, e_terminal)

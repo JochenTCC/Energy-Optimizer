@@ -21,7 +21,6 @@
     "system": {
         "global_timeout": 10,
         "loop_timeout": 900,
-        "loxone_silent_mode": true,
         "event_trigger_enabled": false,
         "event_poll_interval_sec": 60,
         "event_triggers": []
@@ -53,7 +52,11 @@
         "battery_end_soc_equals_start": false,
         "threshold_power": 0.02,
         "latitude": 47.404,
-        "longitude": 9.743
+        "longitude": 9.743,
+        "timezone_name": "Europe/Vienna"
+    },
+    "planning_horizon": {
+        "mode": "sunset_window"
     },
     "file_paths_battery_simulation": {
         "path_cons_data": "tests/fixtures/backtesting/cons_data_hourly.csv",

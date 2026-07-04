@@ -180,11 +180,19 @@ def _live_optimization_fragment(current_soc: float) -> None:
         )
         return
 
-    market_data = fetch_market_data()
-    if market_data is None:
+    planning_window = profile_manager.compute_live_planning_window()
+    market_data = awattar_client.fetch_awattar_prices(planning_end=planning_window.end)
+    if not market_data:
+        st.error(
+            "🚨 Fehler: Börsenstrompreise von aWATTar konnten nicht geladen werden. "
+            "Abbruch der Simulation."
+        )
         return
 
-    _, _, matrix = profile_manager.get_forecast_vectors(market_data)
+    matrix = profile_manager.build_live_planning_matrix(market_data, planning_window)
+    from data.planning_window import sunrise_anchor_slot_index
+
+    sunrise_soc_min_index = sunrise_anchor_slot_index(planning_window)
 
     snapshot = None
     if main_state and main_state.get("consumption_snapshot"):
@@ -204,6 +212,7 @@ def _live_optimization_fragment(current_soc: float) -> None:
         matrix,
         sim_soc,
         consumer_daily_targets_kwh=targets,
+        sunrise_soc_min_index=sunrise_soc_min_index,
     )
 
     optimized_df = pd.DataFrame(savings_info["optimized_rows"])

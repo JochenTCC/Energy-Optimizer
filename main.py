@@ -57,7 +57,19 @@ def main(run_trigger: str = TRIGGER_QUARTER_HOUR):
         logger.error("Optimierung abgebrochen: Kein Zugriff auf Loxone SoC.")
         return
 
-    market_data = awattar_client.fetch_awattar_prices()
+    config.is_sunset_planning_horizon()
+    planning_window = profile_manager.compute_live_planning_window()
+    logger.info(
+        "Planungsfenster: %s → %s (%d h), SA₁=%s, SA₂=%s, Sonnenaufgang-Anker=%s",
+        planning_window.start.strftime("%Y-%m-%d %H:%M"),
+        planning_window.end.strftime("%Y-%m-%d %H:%M"),
+        planning_window.horizon_hours,
+        planning_window.sunset_1.strftime("%Y-%m-%d %H:%M"),
+        planning_window.sunset_2.strftime("%Y-%m-%d %H:%M"),
+        planning_window.sunrise_anchor.strftime("%Y-%m-%d %H:%M"),
+    )
+
+    market_data = awattar_client.fetch_awattar_prices(planning_end=planning_window.end)
     if not market_data:
         logger.error("Optimierung abgebrochen: Keine Awattar-Preise empfangen.")
         return
@@ -81,7 +93,12 @@ def main(run_trigger: str = TRIGGER_QUARTER_HOUR):
 
     logger.info("📊 Tatsächlicher PV-Ertrag der letzten Stunde: %.3f kWh", pv_delta)
 
-    _, _, optimization_matrix = profile_manager.get_forecast_vectors(market_data)
+    optimization_matrix = profile_manager.build_live_planning_matrix(
+        market_data, planning_window
+    )
+    from data.planning_window import sunrise_anchor_slot_index
+
+    sunrise_soc_min_index = sunrise_anchor_slot_index(planning_window)
 
     live_power = loxone_client.fetch_loxone_live_power()
     flex_kw_for_matrix: dict[str, float] = {}
@@ -109,7 +126,7 @@ def main(run_trigger: str = TRIGGER_QUARTER_HOUR):
         live_consumers,
         active_targets_kwh=targets,
         baseline_targets_kwh=baseline_targets,
-        horizon=min(24, len(optimization_matrix)),
+        horizon=len(optimization_matrix),
     )
     for item in thermal_observability:
         if item.get("error"):
@@ -168,6 +185,7 @@ def main(run_trigger: str = TRIGGER_QUARTER_HOUR):
         consumers=live_consumers,
         consumer_remaining_kwh=consumer_remaining,
         charging_contexts=charging_contexts,
+        sunrise_soc_min_index=sunrise_soc_min_index,
     )
     battery_params = config.get_battery_params()
     battery_plan_kw = optimizer.battery_plan_kw_from_control(
@@ -237,11 +255,13 @@ def main(run_trigger: str = TRIGGER_QUARTER_HOUR):
             optimization_matrix,
             float(current_soc),
             consumer_daily_targets_kwh=targets,
+            sunrise_soc_min_index=sunrise_soc_min_index,
         )
         savings_snapshot = optimizer.build_savings_snapshot(savings_info)
         logger.info(
-            "Prognostizierte Ersparnis (24h): %.3f € vs BL Ziel "
+            "Prognostizierte Ersparnis (%d h): %.3f € vs BL Ziel "
             "(%.3f € optimiert / %.3f € BL Ziel)",
+            len(optimization_matrix),
             savings_snapshot["savings_matched_euro"],
             savings_snapshot["optimized_cost_euro"],
             savings_snapshot["matched_baseline_cost_euro"],

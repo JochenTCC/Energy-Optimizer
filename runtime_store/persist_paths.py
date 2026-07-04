@@ -7,6 +7,7 @@ import os
 
 _RUNTIME_DIR_ENV = "ENERGY_OPTIMIZER_RUNTIME_DIR"
 _DEFAULT_RUNTIME_DIR = "runtime"
+_LOCAL_SETTINGS_ENV = "ENERGY_OPTIMIZER_LOCAL_SETTINGS_PATH"
 
 
 def runtime_dir() -> str:
@@ -125,6 +126,33 @@ def resolve_config_json_path() -> str:
     if os.path.isfile(legacy):
         return legacy
     return preferred
+
+
+def local_settings_file() -> str:
+    return runtime_path("local_settings.json")
+
+
+def local_settings_example_file() -> str:
+    return runtime_path("local_settings.example.json")
+
+
+def resolve_local_settings_template_path() -> str:
+    """Vorlage für local_settings.json: Runtime-Mount oder gebündelte Image-Kopie."""
+    preferred = local_settings_example_file()
+    if os.path.isfile(preferred):
+        return preferred
+    bundled = os.path.join(bundled_config_dir(), "local_settings.example.json")
+    if os.path.isfile(bundled):
+        return bundled
+    return preferred
+
+
+def resolve_local_settings_json_path() -> str:
+    """Maschinenspezifische Einstellungen: ENV > runtime/local_settings.json."""
+    env = os.environ.get(_LOCAL_SETTINGS_ENV, "").strip()
+    if env:
+        return env
+    return local_settings_file()
 
 
 def bundled_backtesting_scenarios_example_file() -> str:

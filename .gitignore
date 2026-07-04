@@ -16,9 +16,11 @@ cons_data_hourly.meta.json
 cons_data_pending.json
 optimizer_run_state.json
 !tests/fixtures/prod_dumps/**/optimizer_run_state.json
-runtime/
+runtime/*
+!runtime/local_settings.example.json
 runtime-prod/
 backtesting_log.json
+backtesting_logs/
 energy_optimizer.log
 system_history_log.csv
 runtime_settings.json

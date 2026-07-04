@@ -60,6 +60,10 @@ def run_loxone_verify_on_startup() -> None:
         target = f" ({item.io_name})" if item.io_name else ""
         if item.passed:
             logger.info("[loxone-verify] OK %s%s: %s", item.label, target, item.detail)
+        elif item.severity == "warning":
+            logger.warning(
+                "[loxone-verify] WARNUNG %s%s: %s", item.label, target, item.detail
+            )
         else:
             failed += 1
             logger.error(
