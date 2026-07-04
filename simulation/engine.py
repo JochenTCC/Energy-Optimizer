@@ -23,6 +23,7 @@ from simulation.baseload_validation import (
 )
 from simulation.backtesting_horizon import (
     compute_sunset_planning_at_anchor,
+    effective_sunrise_soc_min_index,
     geo_params_from_scenario,
     naive_backtesting_slot,
     step_slot_datetimes,
@@ -327,7 +328,7 @@ def build_sunset_window_matrix(
     meta["sunrise_anchor"] = planning_window.sunrise_anchor
     meta["step_slot_datetimes"] = step_slots
     matrix = truncate_matrix_for_step_simulation(matrix, sunrise_index)
-    return matrix, meta, sunrise_index
+    return matrix, meta, effective_sunrise_soc_min_index(sunrise_index)
 
 
 def _apply_backtesting_step(

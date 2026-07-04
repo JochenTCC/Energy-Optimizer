@@ -73,6 +73,13 @@ def step_slot_datetimes(anchor: datetime, timezone_name: str) -> list[datetime]:
     return slots
 
 
+def effective_sunrise_soc_min_index(sunrise_soc_min_index: int) -> int | None:
+    """SOC_min am Sonnenaufgang nur, wenn der Anker innerhalb des 24h-Output-Schritts liegt."""
+    if sunrise_soc_min_index >= BACKTESTING_STEP_HOURS:
+        return None
+    return sunrise_soc_min_index
+
+
 def truncate_matrix_for_step_simulation(
     matrix: list[dict],
     sunrise_soc_min_index: int,
@@ -83,11 +90,6 @@ def truncate_matrix_for_step_simulation(
     Volle Jetzt→SA₂-Matrix (typ. 36–39 h) würde simulate_horizon pro Extra-Stunde
     ein zusätzliches MILP lösen, obwohl Backtesting nur 24 h ausgibt.
     """
-    if sunrise_soc_min_index >= BACKTESTING_STEP_HOURS:
-        raise ValueError(
-            f"Sonnenaufgang-Index {sunrise_soc_min_index} liegt außerhalb des "
-            f"{BACKTESTING_STEP_HOURS}h-Output-Schritts — Backtesting-Spezialfall prüfen."
-        )
     if len(matrix) <= BACKTESTING_STEP_HOURS:
         return matrix
     return matrix[:BACKTESTING_STEP_HOURS]
