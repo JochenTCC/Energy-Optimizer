@@ -4,13 +4,9 @@
 
 **Verknüpfung:** urgent-Regel-Review (bis ca. 2026-07-12) ↔ Prod-Dump-`xfail` (Live, Modus A) ↔ PWM/Mindestlademenge E-Auto.
 
-- [ ] **Epic Soll-Ist** — Soll/Ist-Abweichung in Chart 1 (Icons Hinweis / Warnung / Fehler)
-  - Spec: [docs/spec/soll-ist-abweichung.md](docs/spec/soll-ist-abweichung.md) v0.1 · Regeln: `config/deviation_rules.json` (+ Schema, `deviation_rules.example.json`)
-  - [x] **P1** Facts & Regelwerk: `deviation_facts`, `deviation_eval`, `deviation_rules`, Prädikat-MVP, Tests S1–S5
-  - [x] **P2** Slot-Auswertung: `deviation_timeline`, `ChartHistoryResult.slot_deviation_events`, `ChartDisplayContext.slot_deviation_events`; nur `present` im grauen Bereich
-  - [x] **P3** Chart-1-Icons: Plotly-Marker, Tooltip, ?-Hilfe (`build_deviation_marker_traces`, `s2_zone_help_text`)
-  - **P4** Szenario-Katalog, `docs/ui/charts.md`, Epic-Abschluss
-  - **Follow-ups (nach Epic):** Nachrechnung Backtesting (Batch über JSONL); Stufe 2 kontinuierliches Haus-Ist; Hinweis-Regeln wenn Fälle da
+- [ ] **Soll-Ist Nachrechnung (Backtesting)** — Regelwerk batchweise über historische JSONL / Prod-Dumps; Statistik je Kategorie (Follow-up Epic Soll-Ist)
+- [ ] **Soll-Ist Stufe 2 (Haus-Ist)** — Kontinuierlicher Abgleich feinerer Auflösung als 15-min-Log (Follow-up Epic Soll-Ist)
+- [ ] **Soll-Ist Hinweis-Regeln** — Kategorie „Hinweis“ sobald konkrete unkritische Fälle identifiziert (Follow-up Epic Soll-Ist)
 - [ ] **Preis-Spiegelung (Markt):** statt einzelner Spiegelquelle (gleiche Uhrzeit, bis 7 Tage zurück) ggf. **Mittelung über mehrere vergangene Tage** prüfen — Genauigkeit/Robustheit vs. Einfachheit; Kontext `data/market_prices.py` (`resolve_market_slots`)
 - [ ] Was bedeutet "⚠️ Keine historischen Daten in cons_data_hourly für das Datum 2026-07-05." in stderr ausgabe von streamlit / app.py?
 - [ ] Erweitertes Temperaturmodell für Swim-Spa mit zweitem Wärmepfad in die Erde. Hier ist eine Lookup-Table für die Erdtemperatur:
@@ -246,6 +242,13 @@ bodentemperaturen_nach_monat = {
 - [x] **`battery_end_soc_equals_start` entfernt** (NAS-Config, Schema, Example, `get_battery_params`, Test-Fixtures)
   - Terminal-SOC nur noch über `terminal_soc_percent` (Backtesting `fixed_24h`) bzw. Sonnenaufgang-Anker (Live `sunset_window`)
   - Kein separater Config-Parameter mehr
+
+### Epic Soll-Ist (2026-07-05)
+
+- [x] **Soll/Ist-Abweichung in Chart 1** — Icons Hinweis / Warnung / Fehler im grauen Produktiv-Log-Bereich
+  - Spec [docs/spec/soll-ist-abweichung.md](docs/spec/soll-ist-abweichung.md) v0.2 · Regeln `config/deviation_rules.json`
+  - P1–P4: Facts, Regelwerk, Slot-Auswertung, Chart-Marker, Szenario-Katalog S1–S7, [docs/ui/charts.md](docs/ui/charts.md)
+  - Dev-Test: `scripts/seed_deviation_test_log.py`, VS Code Launch **Streamlit app.py (Deviation-Test)**
 
 ### Verbrauchshistorie Live (2026-07-04)
 

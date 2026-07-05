@@ -7,6 +7,7 @@ from typing import Any
 
 import config
 from optimizer import battery as bat
+from optimizer.consumer_power import loxone_control_outputs, uses_power_setpoint, uses_pv_follow
 from runtime_store.history_timeline import SLOT_PRESENT
 
 
@@ -15,6 +16,8 @@ class FlexPowerFacts:
     soll_kw: float
     ist_kw: float
     mismatch_kw: float
+    pv_follow_soll: int | None = None
+    loxone_setpoint_kw: float | None = None
 
 
 @dataclass(frozen=True)
@@ -69,6 +72,48 @@ def _soll_flex_kw(entry: dict[str, Any], consumer_id: str) -> float:
     if consumer_id in powers:
         return _float_or_zero(powers[consumer_id])
     return 0.0
+
+
+def _consumer_config(consumer_id: str) -> dict | None:
+    for consumer in config.get_flexible_consumers(optimizer_only=True):
+        if consumer["id"] == consumer_id:
+            return consumer
+    return None
+
+
+def _effective_planned_kw(entry: dict[str, Any], consumer_id: str) -> float:
+    planned = _soll_flex_kw(entry, consumer_id)
+    ctx = (entry.get("charging_contexts") or {}).get(consumer_id) or {}
+    if ctx.get("active") is False:
+        return 0.0
+    return planned
+
+
+def _pv_follow_soll(
+    entry: dict[str, Any],
+    consumer_id: str,
+    consumer: dict | None,
+) -> int | None:
+    if consumer is None or not uses_pv_follow(consumer):
+        return None
+    return int((entry.get("consumer_pv_follow") or {}).get(consumer_id, 0) or 0)
+
+
+def _loxone_setpoint_kw(
+    entry: dict[str, Any],
+    consumer_id: str,
+    consumer: dict | None,
+) -> float | None:
+    if consumer is None or not uses_power_setpoint(consumer):
+        return None
+    sent = entry.get("loxone_sent") or {}
+    setpoint_name = str((consumer.get("loxone_outputs") or {}).get("power_setpoint_name", "")).strip()
+    if setpoint_name and setpoint_name in sent:
+        return _float_or_zero(sent[setpoint_name])
+    pv_follow = int((entry.get("consumer_pv_follow") or {}).get(consumer_id, 0) or 0)
+    planned = _effective_planned_kw(entry, consumer_id)
+    setpoint, _ = loxone_control_outputs(consumer, planned, pv_follow)
+    return setpoint
 
 
 def _ist_flex_kw(entry: dict[str, Any], consumer_id: str) -> float:
@@ -134,12 +179,15 @@ def build_slot_deviation_facts(
     del slot_start  # reserviert für Stufe 2 / Slot-spezifische Thermik
     consumers: dict[str, FlexPowerFacts] = {}
     for consumer_id in sorted(_consumer_ids_from_entry(entry)):
+        consumer = _consumer_config(consumer_id)
         soll_kw = _soll_flex_kw(entry, consumer_id)
         ist_kw = _ist_flex_kw(entry, consumer_id)
         consumers[consumer_id] = FlexPowerFacts(
             soll_kw=soll_kw,
             ist_kw=ist_kw,
             mismatch_kw=round(soll_kw - ist_kw, 3),
+            pv_follow_soll=_pv_follow_soll(entry, consumer_id, consumer),
+            loxone_setpoint_kw=_loxone_setpoint_kw(entry, consumer_id, consumer),
         )
     thermal_index = _thermal_by_consumer(entry)
     thermal = {

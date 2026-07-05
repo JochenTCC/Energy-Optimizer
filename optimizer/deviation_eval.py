@@ -170,6 +170,41 @@ def _battery_power_below_tolerance(
     return False
 
 
+def _pv_follow_setpoint_kw(flex: FlexPowerFacts) -> float:
+    if flex.loxone_setpoint_kw is not None:
+        return flex.loxone_setpoint_kw
+    return flex.soll_kw
+
+
+def _pv_follow_scheduled(
+    facts: SlotDeviationFacts,
+    scope: str,
+    _rule: dict[str, Any],
+    tolerances: dict[str, float],
+    _params: dict[str, Any],
+) -> bool:
+    flex = _flex_for_scope(facts, scope)
+    if flex is None or flex.pv_follow_soll != 1:
+        return False
+    tol = _power_tolerance(tolerances)
+    return _pv_follow_setpoint_kw(flex) > tol
+
+
+def _pv_follow_power_below_tolerance(
+    facts: SlotDeviationFacts,
+    scope: str,
+    _rule: dict[str, Any],
+    tolerances: dict[str, float],
+    _params: dict[str, Any],
+) -> bool:
+    flex = _flex_for_scope(facts, scope)
+    if flex is None or flex.pv_follow_soll != 1:
+        return False
+    tol = _power_tolerance(tolerances)
+    setpoint = _pv_follow_setpoint_kw(flex)
+    return setpoint > tol and (setpoint - flex.ist_kw) > tol
+
+
 def _slot_quality_present(
     facts: SlotDeviationFacts,
     _scope: str,
@@ -190,6 +225,8 @@ PREDICATES: dict[str, Predicate] = {
     "mode_is_forced_charge": _mode_is_forced_charge,
     "mode_is_forced_discharge": _mode_is_forced_discharge,
     "battery_power_below_tolerance": _battery_power_below_tolerance,
+    "pv_follow_scheduled": _pv_follow_scheduled,
+    "pv_follow_power_below_tolerance": _pv_follow_power_below_tolerance,
     "slot_quality_present": _slot_quality_present,
 }
 
@@ -203,10 +240,13 @@ def _consumer_display_name(scope: str) -> str:
 
 def _message_context(facts: SlotDeviationFacts, scope: str) -> dict[str, Any]:
     flex = facts.consumers.get(scope)
+    soll_kw = 0.0 if flex is None else flex.soll_kw
+    if flex is not None and flex.pv_follow_soll == 1:
+        soll_kw = _pv_follow_setpoint_kw(flex)
     return {
         "scope": scope,
         "consumer_name": _consumer_display_name(scope),
-        "soll_kw": 0.0 if flex is None else flex.soll_kw,
+        "soll_kw": soll_kw,
         "ist_kw": 0.0 if flex is None else flex.ist_kw,
         "mismatch_kw": 0.0 if flex is None else flex.mismatch_kw,
     }

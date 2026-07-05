@@ -32,6 +32,20 @@
         "reveal": "silent",
         "panel": "shared"
       }
+    },
+    {
+      "label": "seed: deviation test log",
+      "type": "shell",
+      "command": "& '${workspaceFolder}\\.venv\\Scripts\\python.exe' -m scripts.seed_deviation_test_log --force",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "showReuseMessage": false
+      }
     }
   ]
 }

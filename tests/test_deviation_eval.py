@@ -47,7 +47,7 @@ def _entry(**extra) -> dict:
 class TestDeviationRulesLoader:
     def test_load_example_rules(self, rules_doc):
         assert rules_doc["version"] == 1
-        assert len(rules_doc["rules"]) >= 3
+        assert len(rules_doc["rules"]) >= 5
 
     def test_rejects_unknown_category(self):
         data = json.loads(RULES_PATH.read_text(encoding="utf-8"))
@@ -113,6 +113,36 @@ class TestScenarioCatalog:
         assert events[0].category == "error"
         assert events[0].scope == "battery"
         assert events[0].rule_id == "battery_forced_charge_missing"
+
+    def test_s3b_forced_discharge_error(self, rules_doc):
+        entry = _entry(
+            mode=bat.MODE_ZWANGS_ENTLADEN,
+            target_power_kw=2.0,
+            battery_plan_kw=-2.0,
+            consumption_snapshot={"flex_kw": {}, "battery_kw": 0.0},
+        )
+        events = evaluate_entry_deviations(entry, rules_doc=rules_doc)
+        assert len(events) == 1
+        assert events[0].category == "error"
+        assert events[0].scope == "battery"
+        assert events[0].rule_id == "battery_forced_discharge_missing"
+
+    def test_s2b_eauto_pv_follow_error(self, rules_doc):
+        entry = _entry(
+            consumer_powers_kw={"eauto": 2.0},
+            consumer_pv_follow={"eauto": 1},
+            loxone_sent={
+                "Ernie_EAuto_Ziel_kW": 3.5,
+                "Ernie_EAuto_pv_follow": 1.0,
+            },
+            consumption_snapshot={"flex_kw": {"eauto": 0.0}, "battery_kw": 0.0},
+            charging_contexts={"eauto": {"plugged_in": True, "active": True}},
+            consumer_remaining_kwh={"eauto": 8.0},
+        )
+        events = evaluate_entry_deviations(entry, rules_doc=rules_doc)
+        assert len(events) == 1
+        assert events[0].rule_id == "eauto_pv_follow_missing"
+        assert "3.50" in events[0].message
 
     def test_s4_no_deviation_within_tolerance(self, rules_doc):
         entry = _entry(
