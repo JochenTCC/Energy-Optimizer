@@ -1326,13 +1326,9 @@ def add_optimized_soc_trace(
             if abs_start >= abs_end:
                 continue
             seg_tail = tail_y if abs_end == length else None
-            bridge_left = not (
-                history_slot_count is not None
-                and abs_start == history_slot_count
-            )
             soc_x, soc_y = _segment_connected_line_xy(
                 axis, soc, abs_start, abs_end, tail_y=seg_tail,
-                step_line=False, bridge_left=bridge_left,
+                step_line=False,
             )
             if soc_x.empty:
                 continue
@@ -2063,7 +2059,6 @@ def render_cumulative_cost_chart(
         has_costs
         and matched_baseline_cost_euro is not None
         and optimized_cost_euro is not None
-        and not split_mode
     )
     if show_cost_summary:
         _add_cost_summary_annotations(

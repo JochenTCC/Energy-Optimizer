@@ -128,6 +128,42 @@ def test_missing_slots_after_present_leave_gaps(history_files):
     assert result.rows[1]["Simulierter SoC (%)"] is None
 
 
+def test_build_chart_history_uses_snapshot_grid_kw_for_slot_cost(history_files):
+    """Ist-Kosten: Netzbezug aus consumption_snapshot.grid_kw, nicht Soll-Bilanz."""
+    window_start = _dt(2026, 6, 15, 10, 0)
+    _write_jsonl(
+        history_files,
+        [
+            _entry(
+                window_start,
+                forecast_pv_kw=2.0,
+                forecast_consumption_kw=1.0,
+                battery_plan_kw=0.5,
+                market_price_cent=20.0,
+                consumption_snapshot={
+                    "baseload_kw": 1.0,
+                    "pv_kw": 2.0,
+                    "grid_kw": 2.5,
+                    "flex_kw": {},
+                    "battery_kw": 0.0,
+                },
+            ),
+        ],
+    )
+    result = history_timeline.build_chart_history(
+        window_start,
+        window_start.replace(hour=11),
+    )
+    row = result.rows[0]
+    assert row["Netzbezug (kW)"] == 2.5
+    assert result.slot_costs_euro[0] > 0.0
+    without_snapshot = history_timeline.entry_to_chart_row(
+        _entry(window_start, forecast_pv_kw=2.0, forecast_consumption_kw=1.0, battery_plan_kw=0.5),
+        window_start,
+    )
+    assert without_snapshot["Netzbezug (kW)"] == -0.5
+
+
 def test_build_chart_history_cumulative_skips_missing_slots(history_files):
     window_start = _dt(2026, 6, 15, 10, 0)
     _write_jsonl(

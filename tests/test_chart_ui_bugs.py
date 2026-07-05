@@ -23,6 +23,7 @@ from ui.charts import (
     add_optimized_soc_trace,
     add_price_on_soc_axis_trace,
     build_sun_markers,
+    render_cumulative_cost_chart,
 )
 from runtime_store.history_timeline import SLOT_MISSING
 
@@ -238,7 +239,8 @@ def test_soc_and_price_traces_align_with_slot_datetimes():
         )
 
 
-def test_soc_trace_splits_at_history_boundary():
+def test_soc_trace_bridges_at_history_boundary():
+    """Keine Lücke am Übergang grau (Log) → neutral (MILP)."""
     slots = _mixed_resolution_slots()[:6]
     df = pd.DataFrame({
         "slot_datetime": slots,
@@ -253,7 +255,8 @@ def test_soc_trace_splits_at_history_boundary():
     soc_traces = [trace for trace in fig.data if trace.name == "SoC"]
     assert len(soc_traces) == 2
     assert soc_traces[0].y[-1] == 52.0
-    assert soc_traces[1].y[0] == 80.0
+    assert soc_traces[1].y[0] == 52.0
+    assert soc_traces[1].y[1] == 80.0
 
 
 def test_soc_trace_bridges_extrapolation_start():
@@ -401,6 +404,45 @@ def test_green_zone_left_at_quarter_to_hour_transition():
     assert green is not None
     assert green.x0 == axis.legacy_index_time(idx - 0.5)
     assert green.x1 == x_right
+
+
+def test_chart2_s2_split_mode_shows_cost_summary_annotations(monkeypatch):
+    """Backlog: Einsparungs-Text auch in SA₀→SA₁ und SA₁→SA₂ (Gesamt-Horizont)."""
+    captured: dict = {}
+
+    def _capture_chart(fig, **_kwargs):
+        captured["fig"] = fig
+
+    monkeypatch.setattr("ui.charts.st.plotly_chart", _capture_chart)
+    monkeypatch.setattr("ui.charts.render_title_with_help", lambda *_a, **_k: None)
+
+    slots = [_dt(2026, 6, 15, hour, 0) for hour in range(8, 14)]
+    slot_count = len(slots)
+    history_slot_count = 3
+    df = pd.DataFrame({
+        "slot_datetime": slots,
+        "Uhrzeit": [slot.strftime("%d.%m. %H:%M") for slot in slots],
+        "Preis extrapoliert": [False] * slot_count,
+    })
+    render_cumulative_cost_chart(
+        df,
+        hourly_matched_baseline_cost_euro=[0.1] * slot_count,
+        hourly_optimized_cost_euro=[0.08] * slot_count,
+        hourly_matched_baseline_consumption_kwh=[0.5] * slot_count,
+        hourly_optimized_consumption_kwh=[0.45] * slot_count,
+        matched_baseline_cost_euro=12.34,
+        optimized_cost_euro=11.50,
+        history_slot_count=history_slot_count,
+        slot_actual_cost_euro=[0.05] * history_slot_count,
+        slot_actual_consumption_kwh=[0.2] * history_slot_count,
+    )
+    texts = [
+        getattr(item, "text", "")
+        for item in (captured["fig"].layout.annotations or [])
+    ]
+    assert any("BL Ziel: 12.34" in text for text in texts)
+    assert any("Optimiert: 11.50" in text for text in texts)
+    assert any(text.startswith("Ersparnis:") for text in texts)
 
 
 def test_gray_zone_reaches_axis_end_for_past_cycle():
