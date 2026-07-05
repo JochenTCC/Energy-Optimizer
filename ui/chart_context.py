@@ -11,6 +11,7 @@ from data.planning_window import (
     UiChartWindow,
     UiChartZones,
     compute_ui_chart_window,
+    history_log_end_exclusive,
     normalize_hour_slot,
     normalize_planning_hour_slot,
     ui_chart_zones,
@@ -298,7 +299,7 @@ def build_chart_display_context(
             history_only=True,
         )
 
-    history_end = chart_context.zones.history.end
+    history_end = history_log_end_exclusive(chart_context.now, chart)
     if history_end <= chart.start:
         milp_rows, milp_slots, milp_qualities = _milp_tail_rows(
             chart_context, rows_input, history_end
