@@ -1,7 +1,7 @@
 # Spezifikation: UI-Modus „Sunset-2-Sunset“
 
-**Version:** 0.6.3  
-**Status:** Phase 1 UI umgesetzt (2026-07-04); Phase 2 (Charts) teilweise — Daten-Schicht v0.6, Hold-Forward-Abschaffung offen; Phase 3 P3d Horizont (Jetzt→SA₂, 2026-07-05); Follow-up UI-Layout (2026-07-05); Phase 4 offen  
+**Version:** 0.7.0  
+**Status:** Epic abgeschlossen (2026-07-05); Phasen 1–4 umgesetzt (P4a–P4c Docs & Tests; P4d entfallen)  
 **Ersetzt:** Streamlit-Modi „Echtzeit“ und „Historischer Tag“, Button „Produktiv-Archiv“, getrennte Live/History-Umschaltung
 
 ## 1. Ziel
@@ -142,6 +142,7 @@ Kompaktere Chart-UI; Details in [docs/ui/charts.md](../ui/charts.md).
 
 | Datum | Version | Inhalt |
 |-------|---------|--------|
+| 2026-07-05 | 0.7.0 | Epic-Abschluss Phase 4: Betriebsmodi-Doku, Deployment-Querverweise, Navigationstests (P4a–P4c); P4d entfallen |
 | 2026-07-05 | 0.6.3 | Follow-up UI-Layout: Navigation zwischen Charts, ?-Hilfen, Footer-Datenbasis (§7.1) |
 | 2026-07-05 | 0.6.2 | P3b: Chart-Marker SA₀/SA₁/SA₂; Jetzt nur Live SA₀→SA₁; P3d Horizont Jetzt→SA₂ |
 | 2026-07-04 | 0.6.1 | Fehlende Log-Slots: orange markieren, keine Hold-Forward-Befüllung |

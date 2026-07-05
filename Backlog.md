@@ -4,14 +4,6 @@
 
 **Verknüpfung:** urgent-Regel-Review (bis ca. 2026-07-12) ↔ Prod-Dump-`xfail` (Live, Modus A) ↔ PWM/Mindestlademenge E-Auto.
 
-- [ ] **UI Sunset-2-Sunset (Spec v0.6.2 → v0.7.0 bei Epic-Abschluss)** — [docs/spec/ui-sunset2sunset.md](docs/spec/ui-sunset2sunset.md)
-  - Ersetzt Modi **Echtzeit** + **Historischer Tag**, Button **Produktiv-Archiv**, Live/History-Grenze; Prod: `ENERGY_OPTIMIZER_UI_MODES=sunset2sunset,backtesting`
-  - **Phase 4 — Docs & Tests** (Schritte **P4a–P4d**, Nomenklatur: `.cursor/rules/roadmap-nomenclature.mdc`) — schließt Epic ab; keine neue UI-Funktionalität
-    - [ ] **P4a** `docs/ui/betriebsmodi.md` auf Spec v0.6.2: Sunset-2-Sunset (Prod), Backtesting (Dev); SA₀→SA₁/SA₁→SA₂, Navigation, Panels, Kennzahlen Jetzt→SA₂; entfallene Modi dokumentieren; Env-Var ohne `live`/`historical`
-    - [ ] **P4b** Deployment & Querverweise: `docker-compose-synology.yml` prüfen (ist `sunset2sunset,backtesting`); `docs/einrichtung/betrieb.md`, `container.md`; `docs/README.md`, `docs/ui/charts.md`, `docs/konfiguration/ueberblick.md`, `preise.md`; Spec-Status Phase 3 erledigt — Akzeptanz: kein widersprüchlicher Prod-Hinweis auf `live`/`historical` in `docs/`
-    - [ ] **P4c** Tests Navigation: über `test_s2_navigation.py` hinaus — `segment_navigation_label`, `max_sunrise_cycle_offset`, `build_live_chart_context` (cycle/segment → Fenster); Spec §4
-    - [ ] **P4d** Tests Orange fehlende Log-Slots: Chart + Tabelle konsistent (`slot_qualities`, `_mask_missing_log_slots`, kumulative Lücken, kein Hold-Forward); Spec §6 — Vorschlag `tests/test_s2_missing_slots.py`
-    - Epic-Abschluss nach P4d: Epic unter **Erledigte Punkte**, Spec v0.7.0, optional `version.py`-Bump, Commit `ui(s2): P4 Docs & Tests`
 - [ ] **Doppelte UI-Wartezeit nach main.py-Durchlauf klären**
   - Beobachtung: nach main.py-Lauf zweimaliges Warten in der UI — zuerst ca. **60 s**, danach erneut ca. **120 s**
   - Kontext: `optimizer/schedule.py` (`APP_REFRESH_DELAY_SECONDS`, `APP_MAIN_SYNC_GRACE_SECONDS`, `live_simulation_readiness`), `ui/live_mode.py` (Sync-Hinweis)
@@ -85,6 +77,29 @@ bodentemperaturen_nach_monat = {
 - [ ] **S-2 Layout (optional):** Mobil-Check (~375 px) — Buttons nebeneinander ohne Caption dazwischen; ? touch-tauglich; einmal manuell prüfen
 
 ## Erledigte Punkte
+
+### UI Sunset-2-Sunset Epic abgeschlossen (2026-07-05)
+
+- [x] Prod-Cockpit **Sunset-2-Sunset** (`ENERGY_OPTIMIZER_UI_MODES=sunset2sunset,backtesting`); ersetzt Echtzeit, Historischer Tag, Produktiv-Archiv
+- [x] Phasen 1–3 UI + Follow-up Layout; Phase 4 P4a–P4c (Betriebsmodi-Doku, Deployment-Querverweise, Navigationstests); P4d entfallen
+- [x] Spec [docs/spec/ui-sunset2sunset.md](docs/spec/ui-sunset2sunset.md) **v0.7.0**; App-Version **1.14.0**
+- Follow-ups (eigenständig im Backlog): Soll/Ist-Abweichung, Nachrechnung Backtesting, Preis-Spiegelung, optionales Layout/Mobil
+
+### UI Sunset-2-Sunset — Phase 4 P4d entfallen (2026-07-05)
+
+- [x] **P4d** gestrichen — dedizierte Missing-Slots-Tests entfallen; Abdeckung durch bestehende Chart-/Tabellen-Tests (Spec §6)
+
+### UI Sunset-2-Sunset — Phase 4 P4c Navigationstests (2026-07-05)
+
+- [x] **P4c** `tests/test_s2_navigation.py`: `segment_navigation_label`, `max_sunrise_cycle_offset`, `build_live_chart_context` (Segment-/Zyklus-Fenster, zone_reference, max_cycle ↔ Nav); Spec §4
+
+### UI Sunset-2-Sunset — Phase 4 P4b Deployment & Querverweise (2026-07-05)
+
+- [x] **P4b** `docker-compose-synology.yml` bestätigt (`sunset2sunset,backtesting`); `betrieb.md`, `container.md`, `docs/README.md`, `charts.md`, `ueberblick.md`, `preise.md`, `batterie-pv.md`; Spec-Status Phasen 1–3 erledigt
+
+### UI Sunset-2-Sunset — Phase 4 P4a Betriebsmodi-Doku (2026-07-05)
+
+- [x] **P4a** `docs/ui/betriebsmodi.md` auf Spec v0.6.2: Sunset-2-Sunset (Prod), Backtesting (Dev); SA₀→SA₁/SA₁→SA₂, Navigation, Panels, Kennzahlen Jetzt→SA₂; entfallene Modi; Env-Var `sunset2sunset,backtesting`
 
 ### UI Sunset-2-Sunset — Follow-up Layout (2026-07-05)
 

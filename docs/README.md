@@ -15,7 +15,7 @@ Für Entwickler (Projektstruktur, Tests, Container) siehe [README.md](../README.
    python -m scripts.verify_loxone_setup --ftp --roundtrip
    ```
 5. **Produktivbetrieb starten:** `python main.py` (Optimierung im 15-Minuten-Takt).
-6. **Cockpit öffnen:** `streamlit run app.py` (Modus **Echtzeit**).
+6. **Cockpit öffnen:** `streamlit run app.py` (Modus **Sunset-2-Sunset**).
 
 Parameter-Beschreibungen erscheinen in Cursor/VS Code als Hover-Hilfe, wenn in `config/config.json` `"$schema": "./config.schema.json"` gesetzt ist.
 
@@ -38,7 +38,7 @@ Parameter-Beschreibungen erscheinen in Cursor/VS Code als Hover-Hilfe, wenn in `
 
 ### Benutzeroberfläche (Streamlit)
 
-- [Betriebsmodi](ui/betriebsmodi.md) — Echtzeit, Historischer Tag, Backtesting
+- [Betriebsmodi](ui/betriebsmodi.md) — Sunset-2-Sunset, Backtesting
 - [Charts & Panels](ui/charts.md) — Diagramme, Metriken, Sankey, Historie
 
 ### Referenz

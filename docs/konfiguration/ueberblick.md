@@ -27,7 +27,7 @@ Zusätzlich für Backtesting: **`config/backtesting_scenarios.json`** mit altern
 
 ## `backtesting_scenarios.json` vs. `runtime_settings`
 
-- **`runtime_settings`:** Maßgeblich für `main.py` und die App im Modus **Echtzeit**.
+- **`runtime_settings`:** Maßgeblich für `main.py` und die App im Modus **Sunset-2-Sunset**.
 - **`backtesting_scenarios.json`:** Alternative Batterie-/PV-Konfigurationen zum Vergleich in Simulation und Backtesting (z. B. „10 kWh Speicher“). Ändern **nicht** automatisch den Produktivbetrieb. Die Baseline im Backtesting ist weiterhin `runtime_settings` aus `config.json`.
 
 ## `file_paths_battery_simulation`
@@ -47,7 +47,7 @@ Details zu Preisen: [Preise & aWATTar](preise.md).
 
 ## Sidebar in der App
 
-Im Modus **Echtzeit** und **Historischer Tag** können PV-, Batterie- und Einspeiseparameter in der Sidebar geändert werden. Gespeichert wird direkt in `runtime_settings` von `config.json` — nicht in `backtesting_scenarios.json`.
+Im Modus **Sunset-2-Sunset** können PV-, Batterie- und Einspeiseparameter in der Sidebar geändert werden. Gespeichert wird direkt in `runtime_settings` von `config.json` — nicht in `backtesting_scenarios.json`.
 
 ## Weiterführend
 

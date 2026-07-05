@@ -118,7 +118,7 @@ Produktion nutzt zwei Compose-Services:
 | Service | Rolle | Port nach außen |
 |---------|--------|-----------------|
 | `optimizer-worker` | `python main.py` (Steuerung) | — |
-| `optimizer-ui` | Streamlit Live-Cockpit | **8501** nur im LAN (Compose-Mapping) |
+| `optimizer-ui` | Streamlit Sunset-2-Sunset-Cockpit | **8501** nur im LAN (Compose-Mapping) |
 
 Im Hausnetz: `http://<NAS-IP>:8501`
 
@@ -161,7 +161,7 @@ command: >
 
 Nach Änderung an der Compose-Datei: `docker compose -f docker-compose-synology.yml up -d optimizer-ui` (kein neues Image nötig).
 
-Produktion zeigt nur den Live-Modus (`ENERGY_OPTIMIZER_UI_MODES=live`).
+Produktion: `ENERGY_OPTIMIZER_UI_MODES=sunset2sunset,backtesting` (in `docker-compose-synology.yml` am Service `optimizer-ui`). Nur Sunset-2-Sunset ohne Backtesting: `sunset2sunset`. Details: [Betriebsmodi](../ui/betriebsmodi.md).
 
 ### Typische Probleme
 

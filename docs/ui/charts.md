@@ -1,6 +1,6 @@
 # Charts & Panels
 
-Gilt für den Produktiv-Modus **Sunset-2-Sunset** (`ui/simulation_results.py`, `ui/charts.py`, `ui/live_mode.py`). Der Modus **Backtesting** nutzt teils dieselben Chart-Komponenten, eigene Kosten- und Monatscharts.
+Gilt für den Produktiv-Modus **Sunset-2-Sunset** (`ui/simulation_results.py`, `ui/charts.py`, `ui/live_mode.py`). Modus-Übersicht: [Betriebsmodi](betriebsmodi.md). Der Modus **Backtesting** nutzt teils dieselben Chart-Komponenten, eigene Kosten- und Monatscharts.
 
 ## Seitenaufbau (Sunset-2-Sunset)
 
