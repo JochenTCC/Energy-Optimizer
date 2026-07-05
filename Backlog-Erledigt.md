@@ -3,6 +3,18 @@
 Archiv abgeschlossener Arbeiten. Offene Todos → [Backlog.md](Backlog.md).
 
 
+### UI S-2 Chart 2 Einsparungs-Text (2026-07-05)
+
+- [x] **UI S-2 Chart 2: Einsparungs-Texteinblendungen in beiden Segmenten** — `show_cost_summary` nicht mehr an `not split_mode` gekoppelt; Annotationen (`BL Ziel`, `Optimiert`, `Ersparnis`) in SA₀→SA₁ und SA₁→SA₂ mit Gesamt-Horizont-Werten aus `_cost_totals_from_savings`; Test `test_chart2_s2_split_mode_shows_cost_summary_annotations` (`ui/charts.py`)
+
+### Chart 2 Ist-Kosten Log-Bereich (2026-07-05)
+
+- [x] **Bugfix Chart 2: Ist-Kosten im grauen Log-Bereich konstant 0 €** — `entry_to_chart_row` nutzt bei vorhandenem Snapshot **`consumption_snapshot.grid_kw`** für Netzbezug statt Soll-Bilanz (PV + `battery_plan_kw`); `_netzbezug_kw_from_entry` in `runtime_store/history_timeline.py`; Regressionstest `test_build_chart_history_uses_snapshot_grid_kw_for_slot_cost`
+
+### UI Chart 1 SoC-Brücke Log/MILP (2026-07-05)
+
+- [x] **Bugfix Chart 1: SoC-Lücke grau → neutral (Log/MILP-Grenze)** — `add_optimized_soc_trace` deaktivierte `bridge_left` fälschlich an `history_slot_count`; Brückenpunkt wie bei neutral→grün wieder aktiv; Test `test_soc_trace_bridges_at_history_boundary` (`ui/charts.py`)
+
 ### UI Chart PV-Zeitbasis (2026-07-05)
 
 - [x] **PV-Leistung auf X-Achse korrekt positioniert** — Ursache: glatte Linearinterpolation zwischen Slotbeginnen ließ PV vor Sonnenaufgang ansteigen (Rohdaten stündlich ab Slotbeginn waren plausibel); Fix: PV-Anker in **Slotmitte** (`_LINE_ANCHOR_SLOT_CENTER` in `_add_pv_trace`, `ui/charts.py`); Regressionstest `test_chart1_pv_center_anchor_avoids_early_morning_ramp`; S-2-Nav zwischen Chart 1/2 aus Fragment ausgelagert (`StreamlitFragmentWidgetsNotAllowedOutsideError`, `ui/live_mode.py`)

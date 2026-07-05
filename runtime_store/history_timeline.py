@@ -218,6 +218,21 @@ def _power_kw_from_entry(entry: dict[str, Any]) -> tuple[float, float, float]:
     return float(pv), float(baseload), float(battery_plan)
 
 
+def _netzbezug_kw_from_entry(entry: dict[str, Any], row: dict[str, Any]) -> float:
+    """Netzbezug: gemessenes grid_kw aus consumption_snapshot, sonst Bilanz aus der Zeile."""
+    snapshot = entry.get("consumption_snapshot") or {}
+    grid = snapshot.get("grid_kw")
+    if grid is not None:
+        return round(float(grid), 2)
+    return round(
+        float(row["Verbrauch-Prognose (kW)"])
+        + flexible_consumer_power_kw(row)
+        - float(row["PV-Prognose (kW)"])
+        + float(row["Geplante Batterie-Aktion (kW)"]),
+        2,
+    )
+
+
 def _consumer_kw_from_entry(
     entry: dict[str, Any],
     consumer_id: str,
@@ -288,10 +303,7 @@ def entry_to_chart_row(
         if uses_pv_follow(consumer):
             pv_follow = (entry.get("consumer_pv_follow") or {}).get(cid, 0)
             row[consumer_pv_follow_column_name(consumer)] = int(pv_follow or 0)
-    row["Netzbezug (kW)"] = round(
-        baseload + flexible_consumer_power_kw(row) - pv + battery_plan,
-        2,
-    )
+    row["Netzbezug (kW)"] = _netzbezug_kw_from_entry(entry, row)
     _append_milp_table_columns(row, entry)
     return row
 
