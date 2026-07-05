@@ -35,7 +35,7 @@ Standardverzeichnis: `runtime/` (überschreibbar mit `ENERGY_OPTIMIZER_RUNTIME_D
 | `energy_optimizer.log` | Rotierendes Python-Log |
 | `optimizer_run_state.json` | Letzter erfolgreicher `main.py`-Durchlauf (SoC, Modus, Soll-Leistungen, Flex-Soll) |
 | `optimization_history.jsonl` | Historie aller Produktiv-Durchläufe (eine Zeile JSON pro Lauf) |
-| `live_optimization_debug.json` | Debug-Snapshot der App-Simulation (Live-Modus) |
+| `live_optimization_debug.json` | Debug-Snapshot der App-Simulation (Sunset-2-Sunset) |
 
 Die App liest diese Dateien **read-only** für Panels und Abgleich.
 
@@ -45,7 +45,7 @@ Die App liest diese Dateien **read-only** für Panels und Abgleich.
 |----------|---------|
 | `ENERGY_OPTIMIZER_CONFIG_PATH` | Pfad zur `config.json` (Standard: `config/config.json`, Legacy: `config.json` im Root) |
 | `ENERGY_OPTIMIZER_RUNTIME_DIR` | Anderes Verzeichnis für Laufzeitdaten |
-| `ENERGY_OPTIMIZER_UI_MODES` | Kommagetrennt: `live`, `historical`, `backtesting` — schränkt sichtbare App-Modi ein (z. B. nur `live` in Produktion) |
+| `ENERGY_OPTIMIZER_UI_MODES` | Kommagetrennt: `sunset2sunset`, `backtesting` — schränkt sichtbare App-Modi ein (Prod: `sunset2sunset,backtesting`; siehe [Betriebsmodi](../ui/betriebsmodi.md)) |
 
 ## Typische Betriebsfehler
 

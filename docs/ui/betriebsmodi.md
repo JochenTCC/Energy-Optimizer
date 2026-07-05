@@ -1,37 +1,86 @@
 # Betriebsmodi
 
-Die Streamlit-App bietet drei Modi (Sidebar: **Betriebsmodus**). In Produktion können Modi per Umgebungsvariable eingeschränkt werden: `ENERGY_OPTIMIZER_UI_MODES=live` (siehe [Betrieb](../einrichtung/betrieb.md)).
+Die Streamlit-App bietet zwei Modi (Sidebar: **Betriebsmodus**). In Produktion werden sie per Umgebungsvariable festgelegt:
 
-## Echtzeit
+```text
+ENERGY_OPTIMIZER_UI_MODES=sunset2sunset,backtesting
+```
 
-**Zweck:** Cockpit für den laufenden Betrieb und die **24-Stunden-Vorhersage** synchron zum letzten `main.py`-Durchlauf.
+Ohne diese Variable stehen in der Entwicklung **beide** Modi zur Verfügung. Gültige Keys: `sunset2sunset`, `backtesting` — **kein** Alias `live` oder `historical`. Details zum Deployment: [Betrieb](../einrichtung/betrieb.md).
 
-**Datenquellen:**
+| Modus | Key | Produktion |
+|-------|-----|------------|
+| Sunset-2-Sunset | `sunset2sunset` | ja (Hauptmodus) |
+| Backtesting | `backtesting` | optional (Dev) |
 
-- Live: Loxone (SOC, Leistungen, Sankey)
-- Simulation: aWATTar-Preise, Verbrauchs-/PV-Profile, optional Live-Snapshot der aktuellen Stunde
-- Stunde 0 der Simulation = Werte aus dem **Produktiv-Durchlauf** (`optimizer_run_state.json`), sofern zum aktuellen Viertelstunden-Slot passend
+Spezifikation: [UI Sunset-2-Sunset](../spec/ui-sunset2sunset.md) (v0.6.2). Chart- und Panel-Details: [Charts & Panels](charts.md).
 
-**Sidebar:** PV-, Batterie- und Einspeiseparameter editierbar; adaptives PV-Tuning (Korrekturfaktor).
+## Sunset-2-Sunset
 
-**Panels:** Charts (inkl. Einsparungs-Kennzahlen in Chart 2), Sankey (Live + Produktiv-Overlay), Optimierungs-Historie, Countdown — Details in [Charts & Panels](charts.md).
+**Zweck:** Einheitliches Produktiv-Cockpit ohne Grenze zwischen Live und Historie. Vergangenheit aus dem Produktiv-Log (`optimization_history.jsonl`), Gegenwart und Vorausschau aus der Live-MILP — in zwei benachbarten Sonnenaufgang-Segmenten navigierbar.
 
-## Historischer Tag
+**Ersetzt:** die früheren Modi **Echtzeit** und **Historischer Tag** sowie den Button **Produktiv-Archiv**. Es gibt **keine Nachrechnung** beliebiger Kalendertage im S-2-Modus (geplant als Dev-Feature im Backtesting).
 
-**Zweck:** Einen **vergangenen Kalendertag** mit gespeicherten Stundenwerten nachrechnen (ohne Loxone-Live-Steuerung).
+### Sonnenaufgang-Anker SA₀, SA₁, SA₂
 
-**Daten:**
+Immer **Sonnenaufgang** (nicht Sonnenuntergang):
 
-- `cons_data_hourly.csv` (Grundlast, PV)
-- Historische Marktpreise für das gewählte Datum
+| Situation | SA₀ | SA₁ | SA₂ |
+|-----------|-----|-----|-----|
+| Gerade in der SA-Stunde | **jetzt** | morgen | übermorgen |
+| Jede andere Stunde | letzter SA (Vergangenheit) | nächster SA | übernächster SA |
 
-**Sidebar:** Simulations-Tag (letzte 12 Monate), Start-SOC für die Simulation.
+### Chart-Fenster & Navigation
 
-**Ausgabe:** Dieselben Metriken und Charts wie im Live-Modus, aber vollständig aus Historie — kein `main.py`-Overlay.
+Zwei umschaltbare Segmente (~24 h):
+
+| Index | Fenster | Standard |
+|-------|---------|----------|
+| 0 | SA₀ → SA₁ | ja (App-Start) |
+| 1 | SA₁ → SA₂ | per „Vor →“ |
+
+| Steuerung | Verhalten |
+|-----------|-----------|
+| ← Zurück | Weitere SA-Zyklen zurück, bis `optimization_history.jsonl` reicht |
+| Vor → | Wechsel SA₀→SA₁ ↔ SA₁→SA₂; in SA₁→SA₂ deaktiviert |
+| Navigation | Kompakte Buttons **zwischen Chart 1 und Chart 2** |
+
+Beschriftung z. B. „SA₀→SA₁ (Live)“ / „SA₁→SA₂ (Vorausschau)“ plus Datumsbereich. Vertikale Marker **SA₀**, **SA₁**, **SA₂** im Chart; **Jetzt** nur im Live-Segment SA₀→SA₁.
+
+### Datenquellen
+
+| Bereich | Quelle |
+|---------|--------|
+| Vergangenheit (grau) | Produktiv-Log, 15-Min-Slots |
+| Laufende Stunde | Live-MILP + `main.py`-Overlay (Auflösung ab x:15: 15 min) |
+| Vorausschau (neutral/grün) | Live-MILP bis Fensterrand SA₁ bzw. SA₂ |
+
+Stunde 0 der Simulation = Werte aus dem **Produktiv-Durchlauf** (`optimizer_run_state.json`), sofern zum aktuellen Viertelstunden-Slot passend. Fehlende Log-Slots bleiben **leer** (orange markiert, kein Hold-Forward).
+
+### Sidebar
+
+PV-, Batterie- und Einspeiseparameter editierbar (gespeichert in `runtime_settings` von `config.json`). **Kein** adaptives PV-Tuning mehr — neuer Adaptions-Ansatz separat im Backlog.
+
+### Panels
+
+| Panel | Verhalten |
+|-------|-----------|
+| Charts 1 & 2 | Leistung/SoC/Preis; kumulierte Kosten & Verbrauch (Ist vs. Prognose getrennt) |
+| Simulations-Tabelle | Rohdaten des sichtbaren Fensters; orange = fehlende Log-Einträge |
+| Energievergleich | Expander: Baseline vs. Optimierung |
+| Sankey | immer (aktuelle Loxone-Daten) |
+| Countdown / Optimierungs-Takt | immer |
+| Auto-Refresh | nur Fenster SA₀→SA₁ |
+
+Details: [Charts & Panels](charts.md).
+
+### Kennzahlen-Horizont
+
+Ersparnis-, Kosten-Kennzahlen und Energievergleich beziehen sich auf **Jetzt → SA₂** (voller MILP-Planungshorizont). Die Chart-Segmente SA₀→SA₁ und SA₁→SA₂ sind **Darstellungsfenster** — kumulierte Kurven darin sind Ausschnitte, keine eigene Matching-Periode.
 
 ## Backtesting
 
-**Zweck:** Langzeit-Auswertung aus dem Log von `scripts/run_backtesting.py`.
+**Zweck:** Langzeit-Auswertung aus dem Log von `scripts/run_backtesting.py` (`backtesting_log.json`).
 
 **Keine Sidebar-Parameter** — nur Auswahl von Szenarien/Monaten in der Hauptansicht.
 
@@ -40,4 +89,16 @@ Die Streamlit-App bietet drei Modi (Sidebar: **Betriebsmodus**). In Produktion k
 - Gesamt- und Monatskostenvergleich (Referenz vs. optimierte Szenarien)
 - Plausibilisierung und Stundenverläufe pro Monat
 
-Nicht für den täglichen Produktivbetrieb gedacht.
+**Kein** S-2-Navigation, **kein** Produktiv-Log-Merge. Nicht für den täglichen Produktivbetrieb gedacht.
+
+Geplant (Dev-only): Nachrechnung eines beliebigen Kalendertags — ersetzt den früheren Modus **Historischer Tag**.
+
+## Entfallene Modi
+
+| Früher | Status |
+|--------|--------|
+| **Echtzeit** | Ersetzt durch **Sunset-2-Sunset** (gleiche Sidebar-Parameter, neues Chart-Fenster und Navigation) |
+| **Historischer Tag** | Entfernt; Nachrechnung folgt im **Backtesting** (Dev-only) |
+| Button **Produktiv-Archiv** | Entfernt; Vergangenheit über ←-Navigation in SA-Zyklen |
+| `ENERGY_OPTIMIZER_UI_MODES=live` | Ungültig — Prod: `sunset2sunset,backtesting` |
+| `ENERGY_OPTIMIZER_UI_MODES=…,historical` | Ungültig; Sidebar-Hinweis bei alter Konfiguration |

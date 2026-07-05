@@ -58,9 +58,9 @@ Beispiel (5 kWh, 1500 €, 6000 Zyklen, 50 % zyklenbedingt): **2,5 ct/kWh**.
 
 In der App-Sidebar sind dieselben Werte editierbar (Leistungsschwelle dort in **Prozent** der max. Batterieleistung). Nach „Alle Änderungen übernehmen“ landen sie in `runtime_settings`.
 
-## Adaptives PV-Tuning (Sidebar, nur Echtzeit)
+## Adaptives PV-Tuning (entfallen)
 
-Die App kann einen **Korrekturfaktor** aus dem Vergleich Forecast.Solar vs. realem PV-Zähler (`pv_counter_name`) der letzten 14 Tage anzeigen. Logdatei: `loxone_blocks.pv_tuning_log_file`. Das automatische Schreiben des Vergleichslogs ist derzeit in `main.py` nicht angebunden — der Faktor bleibt praktisch bei 1,0, bis das Logging wieder aktiv ist.
+Adaptives PV-Tuning in der Sidebar wurde mit dem UI-Modus **Sunset-2-Sunset** entfernt (neuer Adaptions-Ansatz im Backlog). Config-Felder wie `loxone_blocks.pv_tuning_log_file` bleiben in der Schema-Vorlage, haben aber derzeit keine UI-Wirkung.
 
 ## Szenarien
 
