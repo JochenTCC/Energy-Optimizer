@@ -2,6 +2,8 @@
 
 ## Offene Todos
 
+-[] ist Pv Leistung auf x-Achse richtig positioniert? 
+- [] Vor / Zurück Button kleiner machen und neuen Knopf Heute einfügen, sowie Datumsauswahl ermöglichen (nur für vorhandene Daten) 
 **Verknüpfung:** urgent-Regel-Review (bis ca. 2026-07-12) ↔ Prod-Dump-`xfail` (Live, Modus A) ↔ PWM/Mindestlademenge E-Auto.
 
 - [] scripts.migrate_persist_layout löschen
