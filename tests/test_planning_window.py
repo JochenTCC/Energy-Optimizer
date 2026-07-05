@@ -17,9 +17,12 @@ from data.planning_window import (
     official_sun_times,
     previous_sunrise_before,
     next_sunrise_after,
+    slot_index_at_or_before,
     sunrise_anchor_slot_index,
+    ui_chart_zone_indices,
     ui_chart_zones,
 )
+from ui.chart_context import build_chart_display_context, build_live_chart_context
 
 LAT = 47.404
 LON = 9.743
@@ -161,6 +164,41 @@ class TestUiChartWindow:
         chart = compute_ui_chart_window(now, LAT, LON, TZ, segment_index=0)
         zones = ui_chart_zones(now, chart, sim_rows=[])
         assert zones.history.end == _dt(2026, 6, 15, 14, 30)
+
+    def test_ui_chart_zone_indices_match_zone_boundaries(self):
+        now = _dt(2026, 6, 15, 14, 30)
+        chart_context = build_live_chart_context(0, 0, now=now)
+        display = build_chart_display_context(chart_context, [])
+        chart = chart_context.chart_window
+        slots = display.slot_datetimes
+        zones = ui_chart_zones(
+            now, chart, sim_rows=[], is_live_segment=True, slot_datetimes=slots
+        )
+        history_end, neutral_end, last_index = ui_chart_zone_indices(
+            now, chart, sim_rows=[], is_live_segment=True, slot_datetimes=slots
+        )
+        assert last_index == len(slots) - 1
+        assert history_end == slot_index_at_or_before(slots, zones.history.end)
+        assert neutral_end == slot_index_at_or_before(slots, zones.live_plan.end)
+
+    def test_ui_chart_zone_indices_past_cycle_differs_from_live_defaults(self):
+        now = _dt(2026, 6, 15, 14, 0)
+        chart_context = build_live_chart_context(1, 0, now=now)
+        display = build_chart_display_context(chart_context, [])
+        chart = chart_context.chart_window
+        live_default_history, _, live_default_last = ui_chart_zone_indices(now, chart)
+        past_history, past_neutral, past_last = ui_chart_zone_indices(
+            chart.end,
+            chart,
+            is_live_segment=False,
+            slot_datetimes=display.slot_datetimes,
+        )
+        assert past_last == len(display.slot_datetimes) - 1
+        assert live_default_last == len(chart.slot_datetimes) - 1
+        expected_end = slot_index_at_or_before(display.slot_datetimes, chart.end)
+        assert past_history == past_neutral == expected_end
+        assert past_history < past_last
+        assert live_default_history < past_history
 
     def test_ui_chart_offset_shifts_anchors_back(self):
         now = _dt(2026, 6, 15, 14, 0)

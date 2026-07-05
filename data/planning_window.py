@@ -432,14 +432,26 @@ def ui_chart_zone_indices(
     now: datetime,
     chart: UiChartWindow,
     sim_rows: list[dict] | None = None,
+    *,
+    is_live_segment: bool = True,
+    slot_datetimes: tuple[datetime, ...] | None = None,
 ) -> tuple[int, int, int]:
     """
     Grenz-Indizes (inkl.) für Plotly-vrect im Chart.
 
+    ``slot_datetimes``: Display-Slots (15-min/1-h gemischt); Default ``chart.slot_datetimes``.
+    ``is_live_segment``: False bei vergangenen SA-Zyklen — volle Grauzone.
+
     Returns: (history_end, neutral_end, last_index)
     """
-    zones = ui_chart_zones(now, chart, sim_rows=sim_rows)
-    slots = chart.slot_datetimes
+    slots = slot_datetimes if slot_datetimes is not None else chart.slot_datetimes
+    zones = ui_chart_zones(
+        now,
+        chart,
+        sim_rows=sim_rows,
+        is_live_segment=is_live_segment,
+        slot_datetimes=slots,
+    )
     history_end = slot_index_at_or_before(slots, zones.history.end)
     neutral_end = slot_index_at_or_before(slots, zones.live_plan.end)
     return history_end, neutral_end, len(slots) - 1
