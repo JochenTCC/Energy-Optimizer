@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import pytest
 
 import config
+from data.planning_window import history_boundary_exclusive
 from runtime_store import history_timeline, optimization_history
 from ui.chart_context import SLOT_MILP, build_chart_display_context, build_live_chart_context
 
@@ -143,10 +145,28 @@ def test_build_chart_history_cumulative_skips_missing_slots(history_files):
     assert result.cumulative_costs_euro[3] == result.cumulative_costs_euro[2]
 
 
+def test_build_chart_display_history_split_ignores_stale_zones(history_files):
+    """Log/MILP-Grenze folgt history_boundary_exclusive, nicht zones.history.end."""
+    now = _dt(2026, 6, 15, 14, 30)
+    chart_context = build_live_chart_context(0, 0, now=now)
+    wrong_hour_end = _dt(2026, 6, 15, 14, 0)
+    stale_zones = replace(
+        chart_context.zones,
+        history=replace(chart_context.zones.history, end=wrong_hour_end),
+    )
+    chart_context = replace(chart_context, zones=stale_zones)
+    assert chart_context.zones.history.end == wrong_hour_end
+
+    display = build_chart_display_context(chart_context, [])
+    boundary = history_boundary_exclusive(now)
+    assert display.slot_datetimes[display.history_slot_count] == boundary
+    assert display.slot_qualities[display.history_slot_count] == SLOT_MILP
+
+
 def test_build_chart_display_merges_history_and_milp(history_files):
     now = _dt(2026, 6, 15, 14, 30)
     chart_context = build_live_chart_context(0, 0, now=now)
-    history_end = chart_context.zones.history.end
+    history_end = history_boundary_exclusive(now)
     assert history_end == _dt(2026, 6, 15, 14, 30)
     log_slot = chart_context.chart_window.start.replace(
         hour=chart_context.chart_window.start.hour + 1

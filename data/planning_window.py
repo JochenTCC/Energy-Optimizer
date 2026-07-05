@@ -421,6 +421,11 @@ def history_boundary_exclusive(now: datetime) -> datetime:
     return quarter_hour_slot_start(now)
 
 
+def history_log_end_exclusive(now: datetime, chart: UiChartWindow) -> datetime:
+    """Exklusives Log-Fensterende im Chart, begrenzt auf [chart.start, chart.end]."""
+    return _clip_zone_end(chart.start, chart.end, history_boundary_exclusive(now))
+
+
 def _clip_zone_end(start: datetime, end: datetime, boundary: datetime) -> datetime:
     clipped = min(end, boundary)
     if clipped < start:
@@ -492,7 +497,6 @@ def _ui_chart_zones_sa0_sa1(
                 fill_color=green_color,
             ),
         )
-    gray_end = history_boundary_exclusive(now)
     extrapolated = first_extrapolated_slot(slot_datetimes, sim_rows)
     green_color = "rgba(76, 175, 80, 0.15)"
     if extrapolated is not None:
@@ -501,7 +505,7 @@ def _ui_chart_zones_sa0_sa1(
         green_start = chart.end
         green_color = None
     neutral_end = _clip_zone_end(chart.start, chart.end, green_start)
-    history_end = _clip_zone_end(chart.start, chart.end, gray_end)
+    history_end = history_log_end_exclusive(now, chart)
     if history_end < chart.start:
         history_end = chart.start
     if neutral_end < history_end:
