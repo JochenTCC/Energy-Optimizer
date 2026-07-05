@@ -39,7 +39,8 @@ Parameter-Beschreibungen erscheinen in Cursor/VS Code als Hover-Hilfe, wenn in `
 ### Benutzeroberfläche (Streamlit)
 
 - [Betriebsmodi](ui/betriebsmodi.md) — Sunset-2-Sunset, Backtesting
-- [Charts & Panels](ui/charts.md) — Diagramme, Metriken, Sankey, Historie
+- [Charts & Panels](ui/charts.md) — Diagramme, Metriken, Sankey, Soll/Ist-Icons
+- [Spec Soll-Ist](spec/soll-ist-abweichung.md) — Regelwerk, Szenarien, Pflegehinweis (Entwickler)
 
 ### Referenz
 

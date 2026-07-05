@@ -58,6 +58,25 @@
       "justMyCode": false
     },
     {
+      "name": "Streamlit app.py (Deviation-Test)",
+      "type": "python",
+      "request": "launch",
+      "preLaunchTask": "seed: deviation test log",
+      "module": "streamlit",
+      "args": [
+        "run",
+        "${workspaceFolder}/app.py",
+        "--server.port",
+        "8501"
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "ENERGY_OPTIMIZER_RUNTIME_DIR": "${workspaceFolder}/runtime"
+      },
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
       "name": "run_backtesting",
       "type": "python",
       "request": "launch",

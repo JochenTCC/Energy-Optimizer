@@ -40,7 +40,29 @@ Bei Wartezeit auf **main.py**: blauer Sync-Hinweis **über** den Charts (Countdo
 
 Vertikale Marker **SA₀**, **SA₁**, **SA₂**; **Jetzt** nur im Live-Segment SA₀→SA₁.
 
-**Soll/Ist-Icons** im grauen Log-Bereich: gelbes Dreieck (Hinweis), orange Raute (Warnung), rotes Achteck (Fehler) — Hover für Details; Erklärung im **?** der Chart-1-Überschrift. Regeln in `config/deviation_rules.json`.
+**Soll/Ist-Icons** im grauen Log-Bereich (nur Slots mit echtem Produktiv-Eintrag, `slot_quality == present`):
+
+| Symbol | Kategorie | Farbe | Bedeutung |
+|--------|-----------|-------|-----------|
+| ▲ | Hinweis | gelb | Unkritische Abweichung (Kategorie reserviert, noch ohne Regel) |
+| ◆ | Warnung | orange | Erwartete Abweichung — Loxone handelt bewusst anders |
+| ⬡ | Fehler | rot | Anweisung von Ernie nicht befolgt |
+
+Marker liegen oberhalb der Chart-Fläche; **Hover** zeigt Kategorie-Label und Regeltext. Mehrere Icons pro Slot möglich (verschiedene Scopes, z. B. Batterie + E-Auto).
+
+**Regelwerk:** `config/deviation_rules.json` (Schema: `deviation_rules.schema.json`). Pflegehinweis: [Spec Soll-Ist §5.3](../spec/soll-ist-abweichung.md).
+
+**Aktive Regeln (Stand Epic-Abschluss):**
+
+| Regel-ID | Scope | Kategorie |
+|----------|-------|-----------|
+| `swimspa_thermal_band_ok` | swimspa | Warnung |
+| `eauto_pv_follow_missing` | eauto | Fehler |
+| `eauto_should_charge` | eauto | Fehler |
+| `battery_forced_discharge_missing` | battery | Fehler |
+| `battery_forced_charge_missing` | battery | Fehler |
+
+**Entwickler-Test:** VS Code Launch **Streamlit app.py (Deviation-Test)** — seedet fiktives Log (`scripts/seed_deviation_test_log.py`) in lokales `runtime/` und startet Streamlit. Manuell: `python -m scripts.seed_deviation_test_log --force`.
 
 ## Navigation zwischen Chart 1 und Chart 2
 

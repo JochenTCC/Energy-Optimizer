@@ -37,6 +37,18 @@
       "message": "SwimSpa nicht geheizt — Ist-Temperatur im Sollband"
     },
     {
+      "id": "eauto_pv_follow_missing",
+      "enabled": true,
+      "category": "error",
+      "priority": 60,
+      "scope": "eauto",
+      "when": [
+        "pv_follow_scheduled",
+        "pv_follow_power_below_tolerance"
+      ],
+      "message": "PV-Überschuss-Modus: Soll {soll_kw:.2f} kW, Ist {ist_kw:.2f} kW"
+    },
+    {
       "id": "eauto_should_charge",
       "enabled": true,
       "category": "error",
@@ -51,6 +63,18 @@
         "remaining_kwh_threshold": 0.5
       },
       "message": "E-Auto: Soll {soll_kw:.2f} kW, Ist {ist_kw:.2f} kW"
+    },
+    {
+      "id": "battery_forced_discharge_missing",
+      "enabled": true,
+      "category": "error",
+      "priority": 75,
+      "scope": "battery",
+      "when": [
+        "mode_is_forced_discharge",
+        "battery_power_below_tolerance"
+      ],
+      "message": "Zwangs-Entladen nicht ausgeführt"
     },
     {
       "id": "battery_forced_charge_missing",

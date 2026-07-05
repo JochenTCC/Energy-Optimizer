@@ -70,3 +70,20 @@ def test_build_facts_forced_charge_battery_plan():
     facts = build_slot_deviation_facts(entry)
     assert facts.battery.soll_mode == bat.MODE_ZWANGS_LADEN
     assert facts.battery.soll_plan_kw == pytest.approx(2.5)
+
+
+def test_build_facts_pv_follow_setpoint_from_loxone_sent():
+    entry = {
+        "consumer_powers_kw": {"eauto": 2.0},
+        "consumer_pv_follow": {"eauto": 1},
+        "loxone_sent": {
+            "Ernie_EAuto_Ziel_kW": 3.5,
+            "Ernie_EAuto_pv_follow": 1.0,
+        },
+        "consumption_snapshot": {"flex_kw": {"eauto": 0.0}},
+    }
+    facts = build_slot_deviation_facts(entry)
+    eauto = facts.consumers["eauto"]
+    assert eauto.pv_follow_soll == 1
+    assert eauto.loxone_setpoint_kw == pytest.approx(3.5)
+    assert eauto.soll_kw == pytest.approx(2.0)
