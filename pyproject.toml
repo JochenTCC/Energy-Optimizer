@@ -28,7 +28,6 @@ ernie-backtesting = "scripts.run_backtesting:main"
 ernie-verify-loxone = "scripts.verify_loxone_setup:main"
 ernie-bootstrap = "scripts.bootstrap_runtime:main"
 ernie-build-image = "scripts.build_container:main"
-ernie-migrate-layout = "scripts.migrate_persist_layout:main"
 ernie-generate-cons-data = "scripts.generate_cons_data:main"
 
 [tool.setuptools.dynamic]
