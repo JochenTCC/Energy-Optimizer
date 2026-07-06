@@ -5,10 +5,11 @@ import os
 
 import streamlit as st
 
-UI_MODE_KEYS = ("sunset2sunset", "backtesting")
+UI_MODE_KEYS = ("sunset2sunset", "backtesting", "price_forecast")
 UI_MODE_LABELS = {
     "sunset2sunset": "Sunset-2-Sunset",
     "backtesting": "Backtesting",
+    "price_forecast": "Preis-Prognose (Dev)",
 }
 
 
@@ -63,6 +64,10 @@ def render_mode_selector() -> str:
     if UI_MODE_LABELS["backtesting"] in enabled_modes:
         help_parts.append(
             "Backtesting: Ergebnisse aus scripts/run_backtesting.py (backtesting_log.json)."
+        )
+    if UI_MODE_LABELS["price_forecast"] in enabled_modes:
+        help_parts.append(
+            "Preis-Prognose (Dev): OLS vs. Ist vs. Spiegelung auf Training-Datasets."
         )
 
     mode = st.sidebar.radio(

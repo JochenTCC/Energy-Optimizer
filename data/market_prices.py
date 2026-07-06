@@ -10,6 +10,7 @@ import config
 
 PRICE_SOURCE_DAY_AHEAD = "day_ahead"
 PRICE_SOURCE_MIRRORED = "mirrored"
+PRICE_SOURCE_PREDICTED = "predicted"
 MAX_MIRROR_LOOKBACK_DAYS = 7
 
 

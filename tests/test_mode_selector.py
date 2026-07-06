@@ -7,7 +7,7 @@ from ui.mode_selector import UI_MODE_KEYS, get_enabled_ui_modes
 def test_default_modes_exclude_historical(monkeypatch):
     monkeypatch.delenv("ENERGY_OPTIMIZER_UI_MODES", raising=False)
     modes = get_enabled_ui_modes()
-    assert modes == ["Sunset-2-Sunset", "Backtesting"]
+    assert modes == ["Sunset-2-Sunset", "Backtesting", "Preis-Prognose (Dev)"]
     assert "Historischer Tag" not in modes
 
 
