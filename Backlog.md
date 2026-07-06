@@ -8,7 +8,10 @@ Erledigte Punkte → [Backlog-Erledigt.md](Backlog-Erledigt.md)
 
 ## Research Items (in Branch)
 
-- [ ] **Preis-Spiegelung (Markt):** statt einzelner Spiegelquelle (gleiche Uhrzeit, bis 7 Tage zurück) ggf. **Mittelung über mehrere vergangene Tage** prüfen — Genauigkeit/Robustheit vs. Einfachheit; Kontext `data/market_prices.py` (`resolve_market_slots`)
+- [ ] **Preis-Prognose (EU-Wetter & Erzeugung):** Korrelationsmodell für grüne Zone (kein Day-Ahead bis SA₂) statt Spiegelung — Wind + Solar auf EU-Ebene; Spec [price-forecast-renewables.md](docs/spec/price-forecast-renewables.md)
+  - Phase 0: Scope ✅ | Phase 1: Dataset-Skript `scripts/build_price_training_dataset.py` ✅
+  - Phase 2: OLS + Walk-forward (`train_price_forecast_model`, `evaluate_price_forecast`) ✅
+  - Phase 3: UI-Eval + Live-Hooks vorbereitet; `resolve_market_slots` offen
 
 ## Feature-Backlog
 
@@ -16,6 +19,7 @@ Erledigte Punkte → [Backlog-Erledigt.md](Backlog-Erledigt.md)
 - [ ] Vor / Zurück Button kleiner machen und neuen Knopf Heute einfügen, sowie Datumsauswahl ermöglichen (nur für vorhandene Daten)
 - [ ] Hover-Fragezeichen deutlich kleiner machen (Mini-Icon), so dass sie auf Mobile Devices keine Extra-Zeile brauchen
 - [ ] Chart 1 für variable Anzahl von Verbrauchern fit machen (max 4 anzeigen, nach Leistung priorisieren, Zoom einführen) — alternativ ein negativer Balken mit allen aufsummierten Verbrauchern
+- [ ] Entladesperre besser visualisieren (Farbe des Plots ändern?)
 
 ### Version 0.+1
 - [ ] Erweitertes Temperaturmodell für Swim-Spa mit zweitem Wärmepfad in die Erde. Hier ist eine Lookup-Table für die Erdtemperatur:

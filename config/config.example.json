@@ -8,6 +8,10 @@
         "feed_in_fee_factor": 0.19,
         "feed_in_fix_cent": 0.0
     },
+    "market_prices": {
+        "missing_price_strategy": "mirror",
+        "forecast_model_path": "data/cache/price_model_coefficients.json"
+    },
     "eauto_milp": {
         "live_modus_a_min_remaining_kwh": 2.8,
         "tie_break_on_epsilon": 0.001,

@@ -22,14 +22,14 @@ from .targets import (
     resolve_horizon_consumer_targets_kwh,
 )
 
-from data.market_prices import PRICE_SOURCE_MIRRORED
+from data.price_forecast_live import is_extrapolated_source
 
 
 def _chart_price_fields(row: dict) -> dict:
     """Preis-Felder für Simulations-/Chart-Zeilen."""
     fields = {
         "Strompreis (Cent/kWh)": row["k_act"],
-        "Preis extrapoliert": row.get("price_source") == PRICE_SOURCE_MIRRORED,
+        "Preis extrapoliert": is_extrapolated_source(row.get("price_source")),
     }
     if "k_push_act" in row:
         fields["Einspeisevergütung (Cent/kWh)"] = row["k_push_act"]

@@ -21,7 +21,8 @@ from ui.help_hint import render_page_title_with_help
 from ui.history_navigation import is_live_s2_window
 from ui.live_mode import render_optimization_savings_and_chart
 from ui.main_py_sync import poll_main_py_sync_if_pending
-from ui.mode_selector import render_mode_selector
+from ui.mode_selector import render_mode_selector, UI_MODE_LABELS
+from ui.price_forecast import render_price_forecast_block
 from ui.runtime_config import reload_runtime_config
 from ui.sankey import render_live_power_flow
 from ui.styles import inject_compact_numeric_css
@@ -66,7 +67,7 @@ def main() -> None:
         version=__version__,
     )
 
-    if mode != "Backtesting":
+    if mode not in ("Backtesting", UI_MODE_LABELS["price_forecast"]):
         reload_runtime_config()
         if is_live_s2_window():
             setup_auto_refresh()
@@ -76,6 +77,10 @@ def main() -> None:
 
     if mode == "Backtesting":
         render_backtesting_block()
+        return
+
+    if mode == UI_MODE_LABELS["price_forecast"]:
+        render_price_forecast_block()
         return
 
     current_soc = loxone_client.fetch_loxone_generic_value(config.get("LOXONE_SOC_NAME"))

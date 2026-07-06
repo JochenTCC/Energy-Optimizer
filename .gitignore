@@ -23,6 +23,7 @@ runtime-prod/
 backtesting_log.json
 backtesting_cbc_events.jsonl
 backtesting_logs/
+data/cache/
 live_optimization_debug.json
 energy_optimizer.log
 system_history_log.csv

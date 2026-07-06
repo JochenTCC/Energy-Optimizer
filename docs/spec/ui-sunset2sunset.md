@@ -130,7 +130,7 @@ Kompaktere Chart-UI; Details in [docs/ui/charts.md](../ui/charts.md).
 
 - **Soll/Ist-Abweichung:** eigenes Epic **Soll-Ist** — [soll-ist-abweichung.md](soll-ist-abweichung.md) (Stufe 1 Log-Soll vs. `consumption_snapshot`; Stufe 2 kontinuierliches Haus-Ist als Follow-up)
 - **Nachrechnung** (ex Historischer Tag) ins Backtesting, Dev-only
-- **Preis-Spiegelung:** optional Mittelung über mehrere Tage (`data/market_prices.py`)
+- **Preis-Prognose:** EU-Wetter & Erzeugung für grüne Zone — [price-forecast-renewables.md](price-forecast-renewables.md)
 - **UI-Layout optional:** kompakteres Button-CSS; Mobil-Check — siehe Backlog
 
 ## 9. Bezug
