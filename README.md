@@ -83,12 +83,6 @@ Persistente Daten liegen in `./config/`, `./runtime/` und `./.env` — sie werde
 
 Details: **[docs/einrichtung/container.md](docs/einrichtung/container.md)**
 
-Migration vom alten flachen Layout:
-
-```powershell
-python -m scripts.migrate_persist_layout --apply
-```
-
 ## Hinweise
 
 - `config/config.json` (oder Legacy `config.json`) ist lokal und gitignored.

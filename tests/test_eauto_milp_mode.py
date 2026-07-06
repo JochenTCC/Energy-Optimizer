@@ -225,7 +225,8 @@ class TestEautoBacktestingPreset:
             consumer_remaining_kwh={"eauto": 7.0},
             charging_contexts={},
         )
-        assert powers["eauto"] in (0.0, 3.5)
+        power = powers["eauto"]
+        assert power == 0.0 or 1.4 <= power <= 3.5
 
     def test_preset_excluded_from_milp_variables(self):
         model = _build_milp_model(

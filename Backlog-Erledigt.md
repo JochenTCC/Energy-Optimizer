@@ -2,6 +2,9 @@
 
 Archiv abgeschlossener Arbeiten. Offene Todos → [Backlog.md](Backlog.md).
 
+### Migration-Skript entfernt (2026-07-05)
+
+- [x] **`scripts.migrate_persist_layout` gelöscht** — Einmal-Migration config/ + runtime/ nicht mehr nötig; Skript, Test, `ernie-migrate-layout`-Entrypoint und Doku-Hinweise entfernt
 
 ### Chart 1 Soll-Ist-Marker NAS (2026-07-05)
 

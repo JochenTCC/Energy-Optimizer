@@ -21,17 +21,6 @@ Umgebungsvariable in Compose: `ENERGY_OPTIMIZER_CONFIG_PATH=config/config.json`
 4. `config/config.json` anpassen (Loxone-Namen, Verbraucher)
 5. Optional: historische `cons_data` aus Dev nach `runtime/cons_data_hourly.csv` kopieren
 
-## Migration vom alten Layout
-
-Wenn Dateien noch im Projektroot liegen (ältere Deployments):
-
-```powershell
-python -m scripts.migrate_persist_layout          # Vorschau
-python -m scripts.migrate_persist_layout --apply
-```
-
-Anschließend Compose mit den drei Mounts (`config/`, `runtime/`, `.env`) verwenden.
-
 ## Config-Updates nach Programm-Upgrade
 
 Neue Einträge in `config/config.example.json` werden **nicht** automatisch in die Anwender-Config geschrieben.

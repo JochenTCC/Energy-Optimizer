@@ -129,7 +129,8 @@ def test_awattar_fetch_window_accepts_timezone_aware_planning_end():
     from data.market_prices import MAX_MIRROR_LOOKBACK_DAYS, awattar_fetch_window
 
     tz = ZoneInfo("Europe/Vienna")
-    planning_end = datetime(2026, 7, 5, 21, 19, tzinfo=tz)
+    now_slot = datetime.now(tz).replace(minute=0, second=0, microsecond=0)
+    planning_end = now_slot + timedelta(hours=24, minutes=19)
     start, end = awattar_fetch_window(planning_end)
     assert end.tzinfo is not None
     assert end >= datetime.now(tz).replace(minute=0, second=0, microsecond=0)
