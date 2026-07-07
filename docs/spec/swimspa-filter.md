@@ -1,8 +1,8 @@
 # Spezifikation: SwimSpa Filter — kostenoptimale ergänzende Filternutzung
 
 **Version:** 0.1  
-**Status:** Implementiert (2026-07-07, v1.20.0)  
-**Backlog:** `Backlog.md` → Version 1.+1 → **Swimspa Filternutzung optimieren**
+**Status:** Code Phasen 1–4 umgesetzt (2026-07-07); **Live-Abnahme ausstehend** — Release-Ziel **v1.20.0**  
+**Backlog:** `Backlog.md` → **Version 1.20.0** → **Swimspa Filternutzung optimieren**
 
 ## 1. Ziel
 
