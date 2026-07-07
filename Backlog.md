@@ -8,8 +8,14 @@ Offene Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 
 ## Feature-Backlog
 
-### Version 1.+1
+### Version 1.20.0
+- [ ] **Swimspa Filternutzung optimieren** — Spec: [docs/spec/swimspa-filter.md](docs/spec/swimspa-filter.md)
+  - **Release:** noch **nicht** abgeschlossen — aktuell **v1.19.0**; Minor-Bump auf **1.20.0** erst nach Live-Abnahme und Nutzer-Test
+  - **Ziel:** Kostenoptimale **ergänzende** Filterlaufzeit; `Sollstunden` (Schulden in h) langfristig → 0. Nativer Duty-Cycle unabhängig.
+  - [x] Code Phasen 1–4: `loxone_remaining_hours`, `filter_context`/MILP-Sperrung, Schema/`config.example.json`/Doku, Live-Parser + `verify_swimspa_filter_live` / `patch_swimspa_filter_config`
+  - [ ] **Live-Abnahme (Nutzer):** Prod-`config.json` patchen; `.venv\Scripts\python.exe -m scripts.verify_swimspa_filter_live`; Formate `filter1hour` und `Sollstunden` am Miniserver bestätigen
 - [ ] Passende Regeln für Deviatons entwickeln (Fehler: Swimspa Filter läuft nicht, obwohl er soll / Fehler: Swimspa Filter läuft, obwohl er nicht soll / Warnung: Swimspa Filter zieht mehr Leistung als nominal)  
+- [ ] Prüfen, ob Ist_Leistungen für Heizen und Filtern des SwimSpa getrennt betrachtet und korrekt geloggt und visualisiert werden.
 
 ### Version 1.+1
 - [ ] Empfehlungsmodus Waschmaschine / Geschirrspüler / Trockner (Laufzeit, Leistung → Startgüte in 6 h)
