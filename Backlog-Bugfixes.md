@@ -19,10 +19,6 @@ Fix ist **implementiert** (Code + Tests + ggf. PATCH in `version.py`), aber die 
 - Nach erfolgreicher Verifikation: aus diesem Kapitel entfernen → `Backlog-Erledigt.md` (`### Bugfix …`) mit `- [x]`.
 - Schlägt die Verifikation fehl: zurück ins offene Bugfix-Kapitel oder Follow-up formulieren; PATCH ggf. dokumentieren, aber nicht als erledigt archivieren.
 
-## Bugs Liste
-- [ ] Chart 1: SOC Verlauf in der aktuellen Stunde nicht kostant halten, sondern für den Bereich nach "Jetzt" in dieser Stunde extrapolieren  (also maximal von Stunde_Jetzt:15 - Stunde_Jetzt+1:00), so dass KEINE Treppe entsteht
-- [] Chart 1+2: Prüfen, ob Legende zusammengeklappt werden kann auf Mobilgeräten.
-
 ## Bugfix Verifications Pending
 
 Fix implementiert, Live-/Prod-Abnahme ausstehend (siehe **Einordnung** oben).

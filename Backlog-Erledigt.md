@@ -2,6 +2,11 @@
 
 Archiv abgeschlossener Arbeiten. Offene Todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
+### Bugfix Chart 1 SoC laufende Stunde (2026-07-08)
+
+- [x] **Chart 1: SoC nach Jetzt bis Stundenende extrapolieren** — keine horizontale Treppe im neutralen MILP-Bereich der laufenden Stunde; Rampe Jetzt → `_soc_tail_y_from_row` (`ui/charts.py`, `chart_now` durchgereicht); Live-Abnahme bestätigt; Test `test_soc_intra_hour_ramp_replaces_flat_milp_tail`
+- [x] **Version 1.21.5** — Patch-Bump
+
 ### Bugfix Versionsanzeige Sidebar (2026-07-08)
 
 - [x] **Versionsanzeige ganz oben in der Sidebar** statt im Cockpit-Titel — `app.py` (`_render_sidebar_version`), `version`-Parameter aus `render_page_title_with_help` entfernt
