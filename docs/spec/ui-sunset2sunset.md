@@ -118,7 +118,8 @@ Kompaktere Chart-UI; Details in [docs/ui/charts.md](../ui/charts.md).
 
 | Element | Verhalten |
 |---------|-----------|
-| Seitentitel | Modus-Scope und App-Version sichtbar; Scope-Erklärung im **?** (`ui/help_hint.py`, `app.py`) |
+| Sidebar (oben) | App-Version als Caption (`app.py`) |
+| Seitentitel | Modus-Scope; Scope-Erklärung im **?** (`ui/help_hint.py`) |
 | Chart 1 | Segment-Label als Überschrift + **?** (Zonen, Navigation); kein separates Segment-Banner |
 | Navigation | ←/→ **zwischen Chart 1 und Chart 2**, schmal, ohne Caption dazwischen |
 | Chart 2 | Überschrift + **?** (Ist vs. Prognose, orange Lücken) statt Caption unter dem Chart |

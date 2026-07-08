@@ -9,7 +9,7 @@ alwaysApply: false
 **Offen:**
 
 - `Backlog.md` — Feature-Backlog nach Version, Packaging, Referenz
-- `Backlog-Bugfixes.md` — Prod-Abweichungen, Regressionen (`xfail`), bekannte Fehlverhalten
+- `Backlog-Bugfixes.md` — Prod-Abweichungen, Regressionen (`xfail`), bekannte Fehlverhalten; Kapitel **`## Bugfix Verifications Pending`** für implementierte, noch nicht live verifizierte Fixes
 
 **Archiv:** `Backlog-Erledigt.md` (abgeschlossene Arbeiten — Features und Bugfixes gemeinsam)
 
@@ -31,3 +31,13 @@ Beim Pflegen:
 - Referenz-Tabellen (z. B. Log-Dateien) gehören nicht ins Erledigt-Archiv, sondern unter **Referenz** in `Backlog.md`.
 - Wiederholte `### Version …`-Überschriften in `Backlog.md` sind bewusst — Reihenfolge per Block verschieben, nicht zusammenführen.
 - **Versionierung:** abgeschlossener Bugfix → nur **PATCH**; abgeschlossenes `### Version 0.+1`-Feature → **MINOR** (siehe `versioning.mdc`).
+
+### Bugfix-Verifikation (`## Bugfix Verifications Pending`)
+
+Drei Stufen für Bugfixes in `Backlog-Bugfixes.md`:
+
+1. **Offen** — unter thematischem Kapitel (z. B. `## Bug SwimSpa Leistung`): Problem bekannt, noch kein Fix.
+2. **Verifications Pending** — Fix implementiert und committed; Punkt aus dem Themen-Kapitel nach `## Bugfix Verifications Pending` verschieben. **Nicht** nach `Backlog-Erledigt.md`.
+3. **Erledigt** — Live-/Prod-Abnahme erfolgreich: aus Pending entfernen → `Backlog-Erledigt.md` (`### Bugfix …`, `- [x]`).
+
+Bei fehlgeschlagener Verifikation: zurück ins Themen-Kapitel oder neuer Follow-up-Punkt; nicht als erledigt archivieren.

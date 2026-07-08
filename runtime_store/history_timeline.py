@@ -248,12 +248,15 @@ def _consumer_kw_from_entry(
     entry: dict[str, Any],
     consumer_id: str,
 ) -> float:
-    powers = entry.get("consumer_powers_kw") or {}
-    if consumer_id in powers:
-        return float(powers[consumer_id] or 0.0)
+    """Flex-Leistung für Chart/Tabelle im Produktiv-Log — Ist, nicht MILP-Soll."""
     snapshot = entry.get("consumption_snapshot") or {}
     flex_kw = snapshot.get("flex_kw") or {}
-    return float(flex_kw.get(consumer_id, 0.0) or 0.0)
+    if consumer_id in flex_kw:
+        return float(flex_kw[consumer_id] or 0.0)
+    live = entry.get("flex_live_kw") or {}
+    if consumer_id in live:
+        return float(live[consumer_id] or 0.0)
+    return 0.0
 
 
 def _immediate_charge_flags_from_entry(entry: dict[str, Any] | None) -> dict[str, int]:

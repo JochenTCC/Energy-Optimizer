@@ -158,6 +158,7 @@
             },
             "loxone_inputs": {
                 "power_name": "homie_bwa_spa_filter2",
+                "alternate_binary_power_name": "homie_bwa_spa_filter1",
                 "signal_type": "binary"
             },
             "filter_schedule": {

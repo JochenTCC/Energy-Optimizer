@@ -6,6 +6,7 @@ import os
 import zipfile
 from contextlib import contextmanager
 from datetime import datetime
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -147,7 +148,23 @@ def test_write_capture_zip_contains_manifest(tmp_path, monkeypatch):
                 {
                     "version": 1,
                     "tolerances": {"power_kw": 0.2},
-                    "categories": {"hint": {}, "warning": {}, "error": {}},
+                    "categories": {
+                        "hint": {
+                            "label": "Hinweis",
+                            "symbol": "triangle-up",
+                            "color": "#f1c40f",
+                        },
+                        "warning": {
+                            "label": "Warnung",
+                            "symbol": "diamond",
+                            "color": "#e67e22",
+                        },
+                        "error": {
+                            "label": "Fehler",
+                            "symbol": "octagon",
+                            "color": "#c0392b",
+                        },
+                    },
                     "rules": [],
                     "fallback": {"on_unclassified_mismatch": "warning"},
                 }
@@ -157,6 +174,11 @@ def test_write_capture_zip_contains_manifest(tmp_path, monkeypatch):
         model_path.parent.mkdir(parents=True, exist_ok=True)
         model_path.write_text('{"version": 2, "coefficients": {}}', encoding="utf-8")
         cons_data_path.write_text("timestamp;total_kw;baseload_kw;pv_kw;source\n", encoding="utf-8")
+        config_path = Path(os.environ["ENERGY_OPTIMIZER_CONFIG_PATH"])
+        cfg = json.loads(config_path.read_text(encoding="utf-8"))
+        cfg["market_prices"] = {"forecast_model_path": "runtime/price_model_coefficients.json"}
+        config_path.write_text(json.dumps(cfg), encoding="utf-8")
+        config.reinit_config()
         monkeypatch.setenv("ENERGY_OPTIMIZER_DEVIATION_RULES_PATH", str(rules_path))
         now = datetime(2026, 7, 5, 23, 0, tzinfo=_TZ)
         bundle = _sample_bundle(now)

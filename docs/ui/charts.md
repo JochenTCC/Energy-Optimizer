@@ -6,8 +6,8 @@ Gilt für den Produktiv-Modus **Sunset-2-Sunset** (`ui/simulation_results.py`, `
 
 | Bereich | Inhalt |
 |---------|--------|
-| Kopf | Seitentitel, **Version** (Caption), **?** mit Modus-Scope (Sunset-2-Sunset / Backtesting) |
-| Sidebar | Betriebsparameter (PV, Batterie, Runtime) |
+| Kopf | Seitentitel, **?** mit Modus-Scope (Sunset-2-Sunset / Backtesting) |
+| Sidebar | **Version** (Caption oben), Navigation, Betriebsparameter (PV, Batterie, Runtime) |
 | Charts | Chart 1 → Navigation ←/→ → Chart 2 |
 | Darunter | Simulations-Tabelle, Energievergleich (Expander) |
 | Sankey | Live-Energiefluss (Loxone) |
@@ -41,7 +41,7 @@ Einspeisung (Batterie) ← Rest der Einspeisung (≤ Entlade-Rest)
 Entladen → Last ← verbleibende Entladung
 ```
 
-**Sonderfälle:** `Netzbezug` und `Geplante Batterie-Aktion` sind vorzeichenkodiert (Bezug/Laden positiv, Einspeisung/Entladen negativ). Fehlt eine explizite Einspeisung in der Zeile, wird PV-Überschuss (`offset_kw > 0`) als gedämpfte PV-Einspeisung gezeichnet. **Grauer Bereich (Produktiv-Log):** PV, Last, Netz und Batterieflüsse nutzen `consumption_snapshot` — die Aufteilung Laden/Einspeisung leitet sich aus gemessener Batterieleistung (`Ist Batterie-Leistung (kW)`) ab, nicht aus `battery_plan_kw`. **MILP/neutral/grün:** geplanter Batteriewert; am oberen/unteren SoC-Limit wird geplanter Lade-/Entladeanteil nicht gezeichnet, Überschuss erscheint als PV-Einspeisung bzw. Netzbezug. Im neutralen MILP-Bereich wird `Netzbezug` nach Live-Overlay aus Last, Flex, PV und Batterie neu abgeleitet.
+**Sonderfälle:** `Netzbezug` und `Geplante Batterie-Aktion` sind vorzeichenkodiert (Bezug/Laden positiv, Einspeisung/Entladen negativ). Fehlt eine explizite Einspeisung in der Zeile, wird PV-Überschuss (`offset_kw > 0`) als gedämpfte PV-Einspeisung gezeichnet. **Grauer Bereich (Produktiv-Log):** PV, Last, Netz, Batterieflüsse und **Flex-Verbraucher** nutzen Ist-Werte aus `consumption_snapshot` / `flex_live_kw` — die Aufteilung Laden/Einspeisung leitet sich aus gemessener Batterieleistung (`Ist Batterie-Leistung (kW)`) ab, nicht aus `battery_plan_kw`. **MILP/neutral/grün:** geplanter Batteriewert; am oberen/unteren SoC-Limit wird geplanter Lade-/Entladeanteil nicht gezeichnet, Überschuss erscheint als PV-Einspeisung bzw. Netzbezug. Im neutralen MILP-Bereich wird `Netzbezug` nach Live-Overlay aus Last, Flex, PV und Batterie neu abgeleitet.
 
 | Segment (Chart) | Farbe gedämpft | Bedeutung |
 |-----------------|----------------|-----------|

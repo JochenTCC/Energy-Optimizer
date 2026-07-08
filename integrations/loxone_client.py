@@ -323,6 +323,26 @@ def consumers_with_live_nominal_power(consumers: list | None = None) -> list:
     return updated
 
 
+def _binary_meter_kw(inputs: dict, nominal: float) -> float | None:
+    """Binärer Verbraucher: 0/1-Merker × Nennleistung.
+
+    Optional ``alternate_binary_power_name`` (z. B. natives Filter-Relais neben
+    Gesamt-Filterstatus) — läuft, wenn mindestens ein Merker ≥ 0,5 ist.
+    """
+    io_name = str(inputs.get("power_name", "")).strip()
+    if not io_name:
+        return None
+    alt_name = str(inputs.get("alternate_binary_power_name", "")).strip()
+    readings: list[float | None] = [fetch_loxone_generic_value(io_name)]
+    if alt_name:
+        readings.append(fetch_loxone_generic_value(alt_name))
+    if all(value is None for value in readings):
+        return None
+    if any(value is not None and float(value) >= 0.5 for value in readings):
+        return round(nominal, 3)
+    return 0.0
+
+
 def _read_consumer_meter_kw(consumer: dict) -> float | None:
     """Reine Zähler-Messung (kW) ohne Fallback.
 
@@ -330,17 +350,17 @@ def _read_consumer_meter_kw(consumer: dict) -> float | None:
     „gemessen" von „Fallback verwendet" unterscheiden.
     binary: Merker 0/1 × Nennleistung; power: direkter kW-Wert (≥ 0).
     """
-    io_name = (consumer.get("loxone_inputs") or {}).get("power_name", "")
+    inputs = consumer.get("loxone_inputs") or {}
+    io_name = inputs.get("power_name", "")
     if not io_name:
         return None
-    raw = fetch_loxone_generic_value(io_name)
-    if raw is None:
-        return None
-    inputs = consumer.get("loxone_inputs") or {}
     signal_type = str(inputs.get("signal_type") or consumer.get("signal_type", "power")).lower()
     nominal = float(consumer.get("nominal_power_kw", 0.0) or 0.0)
     if signal_type == "binary":
-        return round(nominal if float(raw) >= 0.5 else 0.0, 3)
+        return _binary_meter_kw(inputs, nominal)
+    raw = fetch_loxone_generic_value(io_name)
+    if raw is None:
+        return None
     return round(max(0.0, float(raw)), 3)
 
 

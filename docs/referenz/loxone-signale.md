@@ -56,6 +56,7 @@ Ergänzende Filterlaufzeit; nativer Duty-Cycle läuft unabhängig. Spec: [swimsp
 |-------------|----------|----------|------|
 | `loxone_target_hours_name` | Lesen | `Ernie_Swimspa_Filter_Sollstunden` | Verbleibende Filter-Schulden, **Stunden** (Float) |
 | `loxone_inputs.power_name` | Lesen | `homie_bwa_spa_filter2` | `0`/`1` — Filter läuft (nativ + Ernie) |
+| `loxone_inputs.alternate_binary_power_name` | Lesen | `homie_bwa_spa_filter1` | `0`/`1` — autonome Filtersteuerung (Fallback wenn `filter2` = 0) |
 | `loxone_outputs.enable_name` | Schreiben | `Ernie_Swimspa_Filter_Freigabe` | `0`/`1` — Ernie-Freigabe für **Zusatzlauf** |
 | `filter_schedule.loxone.native_start_hour_name` | Lesen | `homie_bwa_spa_filter1hour` | Start-Stunde natives Fenster (0–23) |
 | `filter_schedule.loxone.native_duration_hours_name` | Lesen | `homie_bwa_spa_filter1durationhours` | Dauer natives Fenster, **Stunden** (Float) |

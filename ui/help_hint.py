@@ -36,13 +36,10 @@ def render_page_title_with_help(
     help_text: str,
     *,
     key: str,
-    version: str | None = None,
 ) -> None:
-    """Seiten-Titel mit optionaler Versions-Caption und Hilfe-Icon."""
+    """Seiten-Titel mit Hilfe-Icon."""
     with st.container(horizontal=True, vertical_alignment="bottom", gap="small"):
         st.title(title)
-        if version:
-            st.caption(f"Version {version}")
         render_help_hint(help_text, key=key)
 
 

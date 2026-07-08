@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import config
 from integrations import loxone_client
-from version import __version__
 from ui.auto_refresh import setup_auto_refresh
 from ui.countdown import render_countdown_block
 from ui.help_hint import render_page_title_with_help
@@ -30,7 +29,6 @@ def render() -> None:
         _PAGE_TITLE,
         _COCKPIT_HELP,
         key="cockpit_scope_help",
-        version=__version__,
     )
 
     current_soc = loxone_client.fetch_loxone_generic_value(config.get("LOXONE_SOC_NAME"))

@@ -6,6 +6,13 @@ from pathlib import Path
 from scripts import archive_prod_dump as archive_script
 
 
+_DEVIATION_CATEGORIES = {
+    "hint": {"label": "Hinweis", "symbol": "triangle-up", "color": "#f1c40f"},
+    "warning": {"label": "Warnung", "symbol": "diamond", "color": "#e67e22"},
+    "error": {"label": "Fehler", "symbol": "octagon", "color": "#c0392b"},
+}
+
+
 def _write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload), encoding="utf-8")
@@ -38,7 +45,7 @@ def test_archive_prod_dump_includes_resolved_inputs(tmp_path, monkeypatch):
         {
             "version": 1,
             "tolerances": {"power_kw": 0.2},
-            "categories": {"hint": {}, "warning": {}, "error": {}},
+            "categories": _DEVIATION_CATEGORIES,
             "rules": [],
             "fallback": {"on_unclassified_mismatch": "warning"},
         },
@@ -50,6 +57,7 @@ def test_archive_prod_dump_includes_resolved_inputs(tmp_path, monkeypatch):
     monkeypatch.setenv("ENERGY_OPTIMIZER_CONFIG_PATH", str(config_path))
     monkeypatch.setenv("ENERGY_OPTIMIZER_DEVIATION_RULES_PATH", str(rules_path))
     monkeypatch.setenv("ENERGY_OPTIMIZER_LOCAL_SETTINGS_PATH", str(local_settings_path))
+    monkeypatch.setenv("ENERGY_OPTIMIZER_RUNTIME_DIR", str(tmp_path / "runtime"))
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(archive_script, "FIXTURES_ROOT", tmp_path / "fixtures")
 
