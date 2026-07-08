@@ -10,13 +10,26 @@ Feature-Roadmap → [Backlog.md](Backlog.md)
 **Nicht hier:** Neues Verhalten, UX, Modelle, Research — siehe Feature-Backlog in `Backlog.md`.
 **Versionierung:** abgeschlossene Bugfixes → nur **PATCH** in `version.py` (kein Minor-Bump).
 
-## Bugfix SwimSpa Leistung
-- [ ] Versionsanzeige ganz oben im Sidebar statt im Titel vom Cockpit
-- [ ] Im Chart 1 wird offensichtlich der Verbrauch des Swimspa (Heizung) nicht korrekt berechnet / angezeigt. Siehe Dump ("C:\Users\joche\Documents\Smarthome\Python\Energy-Optimizer-fix\chart_debug_review\chart_debug_20260707_213204.zip")
-- [ ] Swimspa Leistungen für Heizung und Filter sind im Sankey-Diagramm nicht sauber getrennt
+### `## Bugfix Verifications Pending`
+
+Fix ist **implementiert** (Code + Tests + ggf. PATCH in `version.py`), aber die **Prod-/Live-Abnahme** steht noch aus.
+
+- Punkt aus dem thematischen Bugfix-Kapitel hierher verschieben, sobald der Fix committed ist — **nicht** direkt nach `Backlog-Erledigt.md`.
+- Kurz vermerken, was geändert wurde (Commit/Version), falls hilfreich.
+- Nach erfolgreicher Verifikation: aus diesem Kapitel entfernen → `Backlog-Erledigt.md` (`### Bugfix …`) mit `- [x]`.
+- Schlägt die Verifikation fehl: zurück ins offene Bugfix-Kapitel oder Follow-up formulieren; PATCH ggf. dokumentieren, aber nicht als erledigt archivieren.
+
+## Bug SwimSpa Leistung
 - [ ] Schaltzeiten für Swimspa Filter scheinen nicht kostenoptimal zu sein
 - [ ] Chart 2: Kosten und Verbräuche sollten an der Grenze grau | neutral doch verbunden werden. Die Einsparungen werden für den gesamten Bereich SA_0 - SA_2 berechnet und es wird neu angefangen, wenn SA_0 gewechselt wird.
 - [ ] SOC Verlauf in der aktuellen Stunde nicht kostant halten, sondern auch für den Bereich vor "Jetzt" extrapolieren
+
+## Bugfix Verifications Pending
+
+Fix implementiert, Live-/Prod-Abnahme ausstehend (siehe **Einordnung** oben).
+
+- [ ] Im Chart 1 wird offensichtlich der Verbrauch des Swimspa (Heizung) nicht korrekt berechnet / angezeigt. Siehe Dump (`chart_debug_review/chart_debug_20260707_213204.zip`) — Fix v1.21.2: Chart-Ist aus `flex_live_kw`, `homie_bwa_spa_filter1` als `alternate_binary_power_name`
+- [ ] Swimspa Leistungen für Heizung und Filter sind im Sankey-Diagramm nicht sauber getrennt — Fix v1.21.2: gleiche Live-Zuordnung + Fall-B-Abzug (mit obigem Punkt verifizieren)
 
 ## E-Auto: urgent-Regel, Prod-Dump, PWM
 

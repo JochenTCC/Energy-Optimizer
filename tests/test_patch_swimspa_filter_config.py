@@ -88,3 +88,28 @@ def test_shared_meter_patch_idempotent(tmp_path: Path):
     ]
     assert patch_mod.patch_swimspa_shared_meter(consumers) is False
     assert consumers[0]["loxone_inputs"]["subtract_consumer_ids"] == ["swimspa_filter"]
+
+
+def test_patch_adds_native_filter_signal_to_swimspa_filter(tmp_path: Path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "flexible_consumers": [
+                    {"id": "swimspa", "name": "SwimSpa"},
+                    {
+                        "id": "swimspa_filter",
+                        "loxone_inputs": {
+                            "power_name": "homie_bwa_spa_filter2",
+                            "signal_type": "binary",
+                        },
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    data = patch_mod._load_config(config_path)
+    assert patch_mod.patch_config(data) is True
+    inputs = data["flexible_consumers"][1]["loxone_inputs"]
+    assert inputs["alternate_binary_power_name"] == "homie_bwa_spa_filter1"

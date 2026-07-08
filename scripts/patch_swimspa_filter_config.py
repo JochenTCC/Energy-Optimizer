@@ -31,6 +31,7 @@ SWIMSPA_FILTER_BLOCK = {
     },
     "loxone_inputs": {
         "power_name": "homie_bwa_spa_filter2",
+        "alternate_binary_power_name": "homie_bwa_spa_filter1",
         "signal_type": "binary",
     },
     "filter_schedule": {
@@ -79,6 +80,19 @@ def patch_flexible_consumers(consumers: list) -> tuple[list, bool]:
     return updated, True
 
 
+def patch_native_filter_signal(consumers: list) -> bool:
+    """Ergänzt homie_bwa_spa_filter1 als alternate_binary_power_name (idempotent)."""
+    for item in consumers:
+        if item.get("id") != "swimspa_filter":
+            continue
+        inputs = item.setdefault("loxone_inputs", {})
+        if inputs.get("alternate_binary_power_name") == "homie_bwa_spa_filter1":
+            return False
+        inputs["alternate_binary_power_name"] = "homie_bwa_spa_filter1"
+        return True
+    return False
+
+
 def patch_swimspa_shared_meter(consumers: list) -> bool:
     """Fall B: SwimSpa-Heizungszähler misst Heizung + Filter — Filter abziehen.
 
@@ -108,7 +122,8 @@ def patch_config(data: dict) -> bool:
     if changed:
         data["flexible_consumers"] = patched
     meter_changed = patch_swimspa_shared_meter(data["flexible_consumers"])
-    return changed or meter_changed
+    signal_changed = patch_native_filter_signal(data["flexible_consumers"])
+    return changed or meter_changed or signal_changed
 
 
 def main() -> int:

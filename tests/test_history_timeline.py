@@ -87,6 +87,20 @@ def test_entry_to_chart_row_prefers_consumption_snapshot():
     assert row["Uhrzeit"] == "11:00"
 
 
+def test_entry_to_chart_row_uses_ist_flex_not_soll():
+    import config
+    from optimizer.targets import consumer_column_name
+
+    swimspa = next(c for c in config.get_flexible_consumers(optimizer_only=True) if c["id"] == "swimspa")
+    entry = _entry(
+        datetime(2026, 6, 26, 11, 0, 0),
+        consumer_powers_kw={"swimspa": 2.8},
+        flex_live_kw={"swimspa": 0.07},
+    )
+    row = history_timeline.entry_to_chart_row(entry, datetime(2026, 6, 26, 11, 0, 0))
+    assert row[consumer_column_name(swimspa)] == pytest.approx(0.07)
+
+
 def test_build_timeline_present_hold_and_missing(history_files):
     window_start = datetime(2026, 6, 26, 11, 0, 0)
     entries = [

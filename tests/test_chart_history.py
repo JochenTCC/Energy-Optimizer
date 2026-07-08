@@ -116,7 +116,13 @@ def test_missing_slots_after_present_leave_gaps(history_files):
     col = consumer_column_name(swimspa)
     _write_jsonl(
         history_files,
-        [_entry(window_start, consumer_powers_kw={"swimspa": 2.8})],
+        [
+            _entry(
+                window_start,
+                consumer_powers_kw={"swimspa": 2.8},
+                flex_live_kw={"swimspa": 2.8},
+            )
+        ],
     )
     result = history_timeline.build_chart_history(
         window_start,

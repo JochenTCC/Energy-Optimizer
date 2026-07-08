@@ -49,6 +49,7 @@ Schema aus `Backlog.md` / `Backlog-Bugfixes.md` / `Backlog-Erledigt.md` beibehal
 
 - **Erledigte Punkte nicht durchstreichen** — aus der jeweiligen offenen Datei entfernen und in `Backlog-Erledigt.md` mit `- [x]` eintragen
 - **Backlog-Bugfixes.md:** offene Prod-Bugs/Regressionen; bei Erledigung PATCH in `version.py` prüfen
+- **`## Bugfix Verifications Pending`:** implementierte Fixes mit ausstehender Live-Abnahme — nach Commit hierher verschieben, **nicht** nach `Backlog-Erledigt.md`; nach erfolgreicher Verifikation erst archivieren (siehe `.cursor/rules/backlog.mdc`)
 - **Backlog.md:** Feature-Backlog (Version-Blöcke), Packaging, Referenz — nur noch offene Phasen/Unterpunkte
 - **Backlog-Erledigt.md:** Neuer Abschnitt `### <Thema> (YYYY-MM-DD)` mit Datum **heute** (lokale Zeit Europe/Vienna)
 - Nur dokumentieren, was in Session/Diff tatsächlich erledigt wurde — nichts erfinden

@@ -30,6 +30,7 @@ Langfristig soll `Ernie_Swimspa_Filter_Sollstunden` gegen null gehen; der Zähle
 | Lesen | `homie_bwa_spa_filter1hour` | Start-Stunde natives Fenster (ganze Stunde, Format Live prüfen) |
 | Lesen | `homie_bwa_spa_filter1durationhours` | Dauer natives Fenster in **Stunden** (Float) |
 | Lesen | `homie_bwa_spa_filter2` | Filter läuft (binär 0/1) → Ist-Leistung 0 / 0,18 kW |
+| Lesen | `homie_bwa_spa_filter1` | Autonome/native Filtersteuerung (binär 0/1) — Fallback wenn `filter2` = 0 |
 | Schreiben | `Ernie_Swimspa_Filter_Freigabe` | Ernie-Freigabe für **zusätzlichen** Filterlauf (`0`/`1`) |
 
 `homie_bwa_spa_filter2` erfasst jeden Filterlauf (nativ + Ernie) — für Logging, Soll-Ist und Delivery-Tracking.
@@ -54,6 +55,7 @@ Langfristig soll `Ernie_Swimspa_Filter_Sollstunden` gegen null gehen; der Zähle
   },
   "loxone_inputs": {
     "power_name": "homie_bwa_spa_filter2",
+    "alternate_binary_power_name": "homie_bwa_spa_filter1",
     "signal_type": "binary"
   },
   "filter_schedule": {

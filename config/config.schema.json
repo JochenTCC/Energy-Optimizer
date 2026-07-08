@@ -631,6 +631,10 @@
               "enum": ["power", "binary"],
               "description": "Optional: überschreibt signal_type nur für die Live-Abfrage in main.py."
             },
+            "alternate_binary_power_name": {
+              "type": "string",
+              "description": "Optional bei signal_type=binary: zweiter Ein/Aus-Merker (z. B. natives Filter-Relais). Läuft, wenn power_name oder dieser Merker ≥ 0,5 ist."
+            },
             "subtract_consumer_ids": {
               "type": "array",
               "items": { "type": "string" },

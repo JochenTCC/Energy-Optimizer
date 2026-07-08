@@ -280,6 +280,7 @@ class TestSharedMeterSubtraction:
                 "signal_type": "binary",
                 "loxone_inputs": {
                     "power_name": "homie_bwa_spa_filter2",
+                    "alternate_binary_power_name": "homie_bwa_spa_filter1",
                     "signal_type": "binary",
                 },
             },
@@ -300,6 +301,20 @@ class TestSharedMeterSubtraction:
         assert result["swimspa_filter"] == 0.18
         assert result["swimspa"] == 2.8
         assert round(result["swimspa"] + result["swimspa_filter"], 3) == 2.98
+
+    def test_native_filter1_when_filter2_off(self):
+        """Autonomer Filter: filter1=1, filter2=0, Gesamtzähler nur Filterlast."""
+        reads = self._reads(
+            {
+                "Ernie_Swim-Spa-P_act": 0.18,
+                "homie_bwa_spa_filter2": 0.0,
+                "homie_bwa_spa_filter1": 1.0,
+            }
+        )
+        with patch.object(lc, "fetch_loxone_generic_value", side_effect=reads):
+            result = lc.fetch_flexible_consumers_live_kw(consumers=self._consumers())
+        assert result["swimspa_filter"] == 0.18
+        assert result["swimspa"] == 0.0
 
     def test_filter_off_leaves_heating_unchanged(self):
         reads = self._reads(

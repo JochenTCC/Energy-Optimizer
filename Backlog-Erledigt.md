@@ -2,6 +2,11 @@
 
 Archiv abgeschlossener Arbeiten. Offene Todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
+### Bugfix Versionsanzeige Sidebar (2026-07-08)
+
+- [x] **Versionsanzeige ganz oben in der Sidebar** statt im Cockpit-Titel — `app.py` (`_render_sidebar_version`), `version`-Parameter aus `render_page_title_with_help` entfernt
+- [x] **Version 1.21.1** — Patch-Bump
+
 ### UI-Menüstruktur & Empfehlungsmodus manuelle Geräte (2026-07-07)
 
 Spec: [docs/spec/ui-menu-structure.md](docs/spec/ui-menu-structure.md). `### Version 1.21`-Feature-Block gemeinsam abgeschlossen.
