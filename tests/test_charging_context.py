@@ -67,6 +67,16 @@ class TestAbsentAvailability:
       horizon = datetime(2026, 6, 22, 21, 0)  # Montag, verspätet
       assert cc.resolve_absent_availability(horizon, consumer) == horizon
 
+  def test_resolve_absent_with_timezone_aware_horizon(self):
+      from zoneinfo import ZoneInfo
+
+      consumer = _eauto_consumer()
+      tz = ZoneInfo("Europe/Vienna")
+      horizon = datetime(2026, 6, 22, 21, 0, tzinfo=tz)
+      result = cc.resolve_absent_availability(horizon, consumer)
+      assert result == horizon
+      assert result.tzinfo == tz
+
   def test_charging_deadline_after_weekday_arrival(self):
       consumer = _eauto_consumer()
       arrival = datetime(2026, 6, 22, 19, 0)
@@ -118,6 +128,23 @@ class TestLoxoneAbsentForecast:
       assert ctx["deadline"] == datetime(2026, 6, 23, 16, 3)
       assert ctx["use_time_window"] is False
       assert "FertigUm Loxone" in ctx["source_label"]
+
+  def test_forecast_timezone_aware_horizon(self):
+      from zoneinfo import ZoneInfo
+
+      consumer = _eauto_consumer()
+      tz = ZoneInfo("Europe/Vienna")
+      horizon = datetime(2026, 6, 22, 17, 0, tzinfo=tz)
+      with patch.object(
+          cc.loxone_client, "fetch_loxone_generic_value", return_value=0
+      ), patch.object(
+          cc.loxone_client, "fetch_loxone_raw_value", return_value="Morgen, 16:03"
+      ), _patch_eauto_capacity():
+          ctx = cc.fetch_loxone_charging_context(consumer, horizon)
+
+      assert ctx["active"] is True
+      assert ctx["available_from"] == datetime(2026, 6, 22, 19, 0, tzinfo=tz)
+      assert ctx["deadline"] == datetime(2026, 6, 23, 16, 3, tzinfo=tz)
 
   def test_late_return_with_loxone_fertig_um(self):
       consumer = _eauto_consumer()

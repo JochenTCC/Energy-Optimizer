@@ -1,4 +1,4 @@
-# Container-Betrieb (Synology / Docker)
+# Container-Betrieb (Synology / LoxBerry / Docker)
 
 ## Persistente Daten
 
@@ -37,16 +37,42 @@ python -m scripts.bootstrap_runtime
 
 Legt nur fehlende Dateien an; bestehende bleiben unverändert.
 
-## Image bauen und auf die NAS bringen
+## Image bauen und deployen
+
+Das Image ist ein **Multi-Arch-Manifest** (`linux/amd64` für Synology, `linux/arm64` für LoxBerry). Beide Hosts referenzieren denselben Tag `ghcr.io/jochentcc/ernie-energy:latest`.
+
+### Einmaliges buildx-Setup (Entwicklungsrechner)
+
+Für Multi-Arch-Builds von Windows/Linux:
+
+```powershell
+docker buildx create --name ernie-builder --use
+docker buildx inspect --bootstrap
+```
+
+Unter Windows nutzt Docker Desktop QEMU für arm64-Cross-Builds automatisch.
 
 ### 1. Build (Entwicklungsrechner)
 
-Kanonischer Befehl — baut für **linux/amd64** (Synology):
+Kanonischer Befehl — nur Synology (amd64), wie bisher:
 
 ```powershell
 python -m scripts.build_container
 # oder unter Windows:
 .\build-container.ps1
+```
+
+Zielplattform wählen:
+
+```powershell
+# Synology (amd64)
+python -m scripts.build_container --target synology
+
+# LoxBerry (arm64, lokaler Test)
+python -m scripts.build_container --target loxberry
+
+# Beide Plattformen publizieren (buildx, erfordert --push)
+python -m scripts.build_container --target all --push
 ```
 
 Erzeugt standardmäßig zwei Tags:
@@ -57,13 +83,23 @@ Erzeugt standardmäßig zwei Tags:
 Nach `docker login ghcr.io`:
 
 ```powershell
-python -m scripts.build_container --push
+# Einzelplattform
+python -m scripts.build_container --target synology --push
+
+# Release für Synology + LoxBerry
+python -m scripts.build_container --target all --push
 ```
 
 Nur ein bestimmter Tag:
 
 ```powershell
-python -m scripts.build_container --tag ghcr.io/jochentcc/ernie-energy:latest --push
+python -m scripts.build_container --target all --tag ghcr.io/jochentcc/ernie-energy:latest --push
+```
+
+Manifest prüfen:
+
+```bash
+docker manifest inspect ghcr.io/jochentcc/ernie-energy:latest
 ```
 
 ### 2. Deploy (Synology)
@@ -99,6 +135,51 @@ docker compose up -d
 ```
 
 Nutzt `docker-compose.yml` mit lokalem Build und denselben Mounts (`config/`, `runtime/`, `.env`).
+
+## LoxBerry (RPi 4B, arm64)
+
+### Voraussetzungen
+
+- LoxBerry **4.x** (64-bit), Raspberry Pi 4B
+- Docker-Plugin installiert und aktiv
+- Empfohlen: mind. **4 GB RAM**, SSD statt reiner SD-Karte
+
+### Erstinstallation
+
+1. Projektordner anlegen (z. B. `/opt/ernie-energy/`) mit `docker-compose-loxberry.yml` und `.env`
+2. `mkdir -p config runtime`
+3. Container starten — der **Entrypoint** legt fehlende Dateien an
+4. `config/config.json` anpassen (Loxone-Namen, Verbraucher)
+5. Optional: historische `cons_data` nach `runtime/cons_data_hourly.csv` kopieren
+
+### Deploy (LoxBerry)
+
+Im Projektordner auf dem LoxBerry (nur Compose + persistente Daten, kein Quellcode nötig):
+
+```bash
+docker compose -f docker-compose-loxberry.yml pull
+docker compose -f docker-compose-loxberry.yml up -d
+```
+
+`docker-compose-loxberry.yml` referenziert dasselbe Multi-Arch-Image wie Synology; Docker wählt automatisch `linux/arm64`.
+
+### UI-Zugriff
+
+Im Hausnetz: `http://<loxberry-ip>:8501`
+
+Von außen gibt es keinen eingebauten Reverse Proxy wie bei Synology DSM. Externer Zugriff nur mit eigenem Reverse Proxy, VPN oder vergleichbarem Setup — Port 8501 nicht ungeschützt in der Fritzbox freigeben.
+
+### Go/No-Go (LoxBerry)
+
+| Kriterium | Go | No-Go |
+|-----------|-----|-------|
+| LoxBerry-Version | 4.x, Docker-Plugin aktiv | LoxBerry 3.x oder ohne Docker |
+| Architektur | 64-bit (aarch64) | 32-bit-Image |
+| RAM | mind. 4 GB empfohlen | unter 2 GB |
+| Speicher | SSD empfohlen | nur langsame SD ohne Puffer |
+| MILP-Performance | langsamer als NAS akzeptabel, Log prüfen | Erwartung identischer Laufzeit wie x86-NAS |
+
+Vor Produktivbetrieb: Worker-Log (`runtime/energy_optimizer.log`) auf CBC-Timing und Startfehler prüfen. Optionaler Follow-up: natives `coinor-cbc` im Image für kürzere MILP-Läufe.
 
 ## Streamlit-UI extern (Synology Reverse Proxy)
 

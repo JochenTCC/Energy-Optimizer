@@ -105,13 +105,19 @@ Start **nur** bei explizitem „Ja“ / „Docker bauen“ / „Image pushen“ 
 
 ### 2. Build & Push
 
-Kanonischer Befehl (linux/amd64, Synology):
+Kanonischer Befehl für Release (Synology + LoxBerry, Multi-Arch):
 
 ```powershell
-python -m scripts.build_container --push
+python -m scripts.build_container --target all --push
 ```
 
-Alternativ Windows-Wrapper: `.\build-container.ps1 --push`
+Nur Synology (amd64):
+
+```powershell
+python -m scripts.build_container --target synology --push
+```
+
+Alternativ Windows-Wrapper: `.\build-container.ps1 --target all --push`
 
 Standard-Tags:
 
@@ -122,7 +128,7 @@ Details: `docs/einrichtung/container.md`
 
 ### 3. Voraussetzungen
 
-- Docker läuft
+- Docker läuft; für `--target all`: `docker buildx create --use` (einmalig, siehe container.md)
 - `docker login ghcr.io` erfolgreich — bei Auth-Fehler stoppen und Hinweis geben
 - Hook kann `docker push` zur Bestätigung markieren — User-Freigabe abwarten
 
@@ -130,7 +136,9 @@ Details: `docs/einrichtung/container.md`
 
 - Gebaute/gepushte Tags
 - Version aus `version.py`
-- Kurzer Hinweis NAS-Deploy: `docker compose -f docker-compose-synology.yml pull && ... up -d`
+- Deploy-Hinweise:
+  - Synology: `docker compose -f docker-compose-synology.yml pull && ... up -d`
+  - LoxBerry: `docker compose -f docker-compose-loxberry.yml pull && ... up -d`
 
 ---
 

@@ -1,0 +1,69 @@
+# LoxBerry 4 (RPi 4B, arm64) – Produktions-Compose (vorgefertigtes Multi-Arch-Image)
+#
+# Persistente Daten (überleben Image-Updates):
+#   ./config/config.json   – Haus-Konfiguration (wird nie überschrieben)
+#   ./runtime/             – cons_data, Zustands-JSONs, Profile, Logs
+#   ./.env                 – Loxone-Zugangsdaten
+#
+# Erstinstallation (z. B. /opt/ernie-energy/ auf dem LoxBerry):
+#   1. Ordner anlegen: mkdir -p config runtime
+#   2. .env aus .env.example befüllen
+#   3. Container starten – fehlende Dateien legt der Entrypoint an (config aus config/config.example.json)
+#   4. config/config.json anpassen (Loxone-Namen, Verbraucher)
+#   5. Optional: bestehende cons_data nach runtime/cons_data_hourly.csv kopieren
+#
+# Migration von älterem Layout (Dateien im Projektordner):
+#   mv config.json config/config.json
+#   Optional fehlen auf dem Volume: config.example.json / config.schema.json –
+#   der Entrypoint kopiert sie aus share/config/ im Image (für config_drift).
+#   mv cons_data_hourly.csv cons_data_hourly.meta.json runtime/ 2>/dev/null || true
+#   mv flexible_consumers_state.json pv_counter_state.json cons_data_pending.json runtime/ 2>/dev/null || true
+#   mv consumption_profiles.csv total_consumption_profiles.csv flexible_consumer_profiles.csv runtime/ 2>/dev/null || true
+#   mv energy_optimizer.log system_history_log.csv runtime/ 2>/dev/null || true
+#   In config/config.json: "path_cons_data": "runtime/cons_data_hourly.csv"
+#
+# Nach Änderungen an config/config.json: Container optimizer-worker neu starten.
+# Nach Code-Änderungen: Multi-Arch-Image bauen/pushen (docs/einrichtung/container.md), dann auf dem LoxBerry:
+#   docker compose -f docker-compose-loxberry.yml pull && docker compose -f docker-compose-loxberry.yml up -d
+#
+# UI: ENERGY_OPTIMIZER_UI_MODES=sunset2sunset,backtesting (Prod); Dev ohne Variable = alle Modi.
+# UI im LAN: http://<loxberry-ip>:8501 (kein DSM Reverse Proxy – extern nur mit eigenem Proxy/VPN).
+
+version: "3.8"
+
+x-persist-volumes: &persist-volumes
+  - ./.env:/app/.env
+  - ./config:/app/config
+  - ./runtime:/app/runtime
+
+x-common-env: &common-env
+  TZ: Europe/Vienna
+  ENERGY_OPTIMIZER_CONFIG_PATH: config/config.json
+  # Loxone-Smoke-Test beim Worker-Start (nach pull/up); siehe scripts/startup_checks.py
+  ENERGY_OPTIMIZER_VERIFY_LOXONE_ON_START: "1"
+
+services:
+  optimizer-worker:
+    image: ghcr.io/jochentcc/ernie-energy:latest
+    container_name: ernie-optimizer-worker
+    command: python main.py
+    restart: unless-stopped
+    volumes: *persist-volumes
+    environment:
+      <<: *common-env
+
+  optimizer-ui:
+    image: ghcr.io/jochentcc/ernie-energy:latest
+    container_name: ernie-optimizer-ui
+    command: >
+      python -m scripts.run_streamlit
+      --
+      --server.enableCORS false
+      --server.enableXsrfProtection false
+    restart: unless-stopped
+    ports:
+      - "8501:8501"
+    volumes: *persist-volumes
+    environment:
+      <<: *common-env
+      ENERGY_OPTIMIZER_UI_MODES: sunset2sunset,backtesting
