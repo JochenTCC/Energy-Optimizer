@@ -1,3 +1,3 @@
 """Zentrale App-Version (Semantic Versioning)."""
 
-__version__ = "1.21.4"
+__version__ = "1.21.5"

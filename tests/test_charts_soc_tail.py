@@ -19,6 +19,7 @@ from ui.charts import (
     _segment_connected_line_xy,
     _segment_linear_connected_line_xy,
     _soc_tail_y_from_row,
+    add_optimized_soc_trace,
 )
 
 _TZ = ZoneInfo("Europe/Vienna")
@@ -176,6 +177,52 @@ def test_hv_line_endpoint_time_matches_last_slot():
     assert _hv_line_endpoint_time(axis24) == axis24.legacy_index_time(23.5)
     axis1 = _hourly_axis(1)
     assert _hv_line_endpoint_time(axis1) == axis1.legacy_index_time(0.5)
+
+
+def test_soc_intra_hour_ramp_replaces_flat_milp_tail():
+    """Keine horizontale SoC-Treppe zwischen Jetzt und Stundenende."""
+    import plotly.graph_objects as go
+
+    now = datetime(2026, 6, 15, 14, 37, tzinfo=_TZ)
+    hour_end = datetime(2026, 6, 15, 15, 0, tzinfo=_TZ)
+    slots = [
+        datetime(2026, 6, 15, 14, 0, tzinfo=_TZ),
+        datetime(2026, 6, 15, 14, 15, tzinfo=_TZ),
+        datetime(2026, 6, 15, 14, 30, tzinfo=_TZ),
+        datetime(2026, 6, 15, 14, 45, tzinfo=_TZ),
+        hour_end,
+    ]
+    df = pd.DataFrame({
+        "slot_datetime": slots,
+        "Uhrzeit": [slot.strftime("%d.%m. %H:%M") for slot in slots],
+        "Simulierter SoC (%)": [40.0, 41.0, 42.0, 60.0, 61.0],
+        "Geplante Batterie-Aktion (kW)": [0.0, 0.0, 0.0, 2.0, 0.0],
+    })
+    milp_row = pd.Series({
+        "Simulierter SoC (%)": 60.0,
+        "Geplante Batterie-Aktion (kW)": 2.0,
+    })
+    tail_y = _soc_tail_y_from_row(milp_row)
+    assert tail_y is not None
+    assert tail_y > 60.0
+
+    axis = ChartSlotAxis.from_dataframe(df)
+    fig = go.Figure()
+    add_optimized_soc_trace(
+        fig, df, axis, history_slot_count=3, chart_now=now,
+    )
+    milp_trace = [trace for trace in fig.data if trace.name == "SoC"][-1]
+    xs = [pd.Timestamp(x).to_pydatetime().replace(tzinfo=_TZ) for x in milp_trace.x]
+    ys = {
+        pd.Timestamp(x).to_pydatetime().replace(tzinfo=_TZ): float(y)
+        for x, y in zip(milp_trace.x, milp_trace.y)
+    }
+
+    assert datetime(2026, 6, 15, 14, 45, tzinfo=_TZ) not in xs
+    assert now in xs
+    assert hour_end in xs
+    assert ys[hour_end] == tail_y
+    assert ys[hour_end] > 60.0
 
 
 def test_battery_bar_times_nudged_past_slot_center():
