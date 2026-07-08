@@ -20,11 +20,6 @@ Fix ist **implementiert** (Code + Tests + ggf. PATCH in `version.py`), aber die 
 - Schlägt die Verifikation fehl: zurück ins offene Bugfix-Kapitel oder Follow-up formulieren; PATCH ggf. dokumentieren, aber nicht als erledigt archivieren.
 
 
-## Bug Ersparnis Manuelle Geräte
-
-- [ ] Ersparnis numerische Werte haben falsches Vorzeichen: Gespartes Geld IMMER mit Minus ausgeben.
-- [ ] Nennleistung immer editierbar machen. Adaptierter Wert gilt bis auf weiteres nur als Hinweis
-
 ## Neue Bugs (Das Kapitel nicht entfernen - auch wenn es leer ist)
 
 - [ ] Im Chart 1 wird offensichtlich der Verbrauch des Swimspa (Heizung) nicht korrekt berechnet / angezeigt. Siehe Dump (`chart_debug_review/chart_debug_20260707_213204.zip`) — Fix v1.21.2: Chart-Ist aus `flex_live_kw`, `homie_bwa_spa_filter1` als `alternate_binary_power_name` Fix implementiert, Live-/Prod-Abnahme nicht bestanden (siehe **Einordnung** oben).  - **Fehler ist noch nicht korrekt behoben**

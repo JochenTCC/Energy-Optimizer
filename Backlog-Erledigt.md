@@ -2,6 +2,12 @@
 
 Archiv abgeschlossener Arbeiten. Offene Todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
+### Bugfix Ersparnis Manuelle Geräte (2026-07-08)
+
+- [x] **Delta zu bestem Zeitpunkt statt Ersparnis** — Spalte/Caption „Delta zu bestem Zeitpunkt (€)“ (`Kosten − günstigste`); Vorzeichen `+`/`-`; rot bei positiv, grün bei negativ (`ui/pages/page_devices.py`, `tests/test_page_devices_display.py`)
+- [x] **Nennleistung immer editierbar** — `number_input` für alle `power_source`; `default_power_kw` aus Config nur als Vorbelegung/Hinweis-Caption
+- [x] **Version 1.22.2** — Patch-Bump
+
 ### Bugfix charging_context timezone-aware Live (2026-07-08)
 
 - [x] **Streamlit TypeError naive/aware datetime** — `_align_like` in `optimizer/charging_context.py`; Config-Fenster (`car_available_from_hour`, Loxone-FertigUm) an timezone-aware Matrix-Slots angeglichen; Tests timezone-aware Horizont
