@@ -44,7 +44,7 @@ CLI nach `pip install -e .` (optional): `ernie-bootstrap`, `ernie-build-image`, 
 
 Legacy: `config.json` im Projektroot wird weiterhin unterstützt, wenn `config/config.json` fehlt.
 
-## Container (Synology / Docker)
+## Container (Synology / LoxBerry / Docker)
 
 ### Image bauen (kanonisch)
 
@@ -52,19 +52,23 @@ Legacy: `config.json` im Projektroot wird weiterhin unterstützt, wenn `config/c
 # Windows – Wrapper
 .\build-container.ps1
 
-# plattformübergreifend
+# plattformübergreifend (Standard: Synology amd64)
 python -m scripts.build_container
 ```
 
 Standard-Tags: `ghcr.io/jochentcc/ernie-energy:latest` und `ghcr.io/jochentcc/ernie-energy:<version>` (aus `version.py`).
 
-Registry-Push nach erfolgreichem Build:
+Registry-Push:
 
 ```powershell
-.\build-container.ps1 --push
+# Nur Synology (amd64)
+.\build-container.ps1 --target synology --push
+
+# Release Synology + LoxBerry (Multi-Arch-Manifest)
+.\build-container.ps1 --target all --push
 ```
 
-Weitere Optionen: `--tag`, `--platform`, `--no-cache`, `--dockerfile`, `--context`.
+Weitere Optionen: `--target` (`synology` | `loxberry` | `all`), `--tag`, `--platform`, `--no-cache`, `--dockerfile`, `--context`.
 
 ### Lokal starten (Dev)
 
@@ -75,9 +79,24 @@ docker compose up -d
 
 ### Produktion (Synology)
 
-1. Image bauen und pushen (siehe oben)
+1. Multi-Arch-Image bauen und pushen: `python -m scripts.build_container --target all --push`
 2. Auf der NAS nur `docker-compose-synology.yml`, `.env`, `config/`, `runtime/` bereitstellen
 3. `docker compose -f docker-compose-synology.yml pull && docker compose -f docker-compose-synology.yml up -d`
+
+### Produktion (LoxBerry, RPi 4B)
+
+1. Multi-Arch-Image bauen und pushen (siehe oben)
+2. Auf dem LoxBerry nur `docker-compose-loxberry.yml`, `.env`, `config/`, `runtime/` bereitstellen
+3. `docker compose -f docker-compose-loxberry.yml pull && docker compose -f docker-compose-loxberry.yml up -d`
+4. UI im LAN: `http://<loxberry-ip>:8501`
+
+### Go/No-Go LoxBerry
+
+**Go:** LoxBerry 4, Docker-Plugin, RPi 4B 64-bit, mind. 4 GB RAM, SSD empfohlen.
+
+**Risiko:** MILP-Läufe sind auf dem Pi langsamer als auf einem x86-NAS — vor Produktivbetrieb `runtime/energy_optimizer.log` prüfen.
+
+**No-Go:** 32-bit-Image, unter 2 GB RAM, Erwartung identischer MILP-Performance wie auf der Synology.
 
 Persistente Daten liegen in `./config/`, `./runtime/` und `./.env` — sie werden **nicht** vom Image überschrieben. Beim ersten Start legt der Entrypoint fehlende Dateien an.
 

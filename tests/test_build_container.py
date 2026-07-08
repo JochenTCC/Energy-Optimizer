@@ -25,6 +25,7 @@ def test_build_command_assembles_docker_args(tmp_path):
         dockerfile=dockerfile,
         context=tmp_path,
         no_cache=True,
+        push=False,
     )
 
     assert cmd[0:2] == ["docker", "build"]
@@ -32,6 +33,40 @@ def test_build_command_assembles_docker_args(tmp_path):
     assert "-t" in cmd and "ghcr.io/example/ernie:test" in cmd
     assert "--no-cache" in cmd
     assert str(tmp_path) in cmd
+
+
+def test_build_command_multiarch_uses_buildx_and_push(tmp_path):
+    dockerfile = tmp_path / "Dockerfile"
+    dockerfile.write_text("FROM python:3.14-slim\n", encoding="utf-8")
+
+    cmd = bc.build_command(
+        tags=["ghcr.io/example/ernie:latest"],
+        platform=bc.MULTIARCH_PLATFORM,
+        dockerfile=dockerfile,
+        context=tmp_path,
+        no_cache=False,
+        push=True,
+    )
+
+    assert cmd[0:3] == ["docker", "buildx", "build"]
+    assert "--platform" in cmd and bc.MULTIARCH_PLATFORM in cmd
+    assert "--push" in cmd
+    assert cmd[1] == "buildx"
+
+
+def test_build_command_multiarch_without_push_raises(tmp_path):
+    dockerfile = tmp_path / "Dockerfile"
+    dockerfile.write_text("FROM python:3.14-slim\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Multi-Arch-Build"):
+        bc.build_command(
+            tags=["ghcr.io/example/ernie:latest"],
+            platform=bc.MULTIARCH_PLATFORM,
+            dockerfile=dockerfile,
+            context=tmp_path,
+            no_cache=False,
+            push=False,
+        )
 
 
 def test_build_command_requires_existing_dockerfile(tmp_path):
@@ -42,10 +77,34 @@ def test_build_command_requires_existing_dockerfile(tmp_path):
             dockerfile=tmp_path / "missing",
             context=tmp_path,
             no_cache=False,
+            push=False,
         )
+
+
+def test_resolve_platform_target_synology():
+    assert bc.resolve_platform("synology", None) == "linux/amd64"
+
+
+def test_resolve_platform_target_loxberry():
+    assert bc.resolve_platform("loxberry", None) == "linux/arm64"
+
+
+def test_resolve_platform_target_all():
+    assert bc.resolve_platform("all", None) == bc.MULTIARCH_PLATFORM
+
+
+def test_resolve_platform_target_and_platform_conflict():
+    with pytest.raises(ValueError, match="Nur --target oder --platform"):
+        bc.resolve_platform("synology", "linux/arm64")
 
 
 def test_parse_args_custom_tag():
     args = bc.parse_args(["--tag", "myregistry/ernie:custom"])
     assert args.tags == ["myregistry/ernie:custom"]
-    assert args.platform == "linux/amd64"
+    assert args.target is None
+
+
+def test_parse_args_target_loxberry():
+    args = bc.parse_args(["--target", "loxberry"])
+    assert args.target == "loxberry"
+    assert bc.resolve_platform(args.target, args.platform) == "linux/arm64"

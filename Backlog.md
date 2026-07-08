@@ -8,20 +8,32 @@ Offene Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 - [ ] Smart Energy App anschauen zum Vergleich
 - [ ] Weitere Anbieter mit flexiblen Preisen anschauen
 - [ ] Businessplan adaptieren
+### Loxberry 4 Installation - Notizen
+- Loxberry4 läuft 192.168.178.34:88
+- Plugin FOSHKplugin funktioniert (ist derzeit deaktiviert)
+- Plugin FHEM läuft auch
+- MQTT Kommunikation läuft auch
+- [ ] Update von bestehendem Loxberry versuchen - ansonsten auf neuen umschwenken
 
 ## Feature-Backlog
 
-### Version 1.22
+### Version 1.+1
+- [ ] Nicht Software-Relevant: Neuen Loxberry aufsetzen bzw. produktiv-Loxberry auf 4 upgraden
+- [ ] Readme ausführlicher machen mit Motivation / Nutzen
+
+### Version 1.+1
+- [ ] Nicht Software-Relevant: Nach Interessenten fragen in loxforum / reddit / ...
+
+### Version 1.+1
+- [ ] Veränderte Parameter bei manuellen Verbrauchern in der Subpage sollten in der config.json abgespeichert werden können.
+- [ ] Chart 1+2: Prüfen, ob Legende zusammengeklappt werden kann auf Mobilgeräten.
+- [ ] Manuelle Verbraucher: Sternevergabe nicht gemäß linearer Anordnung von Am Billigsten - Am Teuersten, sondern nach kombinierter Regel: Alles, was höchstens 0,05 Cent teurer ist bekommt 5 Sterne, danach prozentuale Bewertung: Bis zehn Prozent mehr -> 4 Sterne / Ab 30% mehr -> 1 Sterne. Dazwischen interpolieren. Die Werte für die Schwellen sollen auch in der config.json veränderbar sein (auch in der UI-Seite). Default-Werte wie hier angegeben.
 - [ ] Erste Funktionalität für Verbraucheranalyse: 
   - Temperaturverlauf von Swimspa Ist und Soll mit eigenem Verbrauchs-chart (möglichst hohe Wiederverwendung von Chart1 - auch mit Deviation-Anzeige)
   - Verbrauchs-Chart für Swimspa Filterung (Sowohl die autonomen Filterzeiten als auch die von Ernie initiierten)
-  
-### Version 1.23
+
+### Version 1.+1
 - [ ] **E-Auto-MILP: optionale Nacharbeiten**
-- [ ] Neuen Loxberry aufsetzen bzw. produktiv-Loxberry auf 4 upgraden
-- [ ] **7f — Loxberry-Container** — erst nach Loxberry 4; Go/No-Go im README
-- [ ] Readme ausführlicher machen mit Motivation / Nutzen
-- [ ] Nicht Software-Relevant: Nach Interessenten fragen in loxforum / reddit / ...
 
 ### Version 2.0
 - [ ] Ausführlicher Code-Review und Refactoring
@@ -145,9 +157,10 @@ Validierung quer über alle Phasen: **Nachrechnung „Historischer Tag“** (0.+
 
 ## Packaging & Deployment
 
-Empfohlene Reihenfolge offen: **7e → 7f**
+Empfohlene Reihenfolge offen: **7e**
 
 - [x] **7a–7d** — pyproject, Bootstrap, Build-Pipeline, Streamlit extern ([container.md](docs/einrichtung/container.md))
+- [x] **7f** — Loxberry-Container Multi-Arch ([container.md](docs/einrichtung/container.md), `docker-compose-loxberry.yml`)
 - [ ] **7e — Prod/Dev-Datensync** — Skript runtime/ + CSVs; dokumentierter Ablauf Dev ↔ Prod
 
 ## Referenz

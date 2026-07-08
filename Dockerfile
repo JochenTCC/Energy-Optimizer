@@ -1,5 +1,5 @@
-# Das '--platform' sorgt dafür, dass das Image immer passend für dein NAS gebaut wird
-FROM --platform=linux/amd64 python:3.14-slim
+# Zielplattform beim Build setzen: --platform linux/amd64 (Synology) oder linux/arm64 (LoxBerry)
+FROM python:3.14-slim
 
 RUN apt-get update && apt-get install -y \
     tzdata \

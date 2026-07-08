@@ -2,6 +2,16 @@
 
 Archiv abgeschlossener Arbeiten. Offene Todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
+### Bugfix charging_context timezone-aware Live (2026-07-08)
+
+- [x] **Streamlit TypeError naive/aware datetime** — `_align_like` in `optimizer/charging_context.py`; Config-Fenster (`car_available_from_hour`, Loxone-FertigUm) an timezone-aware Matrix-Slots angeglichen; Tests timezone-aware Horizont
+- [x] **Version 1.22.1** — Patch-Bump
+
+### Loxberry-Container Multi-Arch (2026-07-08)
+
+- [x] **7f — Loxberry-Container** — Multi-Arch-Build (`--target all`) via buildx; `docker-compose-loxberry.yml`; Go/No-Go in README und `container.md`; Dockerfile plattformneutral
+- [x] **Version 1.22.0** — Minor-Bump
+
 ### Bugfix Chart 1 SoC laufende Stunde (2026-07-08)
 
 - [x] **Chart 1: SoC nach Jetzt bis Stundenende extrapolieren** — keine horizontale Treppe im neutralen MILP-Bereich der laufenden Stunde; Rampe Jetzt → `_soc_tail_y_from_row` (`ui/charts.py`, `chart_now` durchgereicht); Live-Abnahme bestätigt; Test `test_soc_intra_hour_ramp_replaces_flat_milp_tail`

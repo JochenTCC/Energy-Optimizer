@@ -1,11 +1,12 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Baut das Docker-Image für Synology/NAS (Wrapper um scripts/build_container.py).
+    Baut das Docker-Image für Synology (amd64), LoxBerry (arm64) oder beide (Multi-Arch).
 
 .EXAMPLE
     .\build-container.ps1
-    .\build-container.ps1 --push
+    .\build-container.ps1 --target synology --push
+    .\build-container.ps1 --target all --push
     .\build-container.ps1 --tag ghcr.io/jochentcc/ernie-energy:latest --push
 #>
 $ErrorActionPreference = "Stop"

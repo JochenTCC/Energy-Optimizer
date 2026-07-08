@@ -17,6 +17,19 @@ _LOXONE_WEEKDAY_NAMES = {
 }
 
 
+def _align_like(reference: datetime, dt: datetime) -> datetime:
+    """Vergleichbare Datetimes: naive Config-Zeiten an reference (z. B. Matrix-Slot) anpassen."""
+    if reference.tzinfo is None:
+        if dt.tzinfo is None:
+            return dt
+        return dt.replace(tzinfo=None)
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=reference.tzinfo)
+    if dt.tzinfo != reference.tzinfo:
+        return dt.astimezone(reference.tzinfo)
+    return dt
+
+
 def matrix_slot_datetime(matrix: list, index: int) -> datetime:
     """Ermittelt den Zeitpunkt einer Matrix-Stunde."""
     row = matrix[index]
@@ -77,13 +90,15 @@ def parse_loxone_relative_ready_by(text: str, from_dt: datetime) -> datetime | N
         return None
 
     if label == "heute":
-        candidate = datetime.combine(from_dt.date(), clock)
+        candidate = _align_like(from_dt, datetime.combine(from_dt.date(), clock))
         if candidate <= from_dt:
             candidate += timedelta(days=1)
         return candidate
 
     if label == "morgen":
-        return datetime.combine(from_dt.date() + timedelta(days=1), clock)
+        return _align_like(
+            from_dt, datetime.combine(from_dt.date() + timedelta(days=1), clock)
+        )
 
     target_weekday = _LOXONE_WEEKDAY_NAMES.get(label)
     if target_weekday is not None:
@@ -91,7 +106,7 @@ def parse_loxone_relative_ready_by(text: str, from_dt: datetime) -> datetime | N
             day = from_dt.date() + timedelta(days=offset)
             if day.weekday() != target_weekday:
                 continue
-            candidate = datetime.combine(day, clock)
+            candidate = _align_like(from_dt, datetime.combine(day, clock))
             if candidate > from_dt:
                 return candidate
         return None
@@ -126,7 +141,8 @@ def parse_loxone_ready_by_time(value: str | float | None, from_dt: datetime) -> 
             "%Y-%m-%d %H:%M",
         ):
             try:
-                return datetime.strptime(parse_text, fmt).replace(second=0, microsecond=0)
+                parsed = datetime.strptime(parse_text, fmt).replace(second=0, microsecond=0)
+                return _align_like(from_dt, parsed)
             except ValueError:
                 continue
         return None
@@ -139,7 +155,10 @@ def parse_loxone_ready_by_time(value: str | float | None, from_dt: datetime) -> 
         hour = int(v) // 100
         minute = int(v) % 100
     elif v > 1_000_000_000:
-        return datetime.fromtimestamp(v).replace(second=0, microsecond=0)
+        parsed = datetime.fromtimestamp(v, tz=from_dt.tzinfo).replace(
+            second=0, microsecond=0
+        )
+        return _align_like(from_dt, parsed)
     else:
         return None
     hour %= 24
@@ -158,7 +177,7 @@ def deadline_from_ready_hour(horizon_start: datetime, ready_hour: int | None) ->
     ready_h = int(ready_hour) % 24
     for offset in range(8):
         day = horizon_start.date() + timedelta(days=offset)
-        deadline = datetime.combine(day, time(hour=ready_h))
+        deadline = _align_like(horizon_start, datetime.combine(day, time(hour=ready_h)))
         if deadline > horizon_start:
             return deadline
     return None
@@ -215,19 +234,24 @@ def resolve_charging_deadline(
     return charging_deadline_after(available_from, consumer), False
 
 
-def _window_start_for_day(consumer: dict, day) -> datetime | None:
+def _window_start_for_day(
+    consumer: dict, day, *, reference: datetime | None = None
+) -> datetime | None:
     day_sched = config_day_schedule(consumer, datetime.combine(day, time(12, 0)))
     from_h = day_sched.get("car_available_from_hour")
     if from_h is None:
         return None
-    return datetime.combine(day, time(hour=int(from_h) % 24))
+    window = datetime.combine(day, time(hour=int(from_h) % 24))
+    if reference is not None:
+        return _align_like(reference, window)
+    return window
 
 
 def next_scheduled_availability(horizon_start: datetime, consumer: dict) -> datetime | None:
     """Nächster car_available_from_hour strikt nach horizon_start."""
     for offset in range(8):
         day = horizon_start.date() + timedelta(days=offset)
-        candidate = _window_start_for_day(consumer, day)
+        candidate = _window_start_for_day(consumer, day, reference=horizon_start)
         if candidate is not None and candidate > horizon_start:
             return candidate
     return None
@@ -244,7 +268,7 @@ def resolve_absent_availability(
     """
     for day_offset in (0, -1):
         day = horizon_start.date() + timedelta(days=day_offset)
-        window_start = _window_start_for_day(consumer, day)
+        window_start = _window_start_for_day(consumer, day, reference=horizon_start)
         if window_start is None or window_start > horizon_start:
             continue
         deadline, _ = resolve_charging_deadline(

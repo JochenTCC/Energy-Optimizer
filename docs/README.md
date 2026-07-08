@@ -18,7 +18,7 @@ Für Entwickler (Projektstruktur, Tests, Container) siehe [README.md](../README.
 
 Parameter-Beschreibungen erscheinen in Cursor/VS Code als Hover-Hilfe, wenn in `config/config.json` `"$schema": "./config.schema.json"` gesetzt ist.
 
-**Container-Betrieb (Synology):** [Container](einrichtung/container.md)
+**Container-Betrieb (Synology / LoxBerry):** [Container](einrichtung/container.md)
 
 ## Inhaltsverzeichnis
 
@@ -26,7 +26,7 @@ Parameter-Beschreibungen erscheinen in Cursor/VS Code als Hover-Hilfe, wenn in `
 
 - [Loxone-Anbindung](einrichtung/loxone-anbindung.md) — HTTP-Schnittstelle, FTP-Log, Prüfskript
 - [Betrieb](einrichtung/betrieb.md) — `main.py` vs. App, Laufzeitdateien, Optimierungs-Takt
-- [Container](einrichtung/container.md) — Docker/Synology, Bootstrap, Migration, Config-Drift
+- [Container](einrichtung/container.md) — Docker/Synology/LoxBerry, Multi-Arch, Bootstrap, Migration, Config-Drift
 
 ### Konfiguration (`config/config.json`)
 
