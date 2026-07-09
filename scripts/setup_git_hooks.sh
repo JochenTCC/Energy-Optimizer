@@ -6,3 +6,4 @@ cd "$ROOT"
 git config core.hooksPath .githooks
 echo "Git hooksPath gesetzt auf .githooks"
 echo "pre-commit führt 'pytest tests' aus (übersprungen bei nur *.md, docs/, .cursor/)."
+echo "post-commit fragt interaktiv nach Token-Report (Download / vorhandene CSV / Skip)."
