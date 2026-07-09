@@ -12,7 +12,14 @@ from ui.house_config_io import (
     list_pv_systems,
     load_backtesting_scenarios_raw,
     load_house_profiles,
+    load_tariffs_catalog_meta,
     upsert_scenario,
+)
+from ui.planning_tariff_form import (
+    _EXPORT_TYPE_LABELS,
+    _IMPORT_TYPE_LABELS,
+    _tariff_meta_caption,
+    _type_caption,
 )
 
 _HELP = (
@@ -37,6 +44,10 @@ def _options(items: list[dict], *, allow_none: bool = True) -> tuple[list[str], 
 
 def render() -> None:
     render_page_title_with_help("🧪 Szenarieneditor", _HELP, key="scenario_editor_help")
+
+    catalog_meta = load_tariffs_catalog_meta()
+    if catalog_meta.get("catalog_as_of"):
+        st.caption(f"Tarifkatalog: Stand {catalog_meta['catalog_as_of']}")
 
     scenarios_doc = load_backtesting_scenarios_raw()
     scenarios = scenarios_doc.get("scenarios", [])
@@ -106,6 +117,38 @@ def render() -> None:
         index=_default_label(exp_labels, settings.get("export_tariff_id")),
         key="scenario_export",
     )
+    selected_import = imp_map[imp_pick]
+    selected_export = exp_map[exp_pick]
+    if selected_import:
+        import_tariff = next(t for t in import_tariffs if t["id"] == selected_import)
+        st.caption(
+            f"Bezug: {_type_caption(import_tariff, _IMPORT_TYPE_LABELS)}"
+            + (f" · {_tariff_meta_caption(import_tariff)}" if _tariff_meta_caption(import_tariff) else "")
+        )
+    if selected_export:
+        export_tariff = next(t for t in export_tariffs if t["id"] == selected_export)
+        st.caption(
+            f"Einspeise: {_type_caption(export_tariff, _EXPORT_TYPE_LABELS)}"
+            + (f" · {_tariff_meta_caption(export_tariff)}" if _tariff_meta_caption(export_tariff) else "")
+        )
+
+    netzentgelt_override = None
+    if selected_import:
+        import_tariff = next(t for t in import_tariffs if t["id"] == selected_import)
+        if import_tariff.get("land") == "DE" and import_tariff.get("type") in {
+            "spot_hourly",
+            "ex_post_spot",
+            "monthly_market",
+        }:
+            netzentgelt_override = st.number_input(
+                "Netzentgelt-Override (Cent/kWh, DE-Spot)",
+                min_value=0.0,
+                value=float(settings.get("netzentgelt_cent_kwh_override", 0.0) or 0.0),
+                step=0.1,
+                key="scenario_netzentgelt",
+                help="Optionaler Szenario-Override; leer im Tarifkatalog für manuelle Nachpflege.",
+            )
+
     prof_pick = st.selectbox(
         "Hausprofil",
         options=prof_labels,
@@ -135,6 +178,7 @@ def render() -> None:
             house_profile_id=prof_map[prof_pick],
             latitude=latitude,
             longitude=longitude,
+            netzentgelt_cent_kwh_override=netzentgelt_override,
         )
         try:
             resolved = config.CONFIG.resolve_scenario_settings_dict(draft)
@@ -166,6 +210,7 @@ def render() -> None:
                         house_profile_id=prof_map[prof_pick],
                         latitude=latitude,
                         longitude=longitude,
+                        netzentgelt_cent_kwh_override=netzentgelt_override,
                     ),
                 }
             )
@@ -182,6 +227,7 @@ def _build_settings(
     house_profile_id: str,
     latitude: float,
     longitude: float,
+    netzentgelt_cent_kwh_override: float | None = None,
 ) -> dict:
     settings: dict = {
         "latitude": latitude,
@@ -198,4 +244,6 @@ def _build_settings(
         settings["export_tariff_id"] = export_tariff_id
     if house_profile_id:
         settings["house_profile_id"] = house_profile_id
+    if netzentgelt_cent_kwh_override is not None and netzentgelt_cent_kwh_override > 0.0:
+        settings["netzentgelt_cent_kwh_override"] = float(netzentgelt_cent_kwh_override)
     return settings

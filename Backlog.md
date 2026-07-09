@@ -69,9 +69,9 @@ Offene Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 
 **Scope:** Follow-up zu 1.24 P5. Backtesting-Planung ohne Loxone. Verbraucher dynamisch per Neu/Entfernen statt Anzahl-Feld; eigener Planungs-Verbrauchertyp `ev` mit Live-E-Auto-Eigenschaften (ohne Loxone-Merker).
 
-**Phasen:** P1 Datenmodell → P2 UI → P3 Jahres- und Stundenprofil → P4 Tests.
+**Phasen:** P1 Datenmodell → P2 UI → P3 Jahres- und Stundenprofil → P4 Tests → P5 Tariflisten-Stand.
 
-**Abnahme:** Hausprofil mit mind. einem `ev`-Verbraucher speichern; Grundlast-Vorschau plausibel; `build_hourly_kw_profile` liefert stündliches Ladezeitfenster-Profil; pytest grün; manuelle UI-Prüfung auf Greenfield-Dev-Stack (**1.24.c**).
+**Abnahme:** Hausprofil mit mind. einem `ev`-Verbraucher speichern; Grundlast-Vorschau plausibel; `build_hourly_kw_profile` liefert stündliches Ladezeitfenster-Profil; bei Tarifauswahl ist der **Stand/Datum der Tarifliste** sichtbar; pytest grün; manuelle UI-Prüfung auf Greenfield-Dev-Stack (**1.24.c**).
 
 - [ ] **P1 — Datenmodell `ev`** (`config/house_profiles.json`)
   - Typ `ev` in [`house_profiles.schema.json`](config/house_profiles.schema.json) und [`profiles_store.py`](house_config/profiles_store.py)
@@ -87,6 +87,9 @@ Offene Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
   - [`consumption_profiles.py`](data/consumption_profiles.py): `ev`-Zweig mit fensterbasiertem Stundenprofil statt Gleichverteilung
 - [ ] **P4 — Tests** ([`tests/test_house_config.py`](tests/test_house_config.py))
   - Normalisierung `ev`, Jahres-kWh-Formel, Stundenprofil nur im Ladezeitfenster
+- [ ] **P5 — Tariflisten-Stand in der UI**
+  - Root-Feld `catalog_as_of` in [`config/tariffs.json`](config/tariffs.json) (Schema in [`config/tariffs.schema.json`](config/tariffs.schema.json); Befüllung mit **1.24.f** P3 beim DACH-Import, bis dahin manuell oder Platzhalter)
+  - Bei Auswahl Bezugs-/Einspeisetarif in [`ui/planning_tariff_form.py`](ui/planning_tariff_form.py) und [`ui/pages/page_scenario_editor.py`](ui/pages/page_scenario_editor.py) den **Stand/Datum der Tarifliste** anzeigen (z. B. „Tarifkatalog: Stand 2026“)
 
 **Abgrenzung:** Keine Loxone-Merker in `house_profiles.json`; keine Anbindung Hausprofil-`ev` → `flexible_consumers` in `config.json` (Live bleibt separates Modell).
 
@@ -144,6 +147,7 @@ Offene Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 ### Version 2.+1
 - [ ] Möglichkeit für Test der Code-Coverage prüfen
 - [ ] Möglichkeit zum automatisierten UI-Testing prüfen
+- [ ] Backtesting mit Scenarios auf Streamlit Community Cloud zur Verfügung stellen, um Leads zu generieren und evtl. als Affiliate Quelle (Bei Wechsel des Stromtarif-Anbieters oder bei Kontakt mit PV-Erstellern)
 
 ### Version 2.+1
 - [ ] **SwimSpa Fall B — Folgeprüfung historische Leistung & Loxone-Trennung**

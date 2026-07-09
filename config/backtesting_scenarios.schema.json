@@ -21,9 +21,42 @@
       "minimum": 0,
       "description": "Sekunden für Strict-CBC vor gapRel-Fallback (0 = Strict überspringen). Standard: 3."
     },
+    "oemag_monthly_feed_in_rates": {
+      "type": "array",
+      "description": "OeMAG Gesetzlicher Marktpreis (Referenz für monthly_float): genau 12 Monate Cent/kWh netto.",
+      "minItems": 12,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "required": ["year", "month", "tariff_cent_kwh"],
+        "properties": {
+          "year": {
+            "type": "integer",
+            "minimum": 2000,
+            "description": "Kalenderjahr des Tarifs."
+          },
+          "month": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 12,
+            "description": "Kalendermonat (1–12)."
+          },
+          "tariff_cent_kwh": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "OeMAG-Referenzpreis in Cent/kWh (netto) für diesen Monat."
+          }
+        }
+      }
+    },
+    "monthly_float_reference_cent_kwh": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "OeMAG arbeitspreis_kwh_cent als Nenner für monthly_float-Skalierung (z. B. 7.15)."
+    },
     "fixed_monthly_feed_in_rates": {
       "type": "array",
-      "description": "Monatliche aWATTar-SUNNY-Fixtarife (Cent/kWh netto) für feed_in_mode=fixed im Backtesting.",
+      "description": "Monatliche aWATTar-SUNNY-Fixtarife (Cent/kWh netto) für feed_in_mode=fixed im Backtesting — nicht OeMAG.",
       "items": {
         "type": "object",
         "required": ["year", "month", "tariff_cent_kwh"],

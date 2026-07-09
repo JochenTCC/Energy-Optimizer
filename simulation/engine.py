@@ -231,6 +231,22 @@ def list_simulation_anchors(
     return anchors
 
 
+def _pricing_kwargs_from_scenario(scenario_params: dict | None) -> dict:
+    if not scenario_params:
+        return {}
+    import config
+
+    kwargs: dict = {}
+    spec = scenario_params.get("_import_tariff_spec")
+    if spec is not None:
+        kwargs["import_tariff_spec"] = spec
+        override = scenario_params.get("netzentgelt_cent_kwh")
+        if override is not None:
+            kwargs["netzentgelt_override"] = float(override)
+        kwargs["legacy_awattar"] = dict(config.CONFIG._raw_config.get("awattar", {}))
+    return kwargs
+
+
 def build_historical_matrix_for_slots(
     slot_datetimes: list[datetime],
     cache: HistoricalDataCache,
@@ -241,6 +257,7 @@ def build_historical_matrix_for_slots(
     charging_anchor: datetime | None = None,
     price_resources: BacktestingPriceResources | None = None,
     planning_moment: datetime | None = None,
+    scenario_params: dict | None = None,
 ) -> tuple[list[dict], dict]:
     """Baut eine Optimierungsmatrix für beliebige stündliche Slots aus historischen Logs."""
     baseload_stored, historical_totals, total_load, hourly_flex = (
@@ -261,6 +278,7 @@ def build_historical_matrix_for_slots(
         slot_datetimes,
         price_ctx,
         planning_moment=planning_moment,
+        **_pricing_kwargs_from_scenario(scenario_params),
     )
     anchor = charging_anchor if charging_anchor is not None else window_end
 
@@ -311,6 +329,7 @@ def build_historical_window_matrix(
     cache: HistoricalDataCache,
     prices_df: pd.DataFrame,
     feed_in_settings: feed_in_prices.FeedInSettings | None = None,
+    scenario_params: dict | None = None,
 ) -> tuple[list[dict], dict]:
     """Baut eine 24h-Matrix aus historischen Logs für [Anker-24h, Anker)."""
     slot_datetimes = window_slot_datetimes(anchor)
@@ -321,6 +340,7 @@ def build_historical_window_matrix(
         window_end=anchor,
         feed_in_settings=feed_in_settings,
         charging_anchor=anchor,
+        scenario_params=scenario_params,
     )
 
 
@@ -347,6 +367,7 @@ def build_sunset_window_matrix(
     matrix_kwargs = {
         "price_resources": price_resources,
         "planning_moment": planning_moment,
+        "scenario_params": scenario_params,
     }
     step_matrix, meta = build_historical_matrix_for_slots(
         step_slots,
@@ -431,7 +452,11 @@ def _simulate_anchor_step(
         )
     else:
         matrix, meta = build_historical_window_matrix(
-            anchor, cache, prices_df, feed_in_settings=feed_in_settings
+            anchor,
+            cache,
+            prices_df,
+            feed_in_settings=feed_in_settings,
+            scenario_params=scenario_params,
         )
 
     chart_rows = simulate_horizon(

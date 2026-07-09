@@ -1,6 +1,10 @@
 """Tests für Hauskonfigurator-Entitäten, Tarife und Szenario-Auflösung (Version 1.24)."""
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
+
 import config
 from data.consumption_profiles import build_hourly_kw_profile
 from house_config.baseload import compute_baseload_kwh
@@ -60,6 +64,48 @@ def test_house_profile_thermal_annual():
     assert sum(hourly) > 0
 
 
-def test_tariffs_document():
+def test_tariffs_document_fixture():
     doc = load_tariffs_document(config.TARIFFS_JSON_PATH)
+    assert doc.get("catalog_as_of")
     assert "monthly_test" in doc["export_tariffs"]
+
+
+def test_dach_tariffs_catalog():
+    root = Path(__file__).resolve().parents[1]
+    doc = load_tariffs_document(str(root / "config" / "tariffs.json"))
+    assert doc.get("catalog_as_of") == "2026"
+    assert len(doc["import_tariffs"]) == 33
+    assert len(doc["export_tariffs"]) == 11
+    assert "awattar_at" in doc["import_tariffs"]
+
+
+def test_tariff_spec_resolution_de_spot_ch_fix():
+    resolved = config.CONFIG.resolve_scenario_settings_dict(
+        {
+            "import_tariff_id": "de_spot_test",
+            "export_tariff_id": "ch_fix_test",
+        }
+    )
+    assert resolved["market_zone"] == "DE-LU"
+    assert resolved["_import_tariff_spec"]["type"] == "spot_hourly"
+    assert resolved["_export_tariff_spec"]["type"] == "fixed"
+    assert resolved["_export_tariff_spec"]["land"] == "CH"
+
+
+def test_tariff_netzentgelt_override_resolution():
+    resolved = config.CONFIG.resolve_scenario_settings_dict(
+        {
+            "import_tariff_id": "de_spot_test",
+            "netzentgelt_cent_kwh_override": 8.0,
+        }
+    )
+    assert resolved["netzentgelt_cent_kwh"] == 8.0
+
+
+def test_monthly_float_export_tariff_resolution():
+    root = Path(__file__).resolve().parents[1]
+    doc = load_tariffs_document(str(root / "config" / "tariffs.json"))
+    oemag = doc["export_tariffs"].get("at_oemag_gesetzlicher_marktpreis")
+    assert oemag is not None
+    assert oemag["type"] == "monthly_float"
+    assert oemag["arbeitspreis_kwh_cent"] == pytest.approx(7.15)

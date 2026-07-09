@@ -1,0 +1,94 @@
+"""Tests für monthly_float Einspeisetarife (Version 1.24.g)."""
+from __future__ import annotations
+
+from datetime import datetime
+
+import pytest
+
+from data.monthly_float_rates import (
+    REQUIRED_OEMAG_MONTHS,
+    build_monthly_float_lookup,
+    load_monthly_float_reference_cent,
+    load_oemag_monthly_reference_rates,
+)
+from data.tariff_pricing import export_cent_kwh
+
+
+OEMAG_RATES = (
+    (2025, 7, 5.965),
+    (2025, 8, 5.9),
+    (2025, 9, 7.1),
+    (2025, 10, 9.008),
+    (2025, 11, 8.7),
+    (2025, 12, 8.7),
+    (2026, 1, 8.842),
+    (2026, 2, 8.457),
+    (2026, 3, 5.72),
+    (2026, 4, 6.772),
+    (2026, 5, 6.772),
+    (2026, 6, 6.772),
+)
+
+
+def _scenarios_doc() -> dict:
+    return {
+        "oemag_monthly_feed_in_rates": [
+            {"year": y, "month": m, "tariff_cent_kwh": c}
+            for y, m, c in OEMAG_RATES
+        ],
+        "monthly_float_reference_cent_kwh": 7.15,
+    }
+
+
+def test_load_oemag_requires_twelve_months():
+    doc = _scenarios_doc()
+    rates = load_oemag_monthly_reference_rates(doc)
+    assert len(rates) == REQUIRED_OEMAG_MONTHS
+
+
+def test_load_oemag_rejects_wrong_count():
+    doc = _scenarios_doc()
+    doc["oemag_monthly_feed_in_rates"] = doc["oemag_monthly_feed_in_rates"][:6]
+    with pytest.raises(ValueError, match="genau 12"):
+        load_oemag_monthly_reference_rates(doc)
+
+
+def test_oemag_identity_scaling():
+    tariff = {"arbeitspreis_kwh_cent": 7.15, "settlement_fee_cent_kwh": 0.0}
+    lookup = build_monthly_float_lookup(OEMAG_RATES, 7.15, tariff)
+    june_2026 = next(item for item in lookup if item[:2] == (2026, 6))
+    assert june_2026 == (2026, 6, pytest.approx(6.772))
+
+
+def test_energie_ag_scaling_with_settlement():
+    tariff = {"arbeitspreis_kwh_cent": 5.85, "settlement_fee_cent_kwh": 1.5}
+    lookup = build_monthly_float_lookup(OEMAG_RATES, 7.15, tariff)
+    expected = max(0.0, 6.772 * 5.85 / 7.15 - 1.5)
+    june_2026 = next(item for item in lookup if item[:2] == (2026, 6))
+    assert june_2026 == (2026, 6, pytest.approx(expected, rel=1e-4))
+
+
+def test_export_cent_kwh_monthly_float_lookup():
+    tariff = {
+        "type": "monthly_float",
+        "arbeitspreis_kwh_cent": 7.15,
+        "prices_include_vat": True,
+        "vat_percent": 0.0,
+    }
+    lookup = {
+        (year, month): cent
+        for year, month, cent in build_monthly_float_lookup(OEMAG_RATES, 7.15, tariff)
+    }
+    slot = datetime(2026, 6, 15, 12, 0)
+    assert export_cent_kwh(
+        None,
+        tariff,
+        slot_datetime=slot,
+        monthly_lookup=lookup,
+    ) == pytest.approx(6.772)
+
+
+def test_load_monthly_float_reference_cent_required():
+    with pytest.raises(ValueError, match="monthly_float_reference_cent_kwh"):
+        load_monthly_float_reference_cent({})
+    assert load_monthly_float_reference_cent(_scenarios_doc()) == pytest.approx(7.15)

@@ -4,6 +4,10 @@
     "title": "Energy Optimizer Stromtarife",
     "type": "object",
     "properties": {
+        "catalog_as_of": {
+            "type": "string",
+            "description": "Stand/Datum der Tarifliste (z. B. 2026 oder 2026-03-01)."
+        },
         "import_tariffs": {
             "type": "array",
             "items": { "$ref": "#/definitions/import_tariff" }
@@ -14,37 +18,82 @@
         }
     },
     "definitions": {
-        "import_tariff": {
+        "dach_common": {
             "type": "object",
-            "required": ["id", "type"],
             "properties": {
-                "id": { "type": "string" },
-                "label": { "type": "string" },
-                "type": { "enum": ["awattar", "fixed_cent"] },
-                "fix_cent_kwh": { "type": "number", "exclusiveMinimum": 0 }
+                "land": { "type": "string", "enum": ["AT", "DE", "CH"] },
+                "currency": { "type": "string", "enum": ["EUR", "CHF"] },
+                "settlement_fee_cent_kwh": { "type": "number", "minimum": 0 },
+                "markup_percent": { "type": "number" },
+                "prices_include_vat": { "type": "boolean" },
+                "vat_percent": { "type": "number", "minimum": 0 },
+                "netzentgelt_cent_kwh": { "type": "number", "minimum": 0 },
+                "notes": { "type": "string" }
             }
         },
+        "import_tariff": {
+            "allOf": [
+                { "$ref": "#/definitions/dach_common" },
+                {
+                    "type": "object",
+                    "required": ["id", "type"],
+                    "properties": {
+                        "id": { "type": "string" },
+                        "label": { "type": "string" },
+                        "type": {
+                            "enum": [
+                                "awattar",
+                                "fixed_cent",
+                                "spot_hourly",
+                                "ex_post_spot",
+                                "monthly_market"
+                            ]
+                        },
+                        "fix_cent_kwh": { "type": "number", "exclusiveMinimum": 0 }
+                    }
+                }
+            ]
+        },
         "export_tariff": {
-            "type": "object",
-            "required": ["id", "type"],
-            "properties": {
-                "id": { "type": "string" },
-                "label": { "type": "string" },
-                "type": { "enum": ["fixed", "monthly_table", "dynamic_epex"] },
-                "k_push_cent": { "type": "number" },
-                "monthly_rates": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "required": ["year", "month", "tariff_cent_kwh"],
-                        "properties": {
-                            "year": { "type": "integer" },
-                            "month": { "type": "integer", "minimum": 1, "maximum": 12 },
-                            "tariff_cent_kwh": { "type": "number", "exclusiveMinimum": 0 }
+            "allOf": [
+                { "$ref": "#/definitions/dach_common" },
+                {
+                    "type": "object",
+                    "required": ["id", "type"],
+                    "properties": {
+                        "id": { "type": "string" },
+                        "label": { "type": "string" },
+                        "type": {
+                            "enum": [
+                                "fixed",
+                                "monthly_table",
+                                "monthly_float",
+                                "dynamic_epex",
+                                "spot_hourly",
+                                "ex_post_spot"
+                            ]
+                        },
+                        "k_push_cent": { "type": "number" },
+                        "arbeitspreis_kwh_cent": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "description": "Referenz-Arbeitspreis für monthly_float-Skalierung (Cent/kWh)."
+                        },
+                        "monthly_rates": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "required": ["year", "month", "tariff_cent_kwh"],
+                                "properties": {
+                                    "year": { "type": "integer" },
+                                    "month": { "type": "integer", "minimum": 1, "maximum": 12 },
+                                    "tariff_cent_kwh": { "type": "number", "exclusiveMinimum": 0 }
+                                }
+                            }
                         }
                     }
                 }
-            }
+            ]
         }
     }
 }

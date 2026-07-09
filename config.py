@@ -415,11 +415,23 @@ class Config:
     def get_backtesting_feed_in_settings(self, runtime_override: dict | None = None):
         """Einspeise-Settings für Backtesting inkl. monatlicher Fixtarife."""
         from data.feed_in_prices import FEED_IN_MODE_FIXED, feed_in_settings_from_dict, validate_feed_in_mode
+        from data.monthly_float_rates import (
+            build_monthly_float_lookup,
+            load_monthly_float_reference_cent,
+            load_oemag_monthly_reference_rates,
+        )
 
         runtime = runtime_override if runtime_override is not None else self._raw_config["runtime_settings"]
         awattar = self._raw_config.get("awattar", {})
         monthly = None
-        if runtime_override and runtime_override.get("_monthly_fixed_tariffs") is not None:
+        export_spec = runtime.get("_export_tariff_spec")
+        export_type = str(export_spec.get("type", "")).strip().lower() if export_spec else ""
+        if export_type == "monthly_float":
+            scenarios_doc = self._load_backtesting_scenarios_document()
+            oemag_rates = load_oemag_monthly_reference_rates(scenarios_doc)
+            reference_cent = load_monthly_float_reference_cent(scenarios_doc)
+            monthly = build_monthly_float_lookup(oemag_rates, reference_cent, export_spec)
+        elif runtime_override and runtime_override.get("_monthly_fixed_tariffs") is not None:
             monthly = runtime_override["_monthly_fixed_tariffs"]
         elif validate_feed_in_mode(runtime.get("feed_in_mode", FEED_IN_MODE_FIXED)) == FEED_IN_MODE_FIXED:
             monthly = self.get_backtesting_fixed_monthly_feed_in_rates()

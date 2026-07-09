@@ -230,13 +230,31 @@ def matrix_prices_from_context(
     ctx: BacktestingPriceContext | None,
     *,
     planning_moment: datetime | None = None,
+    import_tariff_spec: dict | None = None,
+    netzentgelt_override: float | None = None,
+    legacy_awattar: dict | None = None,
 ) -> tuple[list[float], list[float], list[str]]:
     """EPEX- und Brutto-Preise je Slot; bei ctx=None Perfect-Foresight aus CSV."""
+    from data.tariff_pricing import import_cent_kwh
+
+    def _brutto_list(epex_values: list[float]) -> list[float]:
+        if import_tariff_spec is None:
+            return [epex_to_brutto_cent(float(p)) for p in epex_values]
+        return [
+            import_cent_kwh(
+                float(p),
+                import_tariff_spec,
+                netzentgelt_override=netzentgelt_override,
+                legacy_awattar=legacy_awattar,
+            )
+            for p in epex_values
+        ]
+
     if ctx is None:
         from data.market_prices import epex_prices_for_slots
 
         epex = epex_prices_for_slots(prices_df, slot_datetimes)
-        brutto = [epex_to_brutto_cent(float(p)) for p in epex]
+        brutto = _brutto_list(epex)
         return epex, brutto, ["day_ahead"] * len(epex)
 
     moment = planning_moment if planning_moment is not None else ctx.planning_moment
@@ -249,6 +267,6 @@ def matrix_prices_from_context(
     )
     slots = resolve_backtesting_slot_prices(prices_df, slot_datetimes, price_ctx)
     epex = [float(s["price_buy"]) for s in slots]
-    brutto = [float(s["k_act"]) for s in slots]
+    brutto = _brutto_list(epex)
     sources = [str(s.get("price_source", "day_ahead")) for s in slots]
     return epex, brutto, sources

@@ -17,6 +17,8 @@ class FeedInSettings:
     fee_factor: float
     fix_cent: float
     monthly_fixed_tariffs: tuple[tuple[int, int, float], ...] | None = None
+    export_tariff_spec: dict | None = None
+    legacy_awattar: dict | None = None
 
 
 def validate_feed_in_mode(mode: str) -> str:
@@ -119,6 +121,20 @@ def resolve_k_push_act(
     *,
     slot_datetime: datetime | None = None,
 ) -> float:
+    if settings.export_tariff_spec is not None:
+        from data.tariff_pricing import export_cent_kwh
+
+        monthly_lookup = None
+        if settings.monthly_fixed_tariffs is not None:
+            monthly_lookup = monthly_fixed_tariff_lookup(settings.monthly_fixed_tariffs)
+        return export_cent_kwh(
+            epex_cent,
+            settings.export_tariff_spec,
+            slot_datetime=slot_datetime,
+            legacy_awattar=settings.legacy_awattar,
+            monthly_lookup=monthly_lookup,
+        )
+
     mode = validate_feed_in_mode(settings.mode)
     if mode == FEED_IN_MODE_FIXED:
         return _fixed_tariff_for_slot(slot_datetime, settings)
@@ -134,6 +150,7 @@ def feed_in_settings_from_dict(
     awattar: dict[str, Any],
     *,
     monthly_fixed_tariffs: tuple[tuple[int, int, float], ...] | None = None,
+    export_tariff_spec: dict | None = None,
 ) -> FeedInSettings:
     if "k_push_cent" not in runtime:
         raise KeyError("feed_in_settings erfordert k_push_cent in runtime_settings bzw. Szenario.")
@@ -149,12 +166,18 @@ def feed_in_settings_from_dict(
     else:
         fee_factor = float(awattar.get("feed_in_fee_factor", 0.0))
         fix_cent = float(awattar.get("feed_in_fix_cent", 0.0))
+    spec = export_tariff_spec
+    if spec is None and runtime.get("_export_tariff_spec") is not None:
+        spec = dict(runtime["_export_tariff_spec"])
+
     return FeedInSettings(
         mode=mode,
         k_push_cent=k_push,
         fee_factor=fee_factor,
         fix_cent=fix_cent,
         monthly_fixed_tariffs=monthly_fixed_tariffs,
+        export_tariff_spec=spec,
+        legacy_awattar=dict(awattar) if awattar else None,
     )
 
 
