@@ -17,18 +17,6 @@ Offene Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 ## Feature-Backlog
 
 ### Version 1.25.0 Backtesting mit Hauskonfiguration starten und auswerten
-- [x] Im Hauskonfigurator kann optional ein Jahres-Gesamt-Verbrauchs csv eingelesen werden (nach vorgegebenem Format).Damit kann überprüft werden, ob die Konfiguration einigermaßen passt (graphischer Verlauf und Gesamtmenge pro Monat)
-- [x] Nach Ersteinrichtung gibt es außer runtime_setting noch keine Szenarios
-- [x] Einfachen Szenario-Editor erstellen
-  - Es gibt eine neue Subpage unter Konfiguration für Szenarien
-  - Hauskonfigurator umfasst nur noch Verbraucher und PV-Anlage
-  - Batterie und Tarife wandern in den Szenario-Editor
-  - Default-Scenario ist Runtime (Pflicht vor Freischaltung von backtesting (und Betrieb))
-  - Es können weitere Scenarios hinzugefügt werden mit anderen Batterien und Tarien
-- [x] Daten aus Konfiguration nehmen und backtesting Rechnung ausführbar machen.
-- [x] Auf der Seite backtesting werden vorhandene Szenarios und ggf. vorhandener backtesting Lauf eingelesen
-  - Wenn beides zueinanderpasst, kann backtesting Lauf wie schon implementiert analysiert werden
-  - Wenn noch kein Backtesting-Lauf existiert oder nicht zu den aktuellen Szenarien passt, dann wird ein Knopf aktiviert, der das backtesting (mit main.py) startet. Nach Fertigstellung werden die Ergebnisse eingelesen und angezeigt  
 
 **Manuelle Abnahme (Greenfield, Streamlit :8511 oder Container :8502)**
 
