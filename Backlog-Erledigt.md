@@ -2,6 +2,27 @@
 
 Archiv abgeschlossener Arbeiten. Offene Todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
+### Bugfix Runtime-Szenario speichern (2026-07-09)
+
+- [x] **KeyError bei leeren Entitätslisten** — sichere ID-Auflösung in `scenario_form_helpers.py`; deaktivierte Selectboxen bei leeren PV-/Batterie-Listen im Runtime- und Szenario-Editor
+- [x] **PV-/Batterie-Form-State** — Widget-State aus gespeicherten Werten seeden (`planning_pv_form.py`, `planning_battery_form.py`)
+- [x] **Tests** — `tests/test_scenario_form_helpers.py`, Erweiterung `tests/test_planning_editors.py`
+
+### hausconfig: Solarthermie, Profil-Standort (2026-07-09)
+
+- [x] **Solarthermie-Kollektor** — Heizbedarfsmodell mit Solarthermie in `data/heating_need.py`; Validierungs-Charts und Tests (`tests/test_heating_need_solar.py`)
+- [x] **Profil-Standort** — `latitude`/`longitude` und PV-Voreinstellungen auf Profil-Ebene (`house_profiles.schema.json`, `house_config_profile_form.py`)
+- [x] **Verbrauchsvalidierung** — erweiterte Charts und Tests für thermisches Profil mit Solarthermie
+
+### Version 1.25.0 — Backtesting mit Hauskonfiguration (Software) (2026-07-09)
+
+- [x] **CSV-Validierung Hausprofil** — optionales Jahres-CSV im Hauskonfigurator; Monatsbalken und Stundenverlauf Ist vs. Modell
+- [x] **Szenarieneditor** — Subpage unter Konfiguration; Hauskonfigurator nur Verbraucher + PV; Batterie/Tarife im Szenario-Editor; Runtime als Default-Szenario
+- [x] **Backtesting-Pipeline** — Auflösung aus Hauskonfiguration (`scenario_resolution.py`); Baseline-Fingerprint (`backtesting_fingerprint.py`); Start per UI (`backtesting_runner.py`)
+- [x] **Backtesting-UI** — Szenarien einlesen, Config-Fingerprint-Abgleich, Button **Backtesting starten**, Ergebnisanzeige bei passendem Lauf
+- [x] **Setup-Freischaltung** — Navigation/Readiness für Szenarieneditor und Backtesting nach vollständigem Runtime-Szenario
+- [x] **Tests & Doku** — `test_backtesting_fingerprint`, Erweiterungen Setup/Navigation/House-Config; `docs/konfiguration/ueberblick.md`
+
 ### Bugfix natives Filterfenster Log-Spam (main.py) (2026-07-09)
 
 - [x] **`filter_contexts` einmal pro Lauf** — `main.py` löst vor `get_consumer_remaining_kwh` auf und reicht durch an MILP, Restziel-Anpassung und `calculate_optimization_savings`
