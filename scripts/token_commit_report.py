@@ -13,6 +13,9 @@ Grenzen (bewusst, siehe Backlog-Diskussion):
 Beispiel:
     .venv\\Scripts\\python.exe -m scripts.token_commit_report \\
         --usage-csv "C:\\Users\\joche\\Downloads\\usage-events-2026-07-07.csv"
+
+Nach jedem Commit (interaktiv): post-commit-Hook oder
+    sh scripts/run_token_commit_report_interactive.sh
 """
 from __future__ import annotations
 

@@ -6,3 +6,4 @@ Set-Location $Root
 git config core.hooksPath .githooks
 Write-Host "Git hooksPath gesetzt auf .githooks"
 Write-Host "pre-commit fuehrt 'pytest tests' aus (uebersprungen bei nur *.md, docs/, .cursor/)."
+Write-Host "post-commit fragt interaktiv nach Token-Report (Download / vorhandene CSV / Skip)."

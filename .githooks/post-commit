@@ -1,0 +1,14 @@
+#!/bin/sh
+# Nach jedem Commit optional Token-Report (interaktiv: Download / vorhandene CSV / Skip).
+set -e
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+HOOK_SCRIPT="scripts/run_token_commit_report_interactive.sh"
+if [ ! -f "$HOOK_SCRIPT" ]; then
+  echo "post-commit: $HOOK_SCRIPT fehlt — Token-Report übersprungen." >&2
+  exit 0
+fi
+
+sh "$HOOK_SCRIPT"
