@@ -7,18 +7,24 @@ from ui.house_config_io import (
     get_planning_tariff_selection,
     list_export_tariffs,
     list_import_tariffs,
+    load_tariffs_catalog_meta,
     save_planning_tariff_selection,
 )
 
 _IMPORT_TYPE_LABELS = {
-    "awattar": "aWATTar (EPEX + Aufschlag)",
+    "awattar": "aWATTar (EPEX + Aufschlag aus config.json)",
     "fixed_cent": "Fixpreis Bezug",
+    "spot_hourly": "Spot stündlich",
+    "ex_post_spot": "Spot ex-post",
+    "monthly_market": "Monatsmarkt",
 }
 
 _EXPORT_TYPE_LABELS = {
     "fixed": "Fixpreis Einspeise",
-    "dynamic_epex": "Dynamisch EPEX",
+    "dynamic_epex": "Dynamisch EPEX (Legacy)",
     "monthly_table": "Monatstabelle",
+    "spot_hourly": "Spot stündlich",
+    "ex_post_spot": "Spot ex-post",
 }
 
 
@@ -31,7 +37,26 @@ def _type_caption(tariff: dict, labels: dict[str, str]) -> str:
     return labels.get(tariff_type, tariff_type or "unbekannt")
 
 
+def _tariff_meta_caption(tariff: dict) -> str:
+    parts: list[str] = []
+    land = tariff.get("land")
+    currency = tariff.get("currency")
+    if land:
+        parts.append(f"Land: {land}")
+    if currency:
+        parts.append(f"Währung: {currency}")
+    notes = tariff.get("notes")
+    if notes:
+        parts.append(str(notes))
+    return " · ".join(parts)
+
+
 def render_tariff_selection_tab() -> None:
+    catalog_meta = load_tariffs_catalog_meta()
+    catalog_as_of = catalog_meta.get("catalog_as_of")
+    if catalog_as_of:
+        st.caption(f"Tarifkatalog: Stand {catalog_as_of}")
+
     imports = list_import_tariffs()
     exports = list_export_tariffs()
     if not imports or not exports:
@@ -56,6 +81,9 @@ def render_tariff_selection_tab() -> None:
     )
     import_tariff = next(item for item in imports if item["id"] == import_pick)
     st.caption(f"Typ: {_type_caption(import_tariff, _IMPORT_TYPE_LABELS)}")
+    meta_caption = _tariff_meta_caption(import_tariff)
+    if meta_caption:
+        st.caption(meta_caption)
 
     export_pick = st.selectbox(
         "Einspeisetarif",
@@ -66,11 +94,14 @@ def render_tariff_selection_tab() -> None:
     )
     export_tariff = next(item for item in exports if item["id"] == export_pick)
     st.caption(f"Typ: {_type_caption(export_tariff, _EXPORT_TYPE_LABELS)}")
+    meta_caption = _tariff_meta_caption(export_tariff)
+    if meta_caption:
+        st.caption(meta_caption)
 
     st.info(
         "Neue Tarife werden nicht in der UI angelegt. "
         "Ergänze Einträge manuell in `config/tariffs.json` "
-        "(Referenz: `config/tariffs.example.json`)."
+        "(Referenz: `config/tariffs.example.json` oder `tools/convert_dach_tariffs.py`)."
     )
 
     if st.button("Tarifwahl speichern", type="primary", key="planning_tariff_save"):

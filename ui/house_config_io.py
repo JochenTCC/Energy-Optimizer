@@ -83,6 +83,14 @@ def list_export_tariffs() -> list[dict]:
     return list(doc.get("export_tariffs", {}).values())
 
 
+def load_tariffs_catalog_meta() -> dict:
+    doc = load_tariffs()
+    meta: dict = {}
+    if doc.get("catalog_as_of"):
+        meta["catalog_as_of"] = doc["catalog_as_of"]
+    return meta
+
+
 def upsert_house_profile(profile: dict) -> None:
     path = resolve_house_profiles_json_path()
     if os.path.isfile(path):

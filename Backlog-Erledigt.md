@@ -2,6 +2,22 @@
 
 Archiv abgeschlossener Arbeiten. Offene Todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
+### Version 1.24.g — monthly_float Einspeisetarif (OeMAG-Referenzkurve) (2026-07-09)
+
+- [x] **Schema** — Export-Typ `monthly_float` in `tariffs.schema.json`; `oemag_monthly_feed_in_rates` + `monthly_float_reference_cent_kwh` in `backtesting_scenarios.schema.json`
+- [x] **Pricing-Pipeline** — `data/monthly_float_rates.py` (OeMAG-Skalierung); `tariff_pricing.export_cent_kwh`; `get_backtesting_feed_in_settings()` baut skalierte Monatstabelle zur Laufzeit
+- [x] **Katalog & Konverter** — `tools/convert_dach_tariffs.py` aus `einspeisetarife_dach_erweitert.json`; 5 `monthly_float`-Export-Tarife in `config/tariffs.json`
+- [x] **OeMAG-Referenzdaten** — 12 Monate Jul 2025–Jun 2026 in `backtesting_scenarios.example.json`; `fixed_monthly_feed_in_rates` (aWATTar-SUNNY) unverändert
+- [x] **Tests & Doku** — `tests/test_monthly_float_rates.py`; Erweiterung `test_tariff_pricing` / `test_house_config`; `docs/konfiguration/preise.md`
+
+### Version 1.24.f — DACH-Tarifkatalog & Preismodell (Backtesting) (2026-07-09)
+
+- [x] **P1 — Schema & Preisfunktionen** — `tariffs.schema.json` (DACH-Typen + `catalog_as_of`); `house_config/tariffs_store.py` (`_import_tariff_spec`, `_export_tariff_spec`, Szenario-Specs); `data/tariff_pricing.py` (`import_cent_kwh` / `export_cent_kwh`, Legacy `awattar`/`dynamic_epex`)
+- [x] **P2 — Backtesting-Pipeline & Marktzonen** — `data/data_loader.py` (AT / `DE-LU` / CH); tariff-aware Pricing in `simulation/engine.py`, `data/backtesting_prices.py`, `data/feed_in_prices.py`
+- [x] **P3 — DACH-Konverter & Katalog** — `tools/convert_dach_tariffs.py`; `config/tariffs.json` mit 44 Tarifen (`catalog_as_of=2026`)
+- [x] **P4 — UI Planung** — `ui/planning_tariff_form.py`, `ui/pages/page_scenario_editor.py` (Typ-Labels, Land/Währung/Notes, `catalog_as_of`, DE-Netzentgelt-Override)
+- [x] **P5 — Tests & Doku** — `tests/test_tariff_pricing.py`, Erweiterung `tests/test_house_config.py`; `docs/konfiguration/preise.md`
+
 ### Version 1.24.e — Planungs-Editoren & Hauskonfigurator-UX (2026-07-09)
 
 - [x] **P1 — Config-Drift** — `should_show_config_drift()` unterdrückt Hinweis während `needs_planning_onboarding()`; leere `flexible_consumers` werden in der Drift-Prüfung ignoriert

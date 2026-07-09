@@ -6,6 +6,11 @@ import requests
 
 ENERGY_CHARTS_PRICE_URL = "https://api.energy-charts.info/price"
 DEFAULT_ENERGY_CHARTS_BZN = "DE-LU"
+AWATTAR_DE_URL = "https://api.awattar.de/v1/marketdata"
+MARKET_ZONE_AT = "AT"
+MARKET_ZONE_DE = "DE-LU"
+MARKET_ZONE_CH = "CH"
+VALID_MARKET_ZONES = frozenset({MARKET_ZONE_AT, MARKET_ZONE_DE, MARKET_ZONE_CH})
 
 
 def _ensure_csv_exists(path: str) -> None:
@@ -168,17 +173,34 @@ def load_market_prices(
     sim_cfg: dict,
     awattar_url: str,
     timeout: int = 30,
+    *,
+    market_zone: str | None = None,
 ) -> pd.DataFrame:
     """Lädt Marktpreise per API oder aus einer CSV-Datei."""
     source = sim_cfg.get('price_source', 'csv')
+    zone = market_zone or sim_cfg.get('energy_charts_bzn', DEFAULT_ENERGY_CHARTS_BZN)
 
     if source == 'api':
-        provider = sim_cfg.get('price_provider', 'awattar')
-        if provider == 'awattar':
+        if zone == MARKET_ZONE_AT:
             df_prices = fetch_awattar_prices(start, end, awattar_url, timeout=timeout)
+        elif zone == MARKET_ZONE_DE:
+            provider = sim_cfg.get('price_provider', 'energy_charts')
+            if provider == 'awattar':
+                df_prices = fetch_awattar_prices(
+                    start, end, AWATTAR_DE_URL, timeout=timeout
+                )
+            else:
+                df_prices = fetch_energy_charts_prices(
+                    start, end, bzn=MARKET_ZONE_DE, timeout=timeout
+                )
+        elif zone == MARKET_ZONE_CH:
+            df_prices = fetch_energy_charts_prices(
+                start, end, bzn=MARKET_ZONE_CH, timeout=timeout
+            )
         else:
-            bzn = sim_cfg.get('energy_charts_bzn', DEFAULT_ENERGY_CHARTS_BZN)
-            df_prices = fetch_energy_charts_prices(start, end, bzn=bzn, timeout=timeout)
+            raise ValueError(
+                f"Unbekannte Marktzone '{zone}'. Erlaubt: {', '.join(sorted(VALID_MARKET_ZONES))}."
+            )
     else:
         path_price = sim_cfg.get('path_price')
         if not path_price:
@@ -190,6 +212,26 @@ def load_market_prices(
     if df_prices.empty:
         raise ValueError(f"Keine Preisdaten für {start.date()} bis {end.date()} gefunden.")
     return df_prices
+
+
+def load_market_prices_for_scenario(
+    start: pd.Timestamp,
+    end: pd.Timestamp,
+    scenario_params: dict,
+    sim_cfg: dict,
+    awattar_url: str,
+    timeout: int = 30,
+) -> pd.DataFrame:
+    """Marktpreise passend zur Import-Tarif-Zone eines Backtesting-Szenarios."""
+    zone = scenario_params.get("market_zone", DEFAULT_ENERGY_CHARTS_BZN)
+    return load_market_prices(
+        start,
+        end,
+        sim_cfg,
+        awattar_url,
+        timeout=timeout,
+        market_zone=str(zone),
+    )
 
 
 def generate_simulation_base(
