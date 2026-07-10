@@ -48,9 +48,12 @@ from optimizer.cbc_solver import (
 from optimizer.cbc_events import (
     begin_cbc_event_collection,
     clear_cbc_milp_context,
+    count_cbc_events,
+    list_cbc_events,
     set_cbc_milp_context,
     take_cbc_events,
 )
+from simulation.backtesting_snapshots import build_window_snapshot
 
 # Plausibilisierung: optimierter 24h-Verbrauch vs. historischer Gesamtverbrauch
 # (MILP min_on-Constraints können kleine Abweichungen erzeugen)
@@ -124,21 +127,38 @@ class HistoricalDataCache:
         self._pv_series = profile_manager.load_cons_data_pv_series()
 
     def get_window_consumption(
-        self, slot_datetimes: list[datetime]
+        self,
+        slot_datetimes: list[datetime],
+        *,
+        flex_consumer_ids: list[str] | None = None,
     ) -> tuple[list[float], dict[str, float], list[float], list[float]]:
         """Grundlast (CSV), Flex-Summen, Gesamtlast und stündliche Flex-Summe (kW pro Stunde)."""
+        from data.cons_data_house_profile import (
+            consumer_labels_for_ids,
+            expected_cons_data_consumer_ids,
+        )
+
         self.load()
         idx = pd.DatetimeIndex(slot_datetimes)
         df_window = self._consumption_df.reindex(idx, fill_value=0.0)
 
-        flex_cols = [consumer["name"] for consumer in config.get_flexible_consumers()]
-        historical_totals = {
-            consumer["id"]: round(float(df_window[consumer["name"]].sum()), 3)
-            for consumer in config.get_flexible_consumers()
-        }
+        consumer_ids = flex_consumer_ids or expected_cons_data_consumer_ids()
+        labels = consumer_labels_for_ids(consumer_ids)
+        historical_totals: dict[str, float] = {}
+        hourly_flex = [0.0] * len(slot_datetimes)
+        for consumer_id in consumer_ids:
+            label = labels.get(consumer_id, consumer_id)
+            if label in df_window.columns:
+                series = df_window[label].astype(float)
+                historical_totals[consumer_id] = round(float(series.sum()), 3)
+                hourly_flex = [
+                    round(prev + float(value), 3)
+                    for prev, value in zip(hourly_flex, series.tolist())
+                ]
+            else:
+                historical_totals[consumer_id] = 0.0
         baseload = df_window["BaseLoad"].round(3).tolist()
         total_load = df_window["Total"].round(3).tolist()
-        hourly_flex = df_window[flex_cols].sum(axis=1).round(3).tolist()
         return baseload, historical_totals, total_load, hourly_flex
 
     def get_pv_for_slots(self, slot_datetimes: list[datetime]) -> list[float]:
@@ -270,25 +290,29 @@ def build_historical_matrix_for_slots(
     scenario_params: dict | None = None,
 ) -> tuple[list[dict], dict]:
     """Baut eine Optimierungsmatrix für beliebige stündliche Slots aus historischen Logs."""
+    flex_consumer_ids = None
+    flexible_consumers = None
+    if scenario_params:
+        flexible_consumers = _flexible_consumers_from_scenario(scenario_params)
+        if flexible_consumers:
+            flex_consumer_ids = [consumer["id"] for consumer in flexible_consumers]
+
     baseload_stored, historical_totals, total_load, hourly_flex = (
-        cache.get_window_consumption(slot_datetimes)
+        cache.get_window_consumption(
+            slot_datetimes,
+            flex_consumer_ids=flex_consumer_ids,
+        )
     )
     baseload_kw, historical_baseload_kwh = resolve_hourly_baseload_kw(
         total_load, hourly_flex
     )
     if scenario_params and scenario_params.get("_house_profile"):
-        from house_config.planning_flex_bridge import (
-            fixed_generic_hourly_overlay,
-            planning_flex_daily_targets,
-        )
+        from house_config.planning_flex_bridge import fixed_generic_hourly_overlay
 
         profile = scenario_params["_house_profile"]
         overlay = fixed_generic_hourly_overlay(profile, slot_datetimes)
         baseload_kw = [round(base + extra, 3) for base, extra in zip(baseload_kw, overlay)]
-        flex_consumers = scenario_params.get("_planning_flex_consumers") or []
-        historical_totals.update(
-            planning_flex_daily_targets(flex_consumers, profile, slot_datetimes)
-        )
+        historical_baseload_kwh = round(sum(baseload_kw), 3)
     stored_baseload_kwh = round(sum(baseload_stored), 3)
     pv_profile = cache.get_pv_for_slots(slot_datetimes)
     price_ctx = (
@@ -344,6 +368,8 @@ def build_historical_matrix_for_slots(
         ),
         "consumer_daily_targets_kwh": dict(historical_totals),
     }
+    if flexible_consumers:
+        meta["_flexible_consumers"] = flexible_consumers
     return matrix, meta
 
 
@@ -374,11 +400,11 @@ def build_sunset_window_matrix(
     scenario_params: dict,
     feed_in_settings: feed_in_prices.FeedInSettings | None = None,
     price_resources: BacktestingPriceResources | None = None,
-) -> tuple[list[dict], dict, int]:
+) -> tuple[list[dict], dict, int, list[dict]]:
     """
     Sunset-MILP-Matrix (Jetzt→SA₂) für einen Backtesting-Schritt ab Anker−24h.
 
-    Returns: (volle Matrix, Meta für den 24h-Schritt, sunrise_soc_min_index)
+    Returns: (24h-Schritt-Matrix, Meta, sunrise_soc_min_index, volle Planungsmatrix)
     """
     planning_window, sunrise_index = compute_sunset_planning_at_anchor(
         anchor, scenario_params
@@ -401,7 +427,7 @@ def build_sunset_window_matrix(
         charging_anchor=anchor,
         **matrix_kwargs,
     )
-    matrix, _full_meta = build_historical_matrix_for_slots(
+    matrix_full, _full_meta = build_historical_matrix_for_slots(
         full_slots,
         cache,
         prices_df,
@@ -413,9 +439,9 @@ def build_sunset_window_matrix(
     meta["planning_horizon_hours"] = len(full_slots)
     meta["sunrise_anchor"] = planning_window.sunrise_anchor
     meta["step_slot_datetimes"] = step_slots
-    matrix = truncate_matrix_for_step_simulation(matrix, sunrise_index)
+    matrix = truncate_matrix_for_step_simulation(list(matrix_full), sunrise_index)
     overlay_step_consumption_on_matrix(matrix, step_matrix)
-    return matrix, meta, effective_sunrise_soc_min_index(sunrise_index)
+    return matrix, meta, effective_sunrise_soc_min_index(sunrise_index), matrix_full
 
 
 def _apply_backtesting_step(
@@ -461,11 +487,22 @@ def _simulate_anchor_step(
     hours_done: int,
     collect_cbc: bool,
     price_resources: BacktestingPriceResources | None = None,
-) -> tuple[list[dict], list[dict], dict, float]:
+    collect_full_horizon: bool = False,
+) -> tuple[
+    list[dict],
+    list[dict],
+    dict,
+    float,
+    list[dict] | None,
+    list[dict] | None,
+    int | None,
+]:
     """Ein Backtesting-Schritt (24h Output) für fixed_24h oder sunset_window."""
     sunrise_index = None
+    sunrise_soc_min_index = None
+    matrix_full: list[dict] | None = None
     if horizon_mode == SUNSET_WINDOW:
-        matrix, meta, sunrise_index = build_sunset_window_matrix(
+        matrix, meta, sunrise_index, matrix_full = build_sunset_window_matrix(
             anchor,
             cache,
             prices_df,
@@ -473,6 +510,7 @@ def _simulate_anchor_step(
             feed_in_settings,
             price_resources=price_resources,
         )
+        sunrise_soc_min_index = effective_sunrise_soc_min_index(sunrise_index)
     else:
         matrix, meta = build_historical_window_matrix(
             anchor,
@@ -489,14 +527,36 @@ def _simulate_anchor_step(
         verbose=False,
         consumer_daily_targets_kwh=meta["consumer_daily_targets_kwh"],
         simulation_hour_offset=hours_done if collect_cbc else None,
-        sunrise_soc_min_index=sunrise_index,
+        sunrise_soc_min_index=sunrise_soc_min_index,
         flexible_consumers=_flexible_consumers_from_scenario(scenario_params),
     )
+    full_rows: list[dict] | None = None
+    full_matrix: list[dict] | None = None
+    if collect_full_horizon and matrix_full is not None:
+        full_rows = simulate_horizon(
+            matrix_full,
+            sim_soc,
+            battery_params=battery_params,
+            verbose=False,
+            consumer_daily_targets_kwh=meta["consumer_daily_targets_kwh"],
+            simulation_hour_offset=None,
+            sunrise_soc_min_index=sunrise_soc_min_index,
+            flexible_consumers=_flexible_consumers_from_scenario(scenario_params),
+        )
+        full_matrix = matrix_full
     chart_rows, matrix = _apply_backtesting_step(
         chart_rows, matrix, meta, horizon_mode=horizon_mode
     )
     new_soc = float(chart_rows[-1]["Simulierter SoC (%)"])
-    return chart_rows, matrix, meta, new_soc
+    return (
+        chart_rows,
+        matrix,
+        meta,
+        new_soc,
+        full_rows,
+        full_matrix,
+        sunrise_soc_min_index,
+    )
 
 
 def _hour_cost_without_optimization(
@@ -579,9 +639,15 @@ def validate_window_consumption(
 ) -> PlausibilityResult:
     """Prüft Grundlast und Flex getrennt gegen historische 24h-Werte."""
     historical_kwh = float(meta["historical_total_kwh"])
-    historical_totals = meta.get("historical_totals") or meta.get(
-        "consumer_daily_targets_kwh", {}
+    historical_totals = dict(
+        meta.get("historical_totals") or meta.get("consumer_daily_targets_kwh", {})
     )
+    flexible_consumers = meta.get("_flexible_consumers")
+    if flexible_consumers:
+        flex_ids = {consumer["id"] for consumer in flexible_consumers}
+        historical_totals = {
+            key: value for key, value in historical_totals.items() if key in flex_ids
+        }
     historical_baseload = float(
         meta.get("baseload_kwh")
         if meta.get("baseload_kwh") is not None
@@ -590,7 +656,10 @@ def validate_window_consumption(
     historical_flex = round(sum(float(v) for v in historical_totals.values()), 3)
 
     optimized_baseload = baseload_kwh_from_chart_rows(chart_rows)
-    delivered_flex = _delivered_flex_kwh_from_rows(chart_rows)
+    delivered_flex = _delivered_flex_kwh_from_rows(
+        chart_rows,
+        flexible_consumers=flexible_consumers,
+    )
     optimized_flex = round(sum(delivered_flex.values()), 3)
     optimized_kwh = round(optimized_baseload + optimized_flex, 3)
 
@@ -645,6 +714,17 @@ def print_plausibility_report(report: PlausibilityReport) -> None:
     print("===============================================")
 
 
+def _critical_snapshot_kind(
+    plausibility_ok: bool,
+    new_cbc_events: list[dict],
+) -> str:
+    if not plausibility_ok:
+        return "consumption_tolerance"
+    if new_cbc_events:
+        return str(new_cbc_events[-1].get("event", "cbc_unknown"))
+    return "unknown"
+
+
 def run_simulation(
     start: pd.Timestamp,
     end: pd.Timestamp,
@@ -656,6 +736,7 @@ def run_simulation(
     scenario_id: str | None = None,
     horizon_mode: str = DEFAULT_HORIZON_MODE,
     price_resources: BacktestingPriceResources | None = None,
+    snapshot_collector: list[dict] | None = None,
 ) -> tuple[pd.DataFrame, PlausibilityReport, list[dict]]:
     """
     Simuliert historische Verbrauchsdaten mit Flex-Optimierung.
@@ -695,13 +776,25 @@ def run_simulation(
         begin_cbc_event_collection()
         set_cbc_milp_context(scenario_id=scenario_id)
 
+    collect_snapshots = snapshot_collector is not None and scenario_id is not None
+
     try:
         for anchor in anchors:
             if collect_cbc:
                 set_cbc_milp_context(
                     window_anchor=pd.Timestamp(anchor).isoformat(),
                 )
-            chart_rows, matrix, meta, sim_soc = _simulate_anchor_step(
+            window_initial_soc = sim_soc
+            events_before = count_cbc_events() if collect_cbc else 0
+            (
+                chart_rows,
+                matrix,
+                meta,
+                sim_soc,
+                chart_rows_full,
+                matrix_full,
+                sunrise_soc_min_index,
+            ) = _simulate_anchor_step(
                 anchor,
                 sim_soc,
                 horizon_mode=horizon_mode,
@@ -713,12 +806,44 @@ def run_simulation(
                 hours_done=hours_done,
                 collect_cbc=collect_cbc,
                 price_resources=price_resources,
+                collect_full_horizon=collect_snapshots,
             )
             if collect_cbc:
                 set_cbc_milp_context(
                     consumer_targets_kwh=dict(meta["consumer_daily_targets_kwh"]),
                 )
-            plausibility.add(validate_window_consumption(chart_rows, meta))
+            plausibility_result = validate_window_consumption(chart_rows, meta)
+            plausibility.add(plausibility_result)
+
+            if snapshot_collector is not None and scenario_id is not None:
+                events_after = count_cbc_events() if collect_cbc else 0
+                new_cbc_events = (
+                    list_cbc_events()[events_before:events_after]
+                    if collect_cbc and events_after > events_before
+                    else []
+                )
+                is_critical = (not plausibility_result.ok) or bool(new_cbc_events)
+                if is_critical:
+                    snapshot_collector.append(
+                        build_window_snapshot(
+                            window_anchor=anchor,
+                            scenario_id=scenario_id,
+                            horizon_mode=horizon_mode,
+                            kind=_critical_snapshot_kind(
+                                plausibility_result.ok,
+                                new_cbc_events,
+                            ),
+                            initial_soc=window_initial_soc,
+                            meta=meta,
+                            chart_rows_24h=chart_rows,
+                            matrix_24h=matrix,
+                            chart_rows_full=chart_rows_full,
+                            matrix_full=matrix_full,
+                            sunrise_soc_min_index=sunrise_soc_min_index,
+                            scenario_params=scenario_params,
+                            battery_params=battery_params,
+                        )
+                    )
 
             all_chart_rows.extend(chart_rows)
             all_timestamps.extend(row["slot_datetime"] for row in matrix)

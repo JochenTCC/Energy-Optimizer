@@ -5,7 +5,9 @@ import os
 os.environ["ENERGY_OPTIMIZER_OFFLINE"] = "1"
 
 import argparse
+import json
 import logging
+import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
@@ -194,6 +196,11 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default=".",
         help="Zielordner für backtesting_log.json und backtesting_hourly.csv (Standard: .).",
     )
+    parser.add_argument(
+        "--progress-file",
+        metavar="PFAD",
+        help="JSON-Datei für UI-Fortschritt (current/total/scenario/phase).",
+    )
     return parser
 
 
@@ -233,7 +240,7 @@ def _run_scenario_worker(
     price_strategy: str,
     feature_dataset_path: str | None,
     forecast_model_path: str | None,
-) -> tuple[str, pd.DataFrame, object, list[dict]]:
+) -> tuple[str, pd.DataFrame, object, list[dict], list[dict]]:
     """Top-Level-Worker für ProcessPoolExecutor (Windows spawn)."""
     from pathlib import Path
 
@@ -248,6 +255,7 @@ def _run_scenario_worker(
         feature_dataset_path=Path(feature_dataset_path) if feature_dataset_path else None,
         forecast_model_path=Path(forecast_model_path) if forecast_model_path else None,
     )
+    snapshots: list[dict] = []
     df_result, plausibility, cbc_events = run_simulation(
         start,
         end,
@@ -257,8 +265,9 @@ def _run_scenario_worker(
         scenario_id=name,
         horizon_mode=horizon_mode,
         price_resources=price_resources,
+        snapshot_collector=snapshots,
     )
-    return name, df_result, plausibility, cbc_events
+    return name, df_result, plausibility, cbc_events, snapshots
 
 
 def _run_scenarios_parallel(
@@ -272,10 +281,11 @@ def _run_scenarios_parallel(
     price_strategy: str,
     feature_dataset_path: str | None,
     forecast_model_path: str | None,
-) -> tuple[dict[str, pd.DataFrame], dict[str, object], dict[str, list[dict]]]:
+) -> tuple[dict[str, pd.DataFrame], dict[str, object], dict[str, list[dict]], list[dict]]:
     sim_results: dict[str, pd.DataFrame] = {}
     plausibility_by_scenario: dict[str, object] = {}
     cbc_events_by_scenario: dict[str, list[dict]] = {}
+    window_snapshots: list[dict] = []
     start_iso = start.isoformat()
     end_iso = end.isoformat()
 
@@ -300,7 +310,7 @@ def _run_scenarios_parallel(
             name = futures[future]
             display = labels.get(name, name)
             try:
-                result_name, df_result, plausibility, cbc_events = future.result()
+                result_name, df_result, plausibility, cbc_events, snapshots = future.result()
             except Exception as exc:
                 raise RuntimeError(
                     f"Szenario '{display}' ({name}) fehlgeschlagen: {exc}"
@@ -308,16 +318,62 @@ def _run_scenarios_parallel(
             sim_results[result_name] = df_result
             plausibility_by_scenario[result_name] = plausibility
             cbc_events_by_scenario[result_name] = cbc_events
+            window_snapshots.extend(snapshots)
             print(f"  Fertig: {display}")
-    return sim_results, plausibility_by_scenario, cbc_events_by_scenario
+    return sim_results, plausibility_by_scenario, cbc_events_by_scenario, window_snapshots
 
 
-def _make_progress_printer(scenario_name: str):
+_PROGRESS_WRITE_MIN_INTERVAL_SEC = 1.0
+_PROGRESS_REPLACE_RETRIES = 3
+_PROGRESS_REPLACE_RETRY_DELAY_SEC = 0.05
+
+
+def _atomic_replace_unavailable(exc: OSError) -> bool:
+    """True wenn tmp→Ziel nicht atomar ersetzt werden kann (Windows/SMB/UNC)."""
+    if getattr(exc, "errno", None) in (13, 16):
+        return True
+    return getattr(exc, "winerror", None) == 5
+
+
+def _write_progress_file(path: str | None, payload: dict) -> None:
+    if not path:
+        return
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    content = json.dumps(payload)
+    tmp = target.with_suffix(target.suffix + ".tmp")
+    try:
+        for attempt in range(_PROGRESS_REPLACE_RETRIES):
+            try:
+                tmp.write_text(content, encoding="utf-8")
+                tmp.replace(target)
+                return
+            except OSError as exc:
+                if not _atomic_replace_unavailable(exc):
+                    raise
+                if attempt + 1 < _PROGRESS_REPLACE_RETRIES:
+                    time.sleep(_PROGRESS_REPLACE_RETRY_DELAY_SEC)
+                    continue
+                target.write_text(content, encoding="utf-8")
+                return
+    finally:
+        if tmp.is_file():
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
+
+
+def _make_progress_printer(scenario_name: str, progress_file: str | None = None):
     """Gibt eine Callback-Funktion für die Fortschrittsanzeige im Terminal zurück."""
+    last_write_at = 0.0
+    last_written_current = -1
+
     def progress(current: int, total: int) -> None:
-        pct = 100 * current / total
+        nonlocal last_write_at, last_written_current
+        pct = 100 * current / total if total else 0.0
         bar_width = 30
-        filled = int(bar_width * current / total)
+        filled = int(bar_width * current / total) if total else 0
         bar = "#" * filled + "-" * (bar_width - filled)
         print(
             f"\r  [{bar}] {pct:5.1f}% ({current}/{total} h) – {scenario_name}",
@@ -326,6 +382,27 @@ def _make_progress_printer(scenario_name: str):
         )
         if current == total:
             print()
+        if not progress_file:
+            return
+        now = time.monotonic()
+        if (
+            current != total
+            and current == last_written_current
+            and now - last_write_at < _PROGRESS_WRITE_MIN_INTERVAL_SEC
+        ):
+            return
+        _write_progress_file(
+            progress_file,
+            {
+                "current": current,
+                "total": total,
+                "scenario": scenario_name,
+                "phase": "simulation",
+            },
+        )
+        last_write_at = now
+        last_written_current = current
+
     return progress
 
 
@@ -548,6 +625,19 @@ def main(argv: list[str] | None = None):
     ref_settings = config.get_backtesting_feed_in_settings()
     scenario_labels = config.get_scenario_labels()
     labels = _all_labels(scenario_labels)
+    progress_file = args.progress_file
+    total_hours = len(anchors) * 24
+
+    if progress_file:
+        _write_progress_file(
+            progress_file,
+            {
+                "current": 0,
+                "total": total_hours,
+                "scenario": HISTORICAL_REFERENCE_LABEL,
+                "phase": "reference",
+            },
+        )
 
     print(f"Berechne Referenz '{HISTORICAL_REFERENCE_LABEL}'...")
     sim_results = {
@@ -557,29 +647,34 @@ def main(argv: list[str] | None = None):
     }
     plausibility_by_scenario: dict = {}
     cbc_events_by_scenario: dict[str, list[dict]] = {}
+    window_snapshots: list[dict] = []
 
     scenarios = config.get_backtesting_scenarios()
     if args.workers == 1:
         for name, params in scenarios.items():
             display = labels.get(name, name)
             print(f"Simuliere Szenario: '{display}'...")
+            scenario_snapshots: list[dict] = []
             df_result, plausibility, cbc_events = run_simulation(
                 start,
                 end,
                 params,
                 prices,
                 cache=cache,
-                on_progress=_make_progress_printer(display),
+                on_progress=_make_progress_printer(display, progress_file),
                 scenario_id=name,
                 horizon_mode=horizon_mode,
                 price_resources=price_resources,
+                snapshot_collector=scenario_snapshots,
             )
             sim_results[name] = df_result
             plausibility_by_scenario[name] = plausibility
             cbc_events_by_scenario[name] = cbc_events
+            window_snapshots.extend(scenario_snapshots)
             print_plausibility_report(plausibility)
     else:
-        parallel_results, parallel_plausibility, parallel_cbc = _run_scenarios_parallel(
+        parallel_results, parallel_plausibility, parallel_cbc, parallel_snapshots = (
+            _run_scenarios_parallel(
             scenarios,
             labels,
             start,
@@ -591,9 +686,11 @@ def main(argv: list[str] | None = None):
             feature_dataset_str,
             forecast_model_str,
         )
+        )
         sim_results.update(parallel_results)
         plausibility_by_scenario.update(parallel_plausibility)
         cbc_events_by_scenario.update(parallel_cbc)
+        window_snapshots.extend(parallel_snapshots)
         for name in scenarios:
             print_plausibility_report(plausibility_by_scenario[name])
 
@@ -631,7 +728,10 @@ def main(argv: list[str] | None = None):
         period_meta,
         log_dir=args.output_dir,
         cbc_events_by_scenario=cbc_events_by_scenario,
+        window_snapshots=window_snapshots,
     )
+    if progress_file:
+        Path(progress_file).unlink(missing_ok=True)
     print(f"\nBacktesting-Log gespeichert: {log_path}")
 
 

@@ -104,7 +104,11 @@ def analyze_failure(
     chart_rows, meta = _simulate_failure_window(
         anchor, cache, prices_df, scenario_params
     )
-    delivered = delivered_flex_kwh_from_rows(chart_rows)
+    flex_consumers = meta.get("_flexible_consumers")
+    delivered = delivered_flex_kwh_from_rows(
+        chart_rows,
+        flexible_consumers=flex_consumers,
+    )
     optimized_kwh = total_consumption_kwh_from_rows(chart_rows)
     baseload_kwh = round(
         sum(float(row.get("Verbrauch-Prognose (kW)", 0.0) or 0.0) for row in chart_rows),
@@ -199,9 +203,17 @@ def main() -> None:
         failures = failures[: args.limit]
 
     sim_cfg = config.get_file_paths_battery_simulation()
+    if args.log.is_file():
+        meta_log, _ = load_backtesting_log(str(args.log.parent))
+        period = meta_log.get("period", {})
+        start_default = pd.Timestamp(period.get("start", "2025-01-01"))
+        end_default = pd.Timestamp(period.get("end", "2026-01-01"))
+    else:
+        start_default = pd.Timestamp(2025, 1, 1)
+        end_default = pd.Timestamp(2026, 1, 1)
     start, end = resolve_backtesting_window(
-        pd.Timestamp(2025, 1, 1),
-        pd.Timestamp(2026, 1, 1),
+        start_default,
+        end_default,
         sim_cfg.get("price_range", "last_12_months"),
         sim_cfg["path_consumption"],
         sim_cfg["path_production"],

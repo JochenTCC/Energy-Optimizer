@@ -42,6 +42,18 @@ def take_cbc_events() -> list[dict[str, Any]]:
     return list(collected) if collected else []
 
 
+def count_cbc_events() -> int:
+    """Anzahl gesammelter CBC-Ereignisse (ohne Entnahme)."""
+    collected = _events.get()
+    return len(collected) if collected else 0
+
+
+def list_cbc_events() -> list[dict[str, Any]]:
+    """Kopie der gesammelten CBC-Ereignisse (ohne Entnahme)."""
+    collected = _events.get()
+    return list(collected) if collected else []
+
+
 def set_cbc_milp_context(**fields: Any) -> None:
     current = _milp_context.get() or CbcMilpContext()
     _milp_context.set(replace(current, **fields))

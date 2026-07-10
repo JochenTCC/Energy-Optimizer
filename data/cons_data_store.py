@@ -62,7 +62,21 @@ def get_write_mode() -> str:
 
 
 def _consumer_column_ids() -> list[str]:
+    from data.cons_data_house_profile import expected_cons_data_consumer_ids
+
+    ids = expected_cons_data_consumer_ids()
+    if ids:
+        return ids
     return [c["id"] for c in config.get_flexible_consumers()]
+
+
+def _consumer_ids_from_dataframe(df: pd.DataFrame) -> list[str]:
+    skip = {"total", "baseload", "pv"}
+    return sorted(
+        str(col[: -len("_kw")])
+        for col in df.columns
+        if str(col).endswith("_kw") and str(col[: -len("_kw")]) not in skip
+    )
 
 
 def trim_retention(df: pd.DataFrame, months: int | None = None) -> pd.DataFrame:
@@ -148,7 +162,7 @@ def save_cons_data(df: pd.DataFrame, path: str | None = None, *, apply_retention
         {
             "output_file": path,
             "retention_months": get_retention_months(),
-            "consumer_ids": _consumer_column_ids(),
+            "consumer_ids": _consumer_ids_from_dataframe(df) or _consumer_column_ids(),
             "date_range": {"min": str(df.index.min()), "max": str(df.index.max())},
             "row_count": len(df),
             "source_counts": df["source"].value_counts().to_dict() if not df.empty else {},
@@ -222,6 +236,49 @@ def get_date_bounds() -> tuple[datetime | None, datetime | None]:
     if df.empty:
         return None, None
     return df.index.min(), df.index.max()
+
+
+def _meta_file_path(path: str) -> str:
+    if path.endswith(".csv"):
+        return path.replace(".csv", METADATA_SUFFIX)
+    return path + METADATA_SUFFIX
+
+
+def is_cons_data_populated(path: str | None = None) -> bool:
+    """True wenn CSV existiert und nach load_cons_data mindestens eine Datenzeile."""
+    path = path or get_output_path()
+    if not os.path.exists(path):
+        return False
+    return not load_cons_data(path).empty
+
+
+def load_cons_data_meta(path: str | None = None) -> dict | None:
+    """Liest cons_data_hourly.meta.json; None wenn nicht vorhanden oder ungültig."""
+    path = path or get_output_path()
+    meta_path = _meta_file_path(path)
+    if not os.path.isfile(meta_path):
+        return None
+    try:
+        with open(meta_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def cons_data_consumer_match_reason(path: str | None = None) -> str | None:
+    """None wenn consumer_ids passen; sonst 'missing_meta' oder 'id_mismatch'."""
+    meta = load_cons_data_meta(path)
+    if meta is None:
+        return "missing_meta"
+    stored = meta.get("consumer_ids")
+    if not isinstance(stored, list):
+        return "missing_meta"
+    current = sorted(_consumer_column_ids())
+    stored_sorted = sorted(str(item) for item in stored)
+    if stored_sorted != current:
+        return "id_mismatch"
+    return None
 
 
 # ---------------------------------------------------------------------------

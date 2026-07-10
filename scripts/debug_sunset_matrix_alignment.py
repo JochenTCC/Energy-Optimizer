@@ -112,7 +112,7 @@ def main() -> None:
     fixed_matrix, fixed_meta = build_historical_window_matrix(
         anchor, cache, prices_df, feed_in_settings=feed_in
     )
-    sunset_matrix, sunset_meta, sunrise_idx = build_sunset_window_matrix(
+    sunset_matrix, sunset_meta, sunrise_idx, _matrix_full = build_sunset_window_matrix(
         anchor, cache, prices_df, scenario, feed_in_settings=feed_in
     )
 
