@@ -19,36 +19,55 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 
 ### Version 1.26.0 — Runtime entities & tariffs (live)
 
-**Scope:** Live prod (`main.py`, Sunset-2-Sunset UI) uses the same reference resolution as backtesting (1.24). `runtime_settings` contains only selection IDs + location/timezone (optional `pv_system_id`). Technical parameters come from `batteries[]` or `config/tariffs.json`.
+**Strategy:** Greenfield-first (1.24.c), then prod cutover, then legacy removal.
+- **P0–P4:** implement and accept on `greenfield/` (ID-only `runtime_settings`; no flat battery/PV/tariff duplicates).
+- **P5:** prod migration + live acceptance (NAS or **7g-a** silent stack with prod `config/` copy).
+- **P6:** remove legacy code paths and schema fields (breaking for unmigrated configs).
 
-**Phases:** P1 data model → P2 config.py resolution → P3 price pipeline live → P4 UI → P5 migration/tests/docs.
+**Scope:** Live prod (`main.py`, Sunset-2-Sunset UI) uses the same reference resolution as backtesting (1.24). `runtime_settings` holds only selection IDs + location/timezone (+ optional `pv_system_id`). Technical parameters from `batteries[]`, `pv_systems[]`, `config/tariffs.json`. **Out of scope:** migrating live `flexible_consumers` to house profiles.
 
-**Acceptance:** prod `config.json` with `battery_id` + tariff IDs; live optimization and UI show resolved values; backtesting baseline remains compatible.
+**Phases:** P0 greenfield pilot → P1 data model → P2 config.py resolution → P3 price pipeline live → P4 UI → P5 prod cutover → P6 legacy removal.
 
+**Acceptance:** greenfield: live optimization + backtesting share one resolution path; prod: migrated `config.json` with IDs only; backtesting baseline unchanged; no flat-field fallbacks remain after P6.
+
+- [ ] **P0 — Greenfield pilot (strict target config)**
+  - Greenfield `runtime_settings`: IDs only (`battery_id`, `import_tariff_id`, `export_tariff_id`, `house_profile_id`, optional `pv_system_id`, geo/timezone) — strip redundant flat PV/battery/tariff fields from `greenfield/config/config.json`
+  - Temporarily enable Sunset-2-Sunset on greenfield for live-path smoke (`ENERGY_OPTIMIZER_UI_MODES` or compose override)
+  - Acceptance checklist in [`docs/einrichtung/greenfield-dev-stack.md`](docs/einrichtung/greenfield-dev-stack.md): entity resolution → live `main.py` cycle → UI shows resolved read-only values
 - [ ] **P1 — Data model & schema**
   - `runtime_settings`: `battery_id` (required after migration), `import_tariff_id`, `export_tariff_id`
-  - Flat battery/tariff fields deprecated (backward compat: ID wins, else legacy fields)
+  - Flat battery/tariff fields deprecated (**greenfield/P0:** IDs required, no flat duplicates; **prod until P5:** ID wins, else legacy fields)
   - **`battery_wear` on `batteries[]`** (moved from top-level `config.json`): `enabled`, `replacement_cost_euro`, `expected_cycles`, `cycle_cost_fraction`; deprecate global `battery_wear` block (backward compat: battery entity wins, else legacy global block)
   - **Backtesting wear:** MILP already applies wear via `config.get_battery_wear_cent_per_kwh(capacity)` — today from global `battery_wear` only; after P1/P2 resolve wear per scenario `battery_id` (same code path as live)
   - Import tariff type `monthly_table` added (symmetric to export)
+  - `config.minimal.json` / greenfield bootstrap → ID-only `runtime_settings` template
   - [`config.schema.json`](config/config.schema.json), [`config/tariffs.schema.json`](config/tariffs.schema.json), example configs
 - [ ] **P2 — Central resolution in config.py**
-  - `resolve_runtime_settings()` via existing `house_config` helpers
-  - `_load_dynamic_params()` / `get_battery_params()` / `get_runtime_settings()` from resolved dict
+  - `resolve_runtime_settings()` — reuse `house_config.scenario_resolution` (same as backtesting)
+  - `_load_dynamic_params()` / `get_battery_params()` / `get_runtime_settings()` from **resolved** dict (not raw flat fields)
   - `get_battery_wear_cent_per_kwh()`: from resolved `batteries[]` entry (not global `battery_wear` alone)
   - `get_backtesting_scenarios()`: resolve baseline too (single code path)
 - [ ] **P3 — Price pipeline live**
   - Import: `awattar` (EPEX + `awattar` block), `fixed_cent`, `monthly_table`
   - Export: `fixed`, `monthly_table`, `dynamic_epex` from tariff resolution (not flat `k_push_cent`)
   - Changes: [`data/profile_manager.py`](data/profile_manager.py), [`data/market_prices.py`](data/market_prices.py), [`simulation/engine.py`](simulation/engine.py)
+  - Parity test: same tariff IDs → identical import/export cent/kWh live vs backtesting for a fixed hour window
 - [ ] **P4 — UI live configuration**
-  - [`ui/config_forms.py`](ui/config_forms.py): dropdowns battery + import/export tariff instead of individual fields
-  - `update_runtime_settings()` saves IDs; display resolved values (read-only)
+  - Replace flat sidebar editors in [`ui/config_forms.py`](ui/config_forms.py) with ID dropdowns (reuse house configurator / `scenario_runtime_form` patterns)
+  - `update_runtime_settings()` saves IDs only; display resolved values (read-only)
   - Optional same pattern for `pv_system_id` (already prepared in 1.24)
-- [ ] **P5 — Migration, tests, docs**
-  - Prod migration: flat values → matching `batteries[]` entries + tariff IDs (e.g. `home_5kwh`, `fixed_37ct`)
+- [ ] **P5 — Prod cutover (migration, tests, docs)**
+  - One-time migration: prod flat values → `batteries[]` / `pv_systems[]` entries + tariff IDs in `tariffs.json`; `runtime_settings` stripped to IDs + geo
+  - Migrate global `battery_wear` → selected `batteries[]` entry
+  - Prefer validation on **7g-a** silent stack (prod Loxone read-only) before NAS deploy
   - Tests in [`tests/test_house_config.py`](tests/test_house_config.py) + live resolution test
   - Docs: [`docs/konfiguration/ueberblick.md`](docs/konfiguration/ueberblick.md), sidebar note
+  - Follow-up link: Version 1.+1 “Include tariffs.json in deploy”
+- [ ] **P6 — Legacy removal (no fallbacks)**
+  - Remove flat-field fallback in entity/tariff resolution
+  - Remove global `battery_wear` block support; require per-battery wear
+  - Deprecate/remove from schema: `runtime_settings` flat battery/PV/tariff fields, `feed_in_mode`, `k_push_cent`
+  - Update [`config/config.example.json`](config/config.example.json) to ID-only `runtime_settings`
 
 
 ### Version 1.+1
