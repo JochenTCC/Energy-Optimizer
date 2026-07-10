@@ -1,55 +1,55 @@
 ---
-description: Versionsnummer in version.py — wann Minor vs. Patch erhöhen
+description: Version number in version.py — when to bump minor vs. patch
 alwaysApply: true
 ---
 
-# Versionierung (version.py)
+# Versioning (version.py)
 
-Format: **MAJOR.MINOR.PATCH** (Semantic Versioning in `version.py`) — **ohne Buchstaben-Suffix**.
+Format: **MAJOR.MINOR.PATCH** (Semantic Versioning in `version.py`) — **no letter suffix**.
 
-## Grundsatz: Nutzer-Freigabe (Pflicht)
+## Principle: user approval (required)
 
-- **`version.py` niemals ohne explizite Bestätigung des Nutzers ändern** — auch nicht bei Session-Abschluss, Bugfix oder abgeschlossenem Backlog-Kapitel.
-- Stattdessen: **Vorschlag** formulieren (Zielversion + kurze Begründung) und **fragen**.
-- Bei Ablehnung oder ohne Antwort: `version.py` **unverändert** lassen.
-- Commit-Messages dürfen Backlog-Kapitel nennen (`hausconfig: 1.24.f …`) — das ersetzt **keinen** automatischen Version-Bump.
+- **Never change `version.py` without explicit user confirmation** — not at session end, not for bugfixes, not when a backlog chapter is completed.
+- Instead: **propose** (target version + brief rationale) and **ask**.
+- On rejection or no response: leave `version.py` **unchanged**.
+- Commit messages may reference backlog chapters (`hausconfig: 1.24.f …`) — that does **not** replace an automatic version bump.
 
-## Abgrenzung `version.py` ↔ Backlog
+## Distinction `version.py` ↔ backlog
 
-| Ebene | Datei / Ort | Schreibweise | Zweck |
-|-------|-------------|--------------|-------|
-| **Release-Stand** | `version.py` | `1.24.0` | Veröffentlichte App-/Container-Version (nur nach Nutzer-Freigabe) |
-| **Entwicklungsschritt** | `Backlog.md` | `1.24.f` | Teilschritt im MINOR-Zyklus (Planung/Fortschritt) |
+| Level | File / location | Notation | Purpose |
+|-------|-----------------|----------|---------|
+| **Release state** | `version.py` | `1.24.0` | Published app/container version (only after user approval) |
+| **Development step** | `Backlog.md` | `1.24.f` | Sub-step in the MINOR cycle (planning/progress) |
 
-- Buchstaben-Kapitel (`.a`, `.b`, … `.g`) und das Release-Kapitel (`.0`) existieren **nur im Backlog**, nicht in `version.py`.
-- Fortschritt im Backlog (Kapitel nach `Backlog-Erledigt.md` verschieben) ist **unabhängig** von `version.py`.
+- Letter chapters (`.a`, `.b`, … `.g`) and the release chapter (`.0`) exist **only in the backlog**, not in `version.py`.
+- Backlog progress (moving chapters to `Backlog-Erledigt.md`) is **independent** of `version.py`.
 
-## MINOR-Zyklus: keine automatische Hochzählung
+## MINOR cycle: no automatic increment
 
-Solange am **selben MINOR-Zyklus** gearbeitet wird — d. h. es gibt noch Backlog-Kapitel `MAJOR.MINOR.letter` (z. B. `1.24.a` … `1.24.g`) und/oder das zugehörige Release-Kapitel `MAJOR.MINOR.0` ist für einen Release noch nicht vom Nutzer freigegeben:
+While working on the **same MINOR cycle** — i.e. backlog chapters `MAJOR.MINOR.letter` still exist (e.g. `1.24.a` … `1.24.g`) and/or the corresponding release chapter `MAJOR.MINOR.0` has not yet been approved for release by the user:
 
-- **`version.py` nicht automatisch erhöhen** — weder MINOR noch PATCH.
-- Abschluss einzelner Buchstaben-Kapitel rechtfertigt **keinen** PATCH (+1).
-- Beispiel: während `1.24.c` … `1.24.g` und `1.24.0` im Backlog → `version.py` bleibt z. B. `1.24.0`, **nicht** `1.24.1` … `1.24.3`.
+- **Do not automatically bump `version.py`** — neither MINOR nor PATCH.
+- Completing individual letter chapters does **not** justify a PATCH (+1).
+- Example: while `1.24.c` … `1.24.g` and `1.24.0` are in the backlog → `version.py` stays e.g. `1.24.0`, **not** `1.24.1` … `1.24.3`.
 
-**Nach Abschluss des gesamten MINOR-Zyklus** (alle Kapitel dieser MINOR-Nummer erledigt): Version-Bump **nur vorschlagen** und Nutzer fragen (typisch: bei `1.25.0` als nächstem Kapitel → `1.25.0`; oder PATCH auf letztem Stand — Nutzer entscheidet).
+**After the entire MINOR cycle is complete** (all chapters of that MINOR number done): **suggest** a version bump only and ask the user (typical: next chapter is `1.25.0` → `1.25.0`; or PATCH on last state — user decides).
 
-## Wann einen Bump vorschlagen (immer nur nach Freigabe)
+## When to suggest a bump (always only after approval)
 
-| Anlass | Typischer Vorschlag | Entscheidung |
-|--------|-------------------|--------------|
-| Gesamter MINOR-Zyklus abgeschlossen, Release gewünscht | `MAJOR.MINOR.0` oder nächster MINOR | Nutzer |
-| Nächstes MINOR-Kapitel abgeschlossen (z. B. `1.25.0`) | `1.25.0` | Nutzer |
-| Bugfix abgeschlossen | PATCH +1 | Nutzer |
-| `### Version N.+1` abgeschlossen | MINOR +1, PATCH = 0 | Nutzer |
-| Zyklusbeginn: einmalig Ziel-MINOR setzen | z. B. `1.24.0` | Nutzer |
+| Occasion | Typical suggestion | Decision |
+|----------|-------------------|----------|
+| Entire MINOR cycle complete, release desired | `MAJOR.MINOR.0` or next MINOR | User |
+| Next MINOR chapter complete (e.g. `1.25.0`) | `1.25.0` | User |
+| Bugfix complete | PATCH +1 | User |
+| `### Version N.+1` complete | MINOR +1, PATCH = 0 | User |
+| Cycle start: set target MINOR once | e.g. `1.24.0` | User |
 
-Keine feste Automatik mehr vom Typ „`.a` → MINOR“, „`.b` → PATCH“ — diese Zuordnung gilt **nicht**.
+No fixed automation like "`.a` → MINOR", "`.b` → PATCH" — that mapping does **not** apply.
 
-## Session-Abschluss
+## Session conclusion
 
-- Backlog pflegen wie üblich (`backlog.mdc`).
-- **Kein** stiller Version-Bump am Session-Ende.
-- Wenn ein Release sinnvoll erscheint: einmal nachfragen; sonst weglassen.
+- Maintain backlog as usual (`backlog.mdc`).
+- **No** silent version bump at session end.
+- If a release seems appropriate: ask once; otherwise skip.
 
-Commit-Message kann die Version nennen, wenn der Nutzer sie gesetzt hat: `… (v1.24.0)`.
+Commit message may include the version if the user set it: `… (v1.24.0)`.
