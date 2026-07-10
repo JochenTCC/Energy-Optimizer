@@ -6,7 +6,13 @@ import json
 from datetime import date
 
 from scripts.run_backtesting import _write_progress_file
-from ui.backtesting import log_stale_reason, validate_backtesting_config
+from simulation.horizon_mode import FIXED_24H, SUNSET_WINDOW
+from ui.backtesting import (
+    horizon_selection_stale,
+    log_horizon_mode,
+    log_stale_reason,
+    validate_backtesting_config,
+)
 from ui.backtesting_runner import (
     _normalize_exit_code,
     backtesting_script_path,
@@ -15,6 +21,19 @@ from ui.backtesting_runner import (
     read_progress_file,
     suggest_test_month,
 )
+
+def test_log_horizon_mode_from_period():
+    assert log_horizon_mode({"period": {"horizon_mode": SUNSET_WINDOW}}) == SUNSET_WINDOW
+    assert log_horizon_mode({"period": {}}) == FIXED_24H
+    assert log_horizon_mode(None) is None
+
+
+def test_horizon_selection_stale_when_ui_differs_from_log():
+    meta = {"period": {"horizon_mode": SUNSET_WINDOW}}
+    assert horizon_selection_stale(meta, SUNSET_WINDOW) is False
+    assert horizon_selection_stale(meta, FIXED_24H) is True
+    assert horizon_selection_stale(None, FIXED_24H) is False
+
 
 def test_log_stale_reason_legacy_without_fingerprint():
     assert log_stale_reason({"period": {}}) == "legacy"
@@ -72,6 +91,15 @@ def test_build_backtesting_command_includes_month_and_progress(tmp_path):
     assert "--start-month" in cmd
     assert "6" in cmd
     assert "--progress-file" in cmd
+    assert "--horizon-mode" not in cmd
+
+
+def test_build_backtesting_command_includes_sunset_horizon_mode(tmp_path):
+    cmd = build_backtesting_command(
+        output_dir=str(tmp_path),
+        horizon_mode="sunset_window",
+    )
+    assert cmd[-2:] == ["--horizon-mode", "sunset_window"]
 
 
 def test_suggest_test_month_from_cons_data_bounds(monkeypatch):

@@ -82,3 +82,29 @@ class TestValidateWindowConsumption:
         assert not result.ok
         assert result.flex_diff_kwh is not None
         assert result.flex_diff_kwh > 0.5
+
+
+class TestPlanningFlexPlausibility:
+    def test_delivered_flex_uses_planning_consumers(self):
+        from optimizer.simulation import delivered_flex_kwh_from_rows
+
+        planning = [{"id": "swimspa", "name": "Swimspa"}]
+        rows = [{"Swimspa (kW)": 2.8, "Verbrauch-Prognose (kW)": 1.0}] * 2
+        delivered = delivered_flex_kwh_from_rows(rows, flexible_consumers=planning)
+        assert delivered["swimspa"] == pytest.approx(5.6)
+
+    def test_validate_uses_meta_flexible_consumers(self):
+        planning = [{"id": "swimspa", "name": "Swimspa"}]
+        meta = {
+            "window_end": datetime(2025, 7, 12, 0, 0),
+            "historical_total_kwh": 10.0,
+            "baseload_kwh": 4.4,
+            "historical_totals": {"swimspa": 5.6},
+            "_flexible_consumers": planning,
+        }
+        rows = [
+            {"Verbrauch-Prognose (kW)": 4.4, "Swimspa (kW)": 5.6},
+        ]
+        result = validate_window_consumption(rows, meta)
+        assert result.ok
+        assert result.optimized_flex_kwh == pytest.approx(5.6)

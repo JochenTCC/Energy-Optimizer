@@ -137,7 +137,7 @@ class TestSunsetHorizonSizing:
             pd.Timestamp(SOC_CHAIN_END_DAY),
         )
         anchor = window_anchor_for_date(SOC_CHAIN_START_DAY)
-        matrix, meta, sunrise_index = build_sunset_window_matrix(
+        matrix, meta, sunrise_index, _matrix_full = build_sunset_window_matrix(
             anchor, cache, prices, scenario
         )
         assert meta["planning_horizon_hours"] > BACKTESTING_STEP_HOURS
@@ -155,7 +155,7 @@ class TestSunsetHorizonSizing:
         fixed_matrix, fixed_meta = build_historical_window_matrix(
             anchor, cache, prices
         )
-        sunset_matrix, sunset_meta, _ = build_sunset_window_matrix(
+        sunset_matrix, sunset_meta, _, _matrix_full = build_sunset_window_matrix(
             anchor, cache, prices, scenario
         )
         fixed_sum = round(sum(float(r["expected_p_act"]) for r in fixed_matrix), 3)

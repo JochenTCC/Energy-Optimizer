@@ -2,6 +2,38 @@
 
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
+### Version 1.25.f — Chart1/2 detail for deviations (2026-07-10)
+
+**Scope (after 1.25.e smoketest ✅):** full — 24h + SA_0–SA_2 with cockpit Chart1/2; window snapshots for failed windows + on-demand fallback.
+
+- [x] **Persistence:** `simulation/backtesting_snapshots.py` — JSONL sidecar `backtesting_window_snapshots.jsonl` (`chart_rows`, `matrix`, `meta`, `horizon_mode`, scenario ID)
+- [x] **Engine:** snapshot collection on plausibility failure and on-demand paths (`simulation/engine.py`)
+- [x] **Adapter:** `ui/backtesting_display_bundle.py` — `build_backtesting_display_bundle` / `load_backtesting_display_bundle` → `OptimizationDisplayBundle`
+- [x] **UI:** `ui/backtesting_deviation_list.py` — `render_optimization_chart1/2` below deviation list; toggle 24h | SA_0–SA_2 (disabled when log `fixed_24h`)
+- [x] **Fallback:** on-demand re-simulation of a window when no snapshot exists
+- [x] **Tests:** `test_backtesting_display_bundle.py`, `test_backtesting_snapshots.py`, `test_backtesting_snapshot_collector.py`, `test_backtesting_deviation_list.py`, `test_backtesting_ui_helpers.py`
+
+**Manual acceptance**
+
+- [x] Select deviation → Chart1 energy balance (PV, battery, consumer stack, zones per scope)
+- [x] Chart2 cost lines target/actual
+- [x] Toggle 24h ↔ SA_0–SA_2
+
+### Version 1.25.e — Smoketest backtesting `sunset_window` (2026-07-10)
+
+**Purpose:** Verify `sunset_window` backtesting (Now→SA₂) is stable — prerequisite for Chart1/2 SA zones (1.25.f).
+
+**Result: ✅ stable** — June 2025, 30 windows, plausibility 30/30 both modes, no CBC aborts. Sunset ~0.37 € higher than `fixed_24h` on scenario `fixture_5kwh_fixed` (10.74 € vs 10.37 €); reference 36.03 €. Protocol: `backtesting_logs/smoketest_125e/protocol.md`.
+
+- [x] **CLI smoketest:** `scripts/run_backtesting.py --horizon-mode sunset_window --start-month <M> --end-month <M>` — exit 0, `"horizon_mode": "sunset_window"` in log, plausibility/CBC without unexpected aborts
+- [x] **UI:** `--horizon-mode` on `build_backtesting_command` / run controls (`ui/backtesting_runner.py`)
+- [x] **Document result:** ✅ stable — full 1.25.f scope approved
+
+**Manual acceptance**
+
+- [x] Smoketest protocol: command, config path, month, duration, exit code, `horizon_mode` in log
+- [x] No blocker for 1.25.f full scope
+
 ### Bugfix — Backtesting plausibility (deviation list overfilled) (2026-07-10)
 
 **Trigger:** Manual acceptance **1.25.d** — deviation list ~934 entries; `runtime_settings` failed in every window (`optimized_flex_kwh = 0` despite historical flex target values).

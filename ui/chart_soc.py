@@ -42,7 +42,16 @@ _ENTLADESPERRE_BAND_Y_MIN = -5.0
 _ENTLADESPERRE_BAND_WIDTH_FRACTION = 0.85
 
 
-def _soc_tail_y_from_row(row: pd.Series) -> float | None:
+def _resolve_battery_params(battery_params: dict | None) -> dict:
+    if battery_params is not None:
+        return battery_params
+    return config.get_battery_params()
+
+
+def _soc_tail_y_from_row(
+    row: pd.Series,
+    battery_params: dict | None = None,
+) -> float | None:
     """SoC am Ende der Stunde aus geplanter Batterieaktion (Optimierer/Huawei-Logik)."""
     if "Geplante Batterie-Aktion (kW)" not in row.index:
         return None
@@ -50,11 +59,14 @@ def _soc_tail_y_from_row(row: pd.Series) -> float | None:
     action = _optional_float(row.get("Geplante Batterie-Aktion (kW)"))
     if soc is None or action is None:
         return None
-    params = config.get_battery_params()
+    params = _resolve_battery_params(battery_params)
+    capacity = float(params.get("battery_capacity_kwh", 0.0))
+    if capacity <= 0:
+        return None
     new_soc, _ = bat.apply_soc_change(
         soc,
         action,
-        params["battery_capacity_kwh"],
+        capacity,
         params["efficiency"],
         params["min_soc"],
         params["max_soc"],
@@ -107,6 +119,7 @@ def _soc_from_history_extrapolation(
     df: pd.DataFrame,
     moment: datetime,
     history_slot_count: int,
+    battery_params: dict | None = None,
 ) -> float:
     """SoC aus Log-Slots; nach letztem Log-Eintrag per Batterieleistung hochgerechnet."""
     if history_slot_count <= 0:
@@ -124,11 +137,14 @@ def _soc_from_history_extrapolation(
     elapsed_h = (moment - last_start).total_seconds() / 3600.0
     if elapsed_h <= 0:
         return last_soc
-    params = config.get_battery_params()
+    params = _resolve_battery_params(battery_params)
+    capacity = float(params.get("battery_capacity_kwh", 0.0))
+    if capacity <= 0:
+        return last_soc
     new_soc, _ = bat.apply_soc_change(
         last_soc,
         action * elapsed_h,
-        params["battery_capacity_kwh"],
+        capacity,
         params["efficiency"],
         params["min_soc"],
         params["max_soc"],
@@ -141,6 +157,7 @@ def _soc_at_chart_now(
     df: pd.DataFrame,
     chart_now: datetime | None,
     history_slot_count: int | None,
+    battery_params: dict | None = None,
 ) -> float | None:
     """SoC am Jetzt-Marker aus Log-Daten (Referenz für BL-Ziel-Anker)."""
     if (
@@ -153,6 +170,7 @@ def _soc_at_chart_now(
     soc = df["Simulierter SoC (%)"]
     value = _soc_from_history_extrapolation(
         axis, soc, df, chart_now, history_slot_count,
+        battery_params=battery_params,
     )
     if math.isnan(value):
         return None
@@ -186,6 +204,7 @@ def _current_hour_soc_ramp_before_now(
     seg_end: int,
     history_slot_count: int | None,
     y_at_now: float | None = None,
+    battery_params: dict | None = None,
 ) -> tuple[datetime, float, datetime, float] | None:
     """
     Rampe erster MILP-Viertelstunde → Jetzt (keine konstante MILP-Soll-Treppe).
@@ -211,12 +230,14 @@ def _current_hour_soc_ramp_before_now(
 
     y_start = _soc_from_history_extrapolation(
         axis, soc, df, t_start, history_slot_count,
+        battery_params=battery_params,
     )
     if y_at_now is not None:
         y_end = y_at_now
     else:
         y_end = _soc_from_history_extrapolation(
             axis, soc, df, now, history_slot_count,
+            battery_params=battery_params,
         )
     if math.isnan(y_start) or math.isnan(y_end):
         return None
@@ -232,6 +253,7 @@ def _current_hour_soc_ramp(
     seg_end: int,
     history_slot_count: int | None,
     y_at_now: float | None = None,
+    battery_params: dict | None = None,
 ) -> tuple[datetime, float, datetime, float] | None:
     """
     Rampe Jetzt → Stundenende im neutralen MILP-Bereich (keine SoC-Treppe).
@@ -251,7 +273,7 @@ def _current_hour_soc_ramp(
     if milp_idx is None:
         return None
 
-    y_end = _soc_tail_y_from_row(df.iloc[milp_idx])
+    y_end = _soc_tail_y_from_row(df.iloc[milp_idx], battery_params=battery_params)
     if y_end is None:
         return None
 
@@ -261,6 +283,7 @@ def _current_hour_soc_ramp(
     elif history_slot_count is not None and history_slot_count > 0:
         y_start = _soc_from_history_extrapolation(
             axis, soc, df, t_start, history_slot_count,
+            battery_params=battery_params,
         )
     else:
         y_start = float("nan")
@@ -431,11 +454,16 @@ def add_optimized_soc_trace(
     extrap_end: int | None = None,
     history_slot_count: int | None = None,
     chart_now: datetime | None = None,
+    battery_params: dict | None = None,
 ) -> None:
     uhrzeit = df["Uhrzeit"]
     length = len(df)
     soc = df["Simulierter SoC (%)"]
-    tail_y = _soc_tail_y_from_row(df.iloc[-1]) if not df.empty else None
+    tail_y = (
+        _soc_tail_y_from_row(df.iloc[-1], battery_params=battery_params)
+        if not df.empty
+        else None
+    )
 
     split_points: list[tuple[int, int]] = []
     if history_slot_count is not None and 0 < history_slot_count < length:
@@ -475,6 +503,7 @@ def add_optimized_soc_trace(
                     abs_start,
                     abs_end,
                     history_slot_count,
+                    battery_params=battery_params,
                 )
                 ramp_after = _current_hour_soc_ramp(
                     axis,
@@ -484,6 +513,7 @@ def add_optimized_soc_trace(
                     abs_start,
                     abs_end,
                     history_slot_count,
+                    battery_params=battery_params,
                 )
             seg_tail_for_line = None if ramp_after is not None else seg_tail
             soc_x, soc_y = _segment_connected_line_xy(
@@ -526,6 +556,7 @@ def add_baseline_soc_traces(
     chart_now: datetime | None = None,
     history_slot_count: int | None = None,
     soc_at_now: float | None = None,
+    battery_params: dict | None = None,
 ) -> None:
     if matched_baseline_df is None or matched_baseline_df.empty:
         return
@@ -558,7 +589,10 @@ def add_baseline_soc_traces(
                 continue
             seg_tail = None
             if abs_end == length:
-                seg_tail = _soc_tail_y_from_row(matched_baseline_df.iloc[-1])
+                seg_tail = _soc_tail_y_from_row(
+                    matched_baseline_df.iloc[-1],
+                    battery_params=battery_params,
+                )
             ramp_before: tuple[datetime, float, datetime, float] | None = None
             ramp_after: tuple[datetime, float, datetime, float] | None = None
             if chart_now is not None:
@@ -571,6 +605,7 @@ def add_baseline_soc_traces(
                     abs_end,
                     history_slot_count,
                     y_at_now=soc_at_now,
+                    battery_params=battery_params,
                 )
                 ramp_after = _current_hour_soc_ramp(
                     matched_axis,
@@ -581,6 +616,7 @@ def add_baseline_soc_traces(
                     abs_end,
                     history_slot_count,
                     y_at_now=soc_at_now,
+                    battery_params=battery_params,
                 )
             seg_tail_for_line = None if ramp_after is not None else seg_tail
             matched_x, matched_y = _segment_connected_line_xy(

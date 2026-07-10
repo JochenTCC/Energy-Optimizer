@@ -20,9 +20,9 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 
 **Foundation done** (see [Backlog-Erledigt.md](Backlog-Erledigt.md) § Version 1.25.0): house configurator, scenario editor, backtesting runner, `cons_data`, fingerprint, first charts/tests.
 
-**Open:** Chart1/2 detail (scope after smoketest), tariff plausibility check before backtesting start.
+**Open:** tariff plausibility check before backtesting start; deviation-list UX follow-ups (below).
 
-**Current code state (brief):** `ui/consumption_display/` (three modes); backtesting page: cons_data section, total cost table, **deviation list** (1.25.d), reference consumption, monthly cost chart — plausibility false positives with house profile fixed (bugfix → completed).
+**Current code state (brief):** `ui/consumption_display/` (three modes); backtesting page: cons_data section, total cost table, deviation list with **Chart1/2** (1.25.f), window snapshots (`backtesting_window_snapshots.jsonl`), horizon-mode UI (`fixed_24h` / `sunset_window`), reference consumption, monthly cost chart — plausibility false positives with house profile fixed (bugfix → completed).
 
 #### Decisions made (2026-07-10)
 
@@ -31,7 +31,7 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 | **Consumption UI data mode** | **Mode A:** House configurator = actual CSV vs. model. Backtesting = `cons_data` only (historical). Scenario editor = modeled house profile only. No actual-vs-model comparison on backtesting/scenario editor. |
 | **Monthly view timeline** | **Dropped** (accepted 2026-07-10). Timeline only ISO week, hourly. |
 | **Weekly view timeline** | ISO week, hourly; navigation ←/→; datetime X-axis, lines per consumer. |
-| **Deviation detail (target)** | Full cockpit Chart1/2 in **24h** and **SA_0–SA_2** — **but** only after smoketest `sunset_window` and persistence decision (see 1.25.e / 1.25.f). |
+| **Deviation detail** | Full cockpit Chart1/2 in **24h** and **SA_0–SA_2** (1.25.f done; UX follow-ups below). |
 | **Monthly cost table** | Dataframe table in monthly comparison **dropped**; Plotly monthly chart **remains**. |
 | **Total costs** | New compact annual table (all scenarios incl. reference) instead of metric columns alone. |
 | **Δ vs. reference** | **Cost change** (`scenario-€ − reference-€`); negative = cheaper, positive = more expensive. |
@@ -49,58 +49,12 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
   - Should be posted under "my project"
   - Take interesting chart snapshots
 
+#### Follow-ups (1.25.f acceptance)
+
+- [ ] Deviation table: deduplicate by horizon — keep only the most critical deviation per window
+- [ ] Deviation table: selecting a row should drive Chart1/2 directly (instead of separate selection)
 
 ---
-
-### Version 1.25.e — Smoketest backtesting `sunset_window`
-
-**Purpose:** Clarify whether backtesting in `sunset_window` mode (Now→SA₂) runs stably — **prerequisite** for the decision on Chart1/2 reuse (SA_0–SA_2 mode).
-
-**Background:** UI starts backtesting without `--horizon-mode` → default `fixed_24h` (`simulation/horizon_mode.py`). Cockpit Chart1/2 with SA zones requires working `sunset_window` backtesting.
-
-- [ ] **CLI smoketest** (greenfield or test config with geo + PV + battery + tariffs):
-  - `scripts/run_backtesting.py --horizon-mode sunset_window --start-month <M> --end-month <M>` (1 month)
-  - Run ends exit 0; `backtesting_log.json` contains `"horizon_mode": "sunset_window"`
-  - Plausibility/CBC without unexpected aborts; costs plausible vs. `fixed_24h` reference run
-- [ ] **Optional UI:** `--horizon-mode` on `build_backtesting_command` / run controls (only if smoketest passes)
-- [ ] **Document result** (in this chapter or brief note in completed): ✅ stable / ⚠️ with limitations / ❌ blocked
-
-**Manual acceptance**
-
-- [ ] Smoketest protocol: command, config path, month, duration, exit code, `horizon_mode` in log
-- [ ] On error: log excerpt + whether blocker for 1.25.f
-
----
-
-### Version 1.25.f — Chart1/2 detail for deviations (scope after 1.25.e)
-
-**Dependency:** Re-evaluate scope and priority **after** smoketest 1.25.e.
-
-**Technical bottleneck (today):** `simulation/engine.py` persists only aggregated hourly values (`sim_cost`, `sim_soc`, …), not `chart_rows` + `optimization_matrix` per window — cockpit Chart1/2 need `OptimizationDisplayBundle` (`ui/simulation_results.py`).
-
-| Smoketest result | Recommended scope 1.25.f |
-|--------------------|--------------------------|
-| ✅ `sunset_window` stable | **Full:** 24h + SA_0–SA_2 with Chart1/2; persist window snapshots (failed windows + on-demand) |
-| ⚠️ `sunset_window` with limitations | **24h first** with Chart1/2; SA_0–SA_2 only after follow-up fixes |
-| ❌ `sunset_window` blocked | **24h only** with Chart1/2; defer SA_0–SA_2 and sunset zones; smoketest fix as separate bugfix chapter |
-
-- [ ] **Persistence:** window snapshots (`chart_rows`, `matrix`, `meta`, `horizon_mode`, scenario ID) — sidecar next to `backtesting_log.json` or JSONL
-- [ ] **Adapter:** `build_backtesting_display_bundle(window_anchor, mode=24h\|sunset)` → `OptimizationDisplayBundle`
-- [ ] **UI:** below deviation list — `render_optimization_chart1/2`; toggle 24h | SA_0–SA_2 (disabled if log `fixed_24h` or smoketest negative)
-- [ ] **Fallback:** on-demand re-simulation of a window (slower, less storage)
-- [ ] **Tests:** bundle builder fixture; trace names/snapshot
-
-**Manual acceptance**
-
-- [ ] Select deviation → Chart1 energy balance (PV, battery, consumer stack, zones per scope)
-- [ ] Chart2 cost lines target/actual
-- [ ] Toggle 24h ↔ SA_0–SA_2 (if in scope)
-
-**Dependencies**
-
-```
-1.25.a → 1.25.b → 1.25.c → 1.25.d → 1.25.e (smoketest) → 1.25.f (define scope)
-```
 
 ### Version 1.26.0 — Runtime entities & tariffs (live)
 
@@ -134,6 +88,7 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 
 
 ### Version 1.+1
+- [ ] rename sunset_window to sunrise_window - and all belonging namings to avoid further irritation.
 - [ ] Check tariffs.json for "completeness": are all data from "einspeisetarife*.json" from Gemini included?
 - [ ] Include tariffs.json in deploy
 - [ ] Create plausibility test for tariffs.json that runs before deploy
@@ -141,13 +96,14 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
   - Describe sensible order of use
   - Less technical background than hints for installation and configuration
 - [ ] Build additional container for Windows as pure Python environment (if that makes sense)
-- [ ] Evaluate running as "web app"
+- [ ] Evaluate running as "web app" in Streamlit Community Cloud
 
 ### Version 1.+1
 - [ ] **EV MILP: optional follow-up work**
 
 ### Version 2.0 — Quality epic
 - [ ] Thorough code review and refactoring
+- [ ] Search for deprecated and unneccessary files and remove them
 - [ ] Evaluate option for code coverage testing
 - [ ] Evaluate option for automated UI testing
 
