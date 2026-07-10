@@ -14,12 +14,18 @@ from runtime_store.file_metadata import (
     read_schema_version,
     stamp_payload,
 )
+from runtime_store.persist_paths import resolve_backtesting_log_dir
 
 from .engine import (
     CONSUMPTION_TOLERANCE_KWH,
     CONSUMPTION_TOLERANCE_REL,
     HISTORICAL_REFERENCE_ID,
     PlausibilityReport,
+)
+from .backtesting_snapshots import (
+    BACKTESTING_WINDOW_SNAPSHOTS_JSONL,
+    remove_window_snapshots_jsonl,
+    write_window_snapshots_jsonl,
 )
 
 logger = logging.getLogger(__name__)
@@ -28,6 +34,7 @@ BACKTESTING_LOG_JSON = "backtesting_log.json"
 BACKTESTING_HOURLY_CSV = "backtesting_hourly.csv"
 BACKTESTING_CBC_EVENTS_JSONL = "backtesting_cbc_events.jsonl"
 LOG_VERSION = BACKTESTING_LOG_SCHEMA
+_DEFAULT_LOG_DIR = resolve_backtesting_log_dir()
 
 
 def _compute_config_fingerprint(period: dict) -> str:
@@ -160,6 +167,57 @@ def _cbc_event_cases(cbc_events_by_scenario: dict[str, list[dict]]) -> list[dict
     return cases
 
 
+def _critical_case_sort_key(case: dict) -> tuple:
+    return (
+        case.get("window_anchor") or "",
+        case.get("slot_datetime") or "",
+        case.get("simulation_hour_index") if case.get("simulation_hour_index") is not None else -1,
+        case.get("kind") or "",
+    )
+
+
+KIND_CRITICALITY_ORDER: dict[str, int] = {
+    "milp_no_optimal": 0,
+    "strict_slow": 1,
+    "strict_fallback": 2,
+    "consumption_tolerance": 3,
+}
+
+
+def _case_severity_key(case: dict) -> tuple[int, float]:
+    """Niedrigerer Wert = kritischer (für Dedup pro Fenster)."""
+    kind = str(case.get("kind", "unknown"))
+    priority = KIND_CRITICALITY_ORDER.get(kind, 99)
+    if kind == "consumption_tolerance":
+        metric = abs(float(case.get("diff_kwh") or 0.0))
+    elif kind in {"strict_slow", "strict_fallback"}:
+        metric = float(
+            case.get("strict_elapsed_sec")
+            or case.get("gap_rel")
+            or 0.0
+        )
+    else:
+        metric = 0.0
+    return priority, -metric
+
+
+def dedupe_critical_cases_by_window(cases: list[dict]) -> list[dict]:
+    """Behält pro (Szenario, Fenster) nur den kritischsten Eintrag."""
+    without_anchor: list[dict] = []
+    best_by_key: dict[tuple[str, str], dict] = {}
+    for case in cases:
+        anchor = case.get("window_anchor")
+        if not anchor:
+            without_anchor.append(case)
+            continue
+        key = (str(case.get("scenario_id", "?")), str(anchor))
+        existing = best_by_key.get(key)
+        if existing is None or _case_severity_key(case) < _case_severity_key(existing):
+            best_by_key[key] = case
+    deduped = list(best_by_key.values()) + without_anchor
+    return sorted(deduped, key=_critical_case_sort_key)
+
+
 def build_critical_cases(
     plausibility_by_scenario: dict[str, PlausibilityReport],
     cbc_events_by_scenario: dict[str, list[dict]] | None = None,
@@ -168,15 +226,7 @@ def build_critical_cases(
     cases = _plausibility_failure_cases(plausibility_by_scenario)
     if cbc_events_by_scenario:
         cases.extend(_cbc_event_cases(cbc_events_by_scenario))
-    return sorted(
-        cases,
-        key=lambda c: (
-            c.get("window_anchor") or "",
-            c.get("slot_datetime") or "",
-            c.get("simulation_hour_index") if c.get("simulation_hour_index") is not None else -1,
-            c.get("kind") or "",
-        ),
-    )
+    return sorted(cases, key=_critical_case_sort_key)
 
 
 def summarize_critical_cases(cases: list[dict]) -> dict:
@@ -220,15 +270,7 @@ def extract_critical_cases(meta: dict) -> list[dict]:
                 }
             )
     cases.extend(_cbc_event_cases(meta.get("cbc_events_by_scenario", {})))
-    return sorted(
-        cases,
-        key=lambda c: (
-            c.get("window_anchor") or "",
-            c.get("slot_datetime") or "",
-            c.get("simulation_hour_index") if c.get("simulation_hour_index") is not None else -1,
-            c.get("kind") or "",
-        ),
-    )
+    return sorted(cases, key=_critical_case_sort_key)
 
 
 def _append_cbc_events_jsonl(
@@ -255,14 +297,16 @@ def save_backtesting_log(
     labels: dict[str, str],
     plausibility_by_scenario: dict[str, PlausibilityReport],
     period: dict,
-    log_dir: str = ".",
+    log_dir: str | None = None,
     cbc_events_by_scenario: dict[str, list[dict]] | None = None,
     config_fingerprint: str | None = None,
+    window_snapshots: list[dict] | None = None,
 ) -> str:
     """Schreibt Metadaten (JSON) und Stundenwerte (CSV). Gibt den JSON-Pfad zurück."""
-    os.makedirs(log_dir, exist_ok=True)
-    json_path = os.path.join(log_dir, BACKTESTING_LOG_JSON)
-    csv_path = os.path.join(log_dir, BACKTESTING_HOURLY_CSV)
+    target_dir = _DEFAULT_LOG_DIR if log_dir is None else log_dir
+    os.makedirs(target_dir, exist_ok=True)
+    json_path = os.path.join(target_dir, BACKTESTING_LOG_JSON)
+    csv_path = os.path.join(target_dir, BACKTESTING_HOURLY_CSV)
 
     hourly_df = _hourly_to_csv(results, labels)
     hourly_df.to_csv(csv_path, index=False, sep=";", decimal=",")
@@ -297,13 +341,21 @@ def save_backtesting_log(
         payload["cbc_events_by_scenario"] = cbc_events_by_scenario
         payload["cbc_events_summary"] = _summarize_cbc_events(cbc_events_by_scenario)
         payload["cbc_events_file"] = BACKTESTING_CBC_EVENTS_JSONL
-        _append_cbc_events_jsonl(log_dir, cbc_events_by_scenario, period)
+        _append_cbc_events_jsonl(target_dir, cbc_events_by_scenario, period)
     critical_cases = build_critical_cases(
         plausibility_by_scenario,
         cbc_events_by_scenario,
     )
     payload["critical_cases"] = critical_cases
     payload["critical_cases_summary"] = summarize_critical_cases(critical_cases)
+    if window_snapshots:
+        snapshots_path = write_window_snapshots_jsonl(target_dir, window_snapshots)
+        if snapshots_path:
+            payload["window_snapshots_file"] = BACKTESTING_WINDOW_SNAPSHOTS_JSONL
+            payload["window_snapshots_count"] = len(window_snapshots)
+            payload["window_snapshots_horizon_mode"] = period.get("horizon_mode")
+    else:
+        remove_window_snapshots_jsonl(target_dir)
     if all_ts:
         payload["period"]["first_ts"] = pd.Timestamp(min(all_ts)).isoformat()
         payload["period"]["last_ts"] = pd.Timestamp(max(all_ts)).isoformat()
@@ -315,12 +367,13 @@ def save_backtesting_log(
     return json_path
 
 
-def load_backtesting_log(log_dir: str = ".") -> tuple[dict, pd.DataFrame]:
+def load_backtesting_log(log_dir: str | None = None) -> tuple[dict, pd.DataFrame]:
     """
     Lädt Backtesting-Log.
     Returns: (metadata dict, hourly DataFrame mit allen Szenarien)
     """
-    json_path = os.path.join(log_dir, BACKTESTING_LOG_JSON)
+    target_dir = _DEFAULT_LOG_DIR if log_dir is None else log_dir
+    json_path = os.path.join(target_dir, BACKTESTING_LOG_JSON)
     if not os.path.exists(json_path):
         raise FileNotFoundError(
             f"Kein Backtesting-Log gefunden ({json_path}). "
@@ -339,7 +392,7 @@ def load_backtesting_log(log_dir: str = ".") -> tuple[dict, pd.DataFrame]:
         )
 
     hourly_name = meta.get("hourly_file", BACKTESTING_HOURLY_CSV)
-    csv_path = os.path.join(log_dir, hourly_name)
+    csv_path = os.path.join(target_dir, hourly_name)
     if not os.path.exists(csv_path):
         raise FileNotFoundError(f"Stundendatei fehlt: {csv_path}")
 
@@ -349,5 +402,11 @@ def load_backtesting_log(log_dir: str = ".") -> tuple[dict, pd.DataFrame]:
     return meta, hourly
 
 
-def log_exists(log_dir: str = ".") -> bool:
-    return os.path.exists(os.path.join(log_dir, BACKTESTING_LOG_JSON))
+def backtesting_log_json_path(log_dir: str | None = None) -> str:
+    """Absoluter Pfad zu backtesting_log.json im Backtesting-Ausgabeordner."""
+    target_dir = _DEFAULT_LOG_DIR if log_dir is None else log_dir
+    return os.path.join(target_dir, BACKTESTING_LOG_JSON)
+
+
+def log_exists(log_dir: str | None = None) -> bool:
+    return os.path.exists(backtesting_log_json_path(log_dir))

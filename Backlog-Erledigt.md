@@ -1,542 +1,704 @@
-# Erledigte Punkte
+# Completed Items
 
-Archiv abgeschlossener Arbeiten. Offene Todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
+Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
-### Bugfix E-Auto Abwesenheit vs. Live-Steuerung (2026-07-10)
+### Bugfix EV absence vs. live control (2026-07-10)
 
-- [x] **E-Auto abgehängt: kein Lade-Sollwert an Loxone** — Bei `anticipated` + `plugged_in: false` unterdrückt `_effective_consumer_power_kw` die Ausgabe; `booking_power_kw` bucht keine fiktive Energie (v1.24.3)
-- [x] **`available_from` bei tatsächlicher Abwesenheit** — Same-day „verspätete Rückkehr“ zählt nicht als sofort verfügbar; Übernacht-Fenster bleibt erhalten (`resolve_absent_availability`)
-- [x] **Tests** — `test_charging_context`, `test_delivery_tracking`, `test_loxone_client`; Referenz-Dump `chart_debug_20260710_111939`
+- [x] **EV unplugged: no charge setpoint to Loxone** — With `anticipated` + `plugged_in: false`, `_effective_consumer_power_kw` suppresses output; `booking_power_kw` books no fictitious energy (v1.24.3)
+- [x] **`available_from` during actual absence** — Same-day late return does not count as immediately available; overnight window preserved (`resolve_absent_availability`)
+- [x] **Tests** — `test_charging_context`, `test_delivery_tracking`, `test_loxone_client`; reference dump `chart_debug_20260710_111939`
 
-### Bugfix Runtime-Szenario speichern (2026-07-09)
+### Version 1.25.0 — UI follow-up close-out (2026-07-10)
 
-- [x] **KeyError bei leeren Entitätslisten** — sichere ID-Auflösung in `scenario_form_helpers.py`; deaktivierte Selectboxen bei leeren PV-/Batterie-Listen im Runtime- und Szenario-Editor
-- [x] **PV-/Batterie-Form-State** — Widget-State aus gespeicherten Werten seeden (`planning_pv_form.py`, `planning_battery_form.py`)
-- [x] **Tests** — `tests/test_scenario_form_helpers.py`, Erweiterung `tests/test_planning_editors.py`
+- [x] **Backtesting UI — explain time ranges** — Caption + expander in `ui/backtesting_cons_data.py` and `ui/backtesting.py` (`ui/backtesting_time_ranges.py`): `cons_data_retention_months` vs. `price_range` simulation window vs. sliced reference consumption vs. Hauskonfigurator 8760 h
+- [x] **PV in consumption UI** — `pv_kw` as own trace **PV-Erzeugung** (not in consumption stack); monthly line + weekly line in `ui/consumption_display/charts.py`; test `test_cons_data_bundle_pv_not_in_stack`
 
-### hausconfig: Solarthermie, Profil-Standort (2026-07-09)
+### Version 1.25.0 — UI follow-up decisions & clarifications (2026-07-10)
 
-- [x] **Solarthermie-Kollektor** — Heizbedarfsmodell mit Solarthermie in `data/heating_need.py`; Validierungs-Charts und Tests (`tests/test_heating_need_solar.py`)
-- [x] **Profil-Standort** — `latitude`/`longitude` und PV-Voreinstellungen auf Profil-Ebene (`house_profiles.schema.json`, `house_config_profile_form.py`)
-- [x] **Verbrauchsvalidierung** — erweiterte Charts und Tests für thermisches Profil mit Solarthermie
+**Scope:** Close-out of planning notes from `Backlog.md` § Version 1.25.0 UI follow-up; implementation in 1.25.a–1.25.f.
 
-### Version 1.25.0 — Backtesting mit Hauskonfiguration (Software) (2026-07-09)
+#### Decisions recorded
 
-- [x] **CSV-Validierung Hausprofil** — optionales Jahres-CSV im Hauskonfigurator; Monatsbalken und Stundenverlauf Ist vs. Modell
-- [x] **Szenarieneditor** — Subpage unter Konfiguration; Hauskonfigurator nur Verbraucher + PV; Batterie/Tarife im Szenario-Editor; Runtime als Default-Szenario
-- [x] **Backtesting-Pipeline** — Auflösung aus Hauskonfiguration (`scenario_resolution.py`); Baseline-Fingerprint (`backtesting_fingerprint.py`); Start per UI (`backtesting_runner.py`)
-- [x] **Backtesting-UI** — Szenarien einlesen, Config-Fingerprint-Abgleich, Button **Backtesting starten**, Ergebnisanzeige bei passendem Lauf
-- [x] **Setup-Freischaltung** — Navigation/Readiness für Szenarieneditor und Backtesting nach vollständigem Runtime-Szenario
-- [x] **Tests & Doku** — `test_backtesting_fingerprint`, Erweiterungen Setup/Navigation/House-Config; `docs/konfiguration/ueberblick.md`
+- [x] **Consumption UI data mode (Mode A):** House configurator = actual CSV vs. model; backtesting = `cons_data` only (historical); scenario editor = modeled house profile only — no actual-vs-model on backtesting/scenario editor
+- [x] **Monthly view timeline:** dropped — timeline only ISO week, hourly
+- [x] **Weekly view timeline:** ISO week, hourly; navigation ←/→; datetime X-axis, lines per consumer
+- [x] **Deviation detail:** full cockpit Chart1/2 in 24h and SA_0–SA_2 (1.25.f)
+- [x] **Monthly cost table:** dataframe table dropped; Plotly monthly chart remains
+- [x] **Total costs:** compact annual table (all scenarios incl. reference) instead of metric columns alone
+- [x] **Δ vs. reference:** cost change (`scenario € − reference €`); negative = cheaper, positive = more expensive
 
-### Bugfix natives Filterfenster Log-Spam (main.py) (2026-07-09)
+#### Clarifications resolved
 
-- [x] **`filter_contexts` einmal pro Lauf** — `main.py` löst vor `get_consumer_remaining_kwh` auf und reicht durch an MILP, Restziel-Anpassung und `calculate_optimization_savings`
-- [x] **Horizont-Simulation** — `simulate_horizon` / `_simulate_single_hour_optimizer` / `calculate_optimization_savings` akzeptieren vorgefertigte `filter_contexts`; kein erneutes Loxone-Lesen pro MILP-Stunde
-- [x] **Logging** — INFO „natives Filterfenster Start=…“ nur noch bei `resolve_filter_context`, nicht bei jedem indirekten Aufruf
-- [x] **CBC-Log-Spam** — `record_cbc_event` loggt bei aktiver Sammlung (`begin_cbc_event_collection`) nicht mehr pro Slot; `simulate_horizon` fasst am Ende als eine INFO-Zeile zusammen (`summarize_cbc_events`); Live-MILP in `main.py` unverändert auf INFO
-- [x] **Tests** — `TestFilterContextCaching` in `tests/test_filter_context.py`; CBC-Suppression/Summary in `tests/test_cbc_events.py`
+- [x] **"Non-optimized annual consumption"** — reference/`cons_data` (historical without optimization), not non-optimized scenarios
+- [x] **Test run (1 month):** consumption UI limited to test month (`nav_bounds` + sliced `cons_data`)
+- [x] **Scenario editor:** modeled house profile of assigned profile only (no `cons_data`, no CSV actual) — per Mode A
+- [x] **Total cost table columns:** Scenario | Annual kWh | Annual € | Δ vs. reference
 
-### Bugfix UI-Bugs 1.23.1 (2026-07-09)
+#### Delivered code state (at close-out)
 
-- [x] **Ranking-Tabelle mobil kompakt** — 3 Spalten (Checkbox vor Uhrzeit, Güte, Delta); Kostenspalte entfernt (`ui/pages/page_devices.py`)
-- [x] **Legende Cockpit Chart 1/2** — Variante A (unified collapsible): `showlegend=False`, `margin.b` ≈ 55, HTML-`<details>` auf allen Viewports (`ui/chart_legend_mobile.py`, `ui/charts.py`)
-- [x] **Nennleistung/Laufzeit bei aktivem Plan** — Eingabefelder und Speichern-Button deaktiviert mit Hinweistext
-- [x] **SOC-BL-Ziel Brücke an Zonengrenzen** — `bridge_left=(index > 0)` in `add_baseline_soc_traces`
-- [x] **Preiskurve durchgängig** — Einzel-Trace statt segmentierter HV-Linien (`add_price_on_soc_axis_trace`)
-- [x] **Manuelle Verbraucher Schraffur** — stabile Muster pro `appliance_id` (`manual_appliance_pattern_shape` in `ui/chart_colors.py`)
+- [x] `ui/consumption_display/` (three modes); backtesting page: cons_data section, total cost table, deviation list with Chart1/2 (1.25.f), window snapshots (`backtesting_window_snapshots.jsonl`), horizon-mode UI (`fixed_24h` / `sunset_window`), reference consumption, monthly cost chart
+- [x] Plausibility false positives with house profile fixed (bugfix → `Backlog-Erledigt.md` § Bugfix — Backtesting plausibility)
 
-### Bugfix Mobile Legende Cockpit (Chart 1/2) (2026-07-09)
+### Version 1.25.f follow-ups — deviation list & week navigation (2026-07-10)
 
-- [x] **Mobile Legende Cockpit (Chart 1/2)** — Plotly-Legende unter 768px per CSS aus; farbiges `<details>` als Ersatz (nur mobil sichtbar). Desktop: nur Plotly-Legende, kein Expander (`ui/chart_legend_mobile.py`). Prod-Abnahme bestätigt.
+- [x] **Deviation dedup:** `dedupe_critical_cases_by_window()` — per `(scenario_id, window_anchor)` keep most critical (`milp_no_optimal` > `strict_slow` > `strict_fallback` > `consumption_tolerance`)
+- [x] **Row selection → Chart1/2:** `st.dataframe` single-row selection replaces separate selectbox (`ui/backtesting_deviation_list.py`)
+- [x] **ISO week jump:** direct KW entry (`12/2025`, `KW 12/2025`, `2025-W12`) in `ui/consumption_display/navigation.py`
+- [x] **Tests:** `test_backtesting_critical_cases.py`, `test_backtesting_deviation_list.py`, `test_consumption_display.py`
 
-### Bugfix Sankey SwimSpa/Filter Fall B (Gesamtzähler) (2026-07-09)
+### Version 1.25.f — Chart1/2 detail for deviations (2026-07-10)
 
-- [x] **Sankey + Chart 1 SwimSpa/Filter (Gesamtzähler Fall B)** — Fix **v1.24.1**: Sankey/Live-UI laden Flex-Leistung bei veraltetem `optimizer_run_state` (>120 s) mit `filter_contexts` + `slot_datetime` (`fetch_live_flex_kw_for_ui` in `data/live_consumption.py`); Filter-Inferenz wie in `main.py`. Prod-Abnahme: natives Fenster 10–14 — zwei Sankey-Ströme (SwimSpa + SwimSpa Filter), Filterleistung korrekt zugeordnet, keine irreführende Soll-Ist-Mismatch-Farbe bei Soll 0. Referenz-Dumps: `chart_debug_20260708_114712`, `chart_debug_20260709_120500`.
+**Scope (after 1.25.e smoketest ✅):** full — 24h + SA_0–SA_2 with cockpit Chart1/2; window snapshots for failed windows + on-demand fallback.
 
-### Version 1.24.g — monthly_float Einspeisetarif (OeMAG-Referenzkurve) (2026-07-09)
+- [x] **Persistence:** `simulation/backtesting_snapshots.py` — JSONL sidecar `backtesting_window_snapshots.jsonl` (`chart_rows`, `matrix`, `meta`, `horizon_mode`, scenario ID)
+- [x] **Engine:** snapshot collection on plausibility failure and on-demand paths (`simulation/engine.py`)
+- [x] **Adapter:** `ui/backtesting_display_bundle.py` — `build_backtesting_display_bundle` / `load_backtesting_display_bundle` → `OptimizationDisplayBundle`
+- [x] **UI:** `ui/backtesting_deviation_list.py` — `render_optimization_chart1/2` below deviation list; toggle 24h | SA_0–SA_2 (disabled when log `fixed_24h`)
+- [x] **Fallback:** on-demand re-simulation of a window when no snapshot exists
+- [x] **Tests:** `test_backtesting_display_bundle.py`, `test_backtesting_snapshots.py`, `test_backtesting_snapshot_collector.py`, `test_backtesting_deviation_list.py`, `test_backtesting_ui_helpers.py`
 
-- [x] **Schema** — Export-Typ `monthly_float` in `tariffs.schema.json`; `oemag_monthly_feed_in_rates` + `monthly_float_reference_cent_kwh` in `backtesting_scenarios.schema.json`
-- [x] **Pricing-Pipeline** — `data/monthly_float_rates.py` (OeMAG-Skalierung); `tariff_pricing.export_cent_kwh`; `get_backtesting_feed_in_settings()` baut skalierte Monatstabelle zur Laufzeit
-- [x] **Katalog & Konverter** — `tools/convert_dach_tariffs.py` aus `einspeisetarife_dach_erweitert.json`; 5 `monthly_float`-Export-Tarife in `config/tariffs.json`
-- [x] **OeMAG-Referenzdaten** — 12 Monate Jul 2025–Jun 2026 in `backtesting_scenarios.example.json`; `fixed_monthly_feed_in_rates` (aWATTar-SUNNY) unverändert
-- [x] **Tests & Doku** — `tests/test_monthly_float_rates.py`; Erweiterung `test_tariff_pricing` / `test_house_config`; `docs/konfiguration/preise.md`
+**Manual acceptance**
 
-### Version 1.24.f — DACH-Tarifkatalog & Preismodell (Backtesting) (2026-07-09)
+- [x] Select deviation → Chart1 energy balance (PV, battery, consumer stack, zones per scope)
+- [x] Chart2 cost lines target/actual
+- [x] Toggle 24h ↔ SA_0–SA_2
 
-- [x] **P1 — Schema & Preisfunktionen** — `tariffs.schema.json` (DACH-Typen + `catalog_as_of`); `house_config/tariffs_store.py` (`_import_tariff_spec`, `_export_tariff_spec`, Szenario-Specs); `data/tariff_pricing.py` (`import_cent_kwh` / `export_cent_kwh`, Legacy `awattar`/`dynamic_epex`)
-- [x] **P2 — Backtesting-Pipeline & Marktzonen** — `data/data_loader.py` (AT / `DE-LU` / CH); tariff-aware Pricing in `simulation/engine.py`, `data/backtesting_prices.py`, `data/feed_in_prices.py`
-- [x] **P3 — DACH-Konverter & Katalog** — `tools/convert_dach_tariffs.py`; `config/tariffs.json` mit 44 Tarifen (`catalog_as_of=2026`)
-- [x] **P4 — UI Planung** — `ui/planning_tariff_form.py`, `ui/pages/page_scenario_editor.py` (Typ-Labels, Land/Währung/Notes, `catalog_as_of`, DE-Netzentgelt-Override)
-- [x] **P5 — Tests & Doku** — `tests/test_tariff_pricing.py`, Erweiterung `tests/test_house_config.py`; `docs/konfiguration/preise.md`
+### Version 1.25.e — Smoketest backtesting `sunset_window` (2026-07-10)
 
-### Version 1.24.e — Planungs-Editoren & Hauskonfigurator-UX (2026-07-09)
+**Purpose:** Verify `sunset_window` backtesting (Now→SA₂) is stable — prerequisite for Chart1/2 SA zones (1.25.f).
 
-- [x] **P1 — Config-Drift** — `should_show_config_drift()` unterdrückt Hinweis während `needs_planning_onboarding()`; leere `flexible_consumers` werden in der Drift-Prüfung ignoriert
-- [x] **P2 — Hauskonfigurator UX** — Auto-IDs (`house_config/id_slug.py`); Typ-Label „Haus Wärme“; Gebäudeklassen mit HWB; optionales `hwb_kwh_m2`
-- [x] **P3 — Planungs-Konfiguration** — Tabs PV/Batterie/Tarife im Hauskonfigurator; Bootstrap `tariffs.json` aus `tariffs.example.json`; Tarifwahl → `runtime_settings.import/export_tariff_id` (kein Tarif-Editor)
-- [x] **P4 — Tests & Doku** — `tests/test_planning_editors.py`; Anpassungen Setup/Navigation/Drift; [`greenfield-dev-stack.md`](docs/einrichtung/greenfield-dev-stack.md)
+**Result: ✅ stable** — June 2025, 30 windows, plausibility 30/30 both modes, no CBC aborts. Sunset ~0.37 € higher than `fixed_24h` on scenario `fixture_5kwh_fixed` (10.74 € vs 10.37 €); reference 36.03 €. Protocol: `backtesting_logs/smoketest_125e/protocol.md`.
 
-### Version 1.24.d — Greenfield-Onboarding (minimale Config + UI-Freischaltung) (2026-07-09)
+- [x] **CLI smoketest:** `scripts/run_backtesting.py --horizon-mode sunset_window --start-month <M> --end-month <M>` — exit 0, `"horizon_mode": "sunset_window"` in log, plausibility/CBC without unexpected aborts
+- [x] **UI:** `--horizon-mode` on `build_backtesting_command` / run controls (`ui/backtesting_runner.py`)
+- [x] **Document result:** ✅ stable — full 1.25.f scope approved
 
-- [x] **P1 — Minimal-Bootstrap** — `config.minimal.json` + leere Vorlagen für `house_profiles`, `tariffs`, `backtesting_scenarios`; Bootstrap nutzt Minimal- statt Example-Dateien; `config.example.json` bleibt Referenz
-- [x] **P2 — Laufzeit-UI-Gating** — `ui/setup_readiness.py`, `ui/setup_progress.py`, `ui/navigation.py`: nach Loxone-Setup nur Hauskonfigurator + Konfiguration bis Planung vollständig
-- [x] **P3 — Backtesting-Freischaltung** — Freischaltung bei thermischem Hausprofil + PV + Batterie + Import-/Export-Tarif; Szenarieneditor vorerst gesperrt (Follow-up)
-- [x] **Tests + Doku** — `tests/test_setup_readiness.py`, `tests/test_navigation_setup.py`; [`greenfield-dev-stack.md`](docs/einrichtung/greenfield-dev-stack.md)
+**Manual acceptance**
 
-### Version 1.24.c — Greenfield Dev-Stack (2026-07-09)
+- [x] Smoketest protocol: command, config path, month, duration, exit code, `horizon_mode` in log
+- [x] No blocker for 1.25.f full scope
 
-- [x] **P1 — Greenfield-Compose** — `docker-compose-greenfield.yml` mit `greenfield/config` + `greenfield/runtime`, Container `ernie-greenfield-*`, UI-Port **8502**, Loxone-Verify aus
-- [x] **P2 — Abnahme-Hilfen** — Checkliste in [`docs/einrichtung/greenfield-dev-stack.md`](docs/einrichtung/greenfield-dev-stack.md); Smoke-Test `tests/test_greenfield_bootstrap.py` (ohne Fixture-Snapshot `tests/fixtures/greenfield/`)
-- [x] **Follow-up beim Durchspielen** — `Dockerfile`: `share/config/` um Tarife-, Hausprofile- und Backtesting-Szenario-Vorlagen ergänzt (Bootstrap auf leerem Volume)
+### Bugfix — Backtesting plausibility (deviation list overfilled) (2026-07-10)
 
-### Version 1.24.0 — Hauskonfigurator UX & E-Auto-Profil (2026-07-09)
+**Trigger:** Manual acceptance **1.25.d** — deviation list ~934 entries; `runtime_settings` failed in every window (`optimized_flex_kwh = 0` despite historical flex target values).
 
-- [x] **P1 — Datenmodell `ev`** — Typ `ev` in `house_profiles.schema.json` und `house_config/profiles_store.py`; Planungs-Subset aus Live-`eauto` ohne `loxone`; `house_profiles.example.json` mit E-Auto als `ev`
-- [x] **P2 — UI Neu/Entfernen** — `ui/house_config_profile_form.py` (Tab in `page_house_config.py`): `st.session_state`-Verbraucherliste, „Verbraucher hinzufügen“ / „Entfernen“, Typ-Dropdown inkl. „E-Auto“ mit bedingten Feldern
-- [x] **P3 — Jahres- und Stundenprofil** — `house_config/ev_profile.py` (`estimate_ev_annual_kwh`, `ev_hourly_kw_for_day`); `baseload.py` und `data/consumption_profiles.py` mit fensterbasiertem `ev`-Zweig
-- [x] **P4 — Tests** — `tests/test_house_config.py`: Normalisierung, Jahres-kWh, Stundenprofil nur im Ladezeitfenster, `build_hourly_kw_profile`
-- [x] **P5 — Tariflisten-Stand in der UI** — mit **1.24.f** umgesetzt (`catalog_as_of` in `planning_tariff_form.py` und `page_scenario_editor.py`)
+**Root cause:** For house-profile backtesting (`flexible_consumers: []`), consumer columns were missing from the profile DataFrame; `delivered_flex_kwh_from_rows` and `resolve_horizon_consumer_targets_kwh` only considered config consumers; planning target values incorrectly overwrote cons_data history on days without flex consumption.
 
-### Version 1.24.b — LOC-Refactoring Top-3 (2026-07-09)
+- [x] **Diagnosis:** Greenfield runtime; flex-only failure pattern (`diff_kwh = 0`, `flex_diff > 0`, `optimized_flex = 0`) verified
+- [x] **`data/profile_manager.py`:** House-profile consumers from `cons_data` (`expected_cons_data_consumer_ids`) into profile format
+- [x] **`simulation/engine.py`:** Flex/baseload from cons_data (MILP scope); `_flexible_consumers` in meta; no planning-target fallbacks when cons_data = 0
+- [x] **`optimizer/targets.py` + `optimizer/simulation.py`:** `flexible_consumers` parameter for horizon limits and flex delivery
+- [x] **`scripts/analyze_plausibility_failures.py`:** Time range from log `meta.period`
+- [x] **Regression:** `tests/test_baseload_validation.py` (planning flex plausibility)
 
-- [x] **Epic 1 — `optimizer/milp.py`** (~991 → ~170) — `milp_consumers.py`, `milp_horizon.py`, `milp_result.py`; `_derive_control_from_milp` → `optimizer/battery.py`; Re-Exports für Tests
-- [x] **Epic 2 — `config.py`** (~1543 → ~720) — Paket `settings/` (`json_io`, `flexible_consumers`, `appliances`, `scenarios`, `system_settings`); `config.py` als Orchestrator-Fassade
-- [x] **Epic 3 — `ui/charts.py`** (~2822 → ~400) — `chart_slot_axis`, `chart_trace_segments`, `chart_soc`, `chart_cumulative`, `chart_decorations`, `chart_consumer_stack`; dünne Fassade + Re-Exports
+**Manual acceptance**
 
-### Version 1.24.a — Hauskonfigurator und Szenarien (2026-07-09)
+- [x] Greenfield backtesting recalculated; deviation list without systematic filling of all windows
+- [x] Acceptance 1.25.d “clean run” completed
 
-- [x] **P1 — Batterie & PV als Entitäten** — `batteries[]` / `pv_systems[]` in `config.json`; Szenario wählt je eine ID; Abwärtskompatibel zu flachen `runtime_settings`
-- [x] **P2 — Stromtarife** — `config/tariffs.json` mit Import-/Export-Tarifen; Szenario-Referenzen `import_tariff_id` / `export_tariff_id`
-- [x] **P3 — Verbraucher & Grundlast** — `config/house_profiles.json`; generisch, thermisch, Grundlast mit 5-%-Untergrenze
-- [x] **P4 — Zusammengesetztes Szenario** — `backtesting_scenarios.json`; Auflösung in `config.py` für `simulation/engine.py`
-- [x] **P5 — UI** — Hauskonfigurator (`page_house_config.py`) und Szenarieneditor (`page_scenario_editor.py`)
+### Version 1.25.d — Deviation list (cost comparison) (2026-07-10)
 
-### Bugfix Chart 1 PV-Linie = Ist (forecast_pv nach Overlay) (2026-07-08)
+- [x] Unified list of notable cases (basis: `extract_critical_cases()` — plausibility + CBC events)
+- [x] Columns: window, scenario, type, Δ kWh (target/actual)
+- [x] Selecting an entry → detail area (placeholder until 1.25.f)
+- [x] Reference scenario: no deviation list
 
-- [x] **`forecast_pv_kw` vor Live-Overlay loggen** — `main.py` speichert Forecast.Solar-Wert, nicht `consumption_snapshot.pv_kw`; Chart-Linie vs. Ist-Balken unterscheidbar
-- [x] **NaN-`PV-Ist` in MILP-Zeilen** — Flow-Balance fällt auf Prognose zurück (`chart_flow_balance.py`)
+**Manual acceptance**
 
-### UI S-2 — Chart 1 PV-Linie durchgängig (2026-07-08)
+- [x] Run with deviations: sorted list; selection highlights window + scenario
+- [x] Clean run: empty list / info notice (after plausibility bugfix)
+- [x] Chart “window end”: placeholder (plausibility chart) until 1.25.f, no cockpit Chart1/2
 
-- [x] **PV-Prognose-Linie durchgängig** — eine gelbe Linie (`CHART_PV_LINE_COLOR`) über grau/neutral/grün; Overlay „PV-Prognose (Log)“ entfernt
-- [x] **Datenmodell** — `PV-Prognose (kW)` = Prognose; `PV-Ist (kW)` nur für Flow-Balance-Balken im Log
+### Version 1.25.c — Backtesting page layout (2026-07-10)
+
+Target order: cons_data (status/generation/consumption UI) → scenarios + run buttons → total cost table → reference consumption → monthly cost chart (without dataframe/hourly chart).
+
+- [x] Page order (`ui/backtesting.py`, `ui/backtesting_cons_data.py`, `ui/backtesting_results_helpers.py`)
+- [x] Removed: scenario/month selectbox, hourly cost chart, monthly dataframe in cost comparison
+- [x] Test-run caption + `nav_bounds` for calendar-week navigation
+- [x] Total cost table with Δ as cost change (`scenario € − reference €`)
+- [x] Consumption UI in cons_data section and in results (log period, period-appropriate subheader)
+- [x] Synthetic `cons_data` from house profile when `flexible_consumers` empty (`data/cons_data_house_profile.py`)
+- [x] Warning when `{verbraucher_id}_kw` missing or only 0
+- [x] Tests: `test_backtesting_results_helpers.py`, `test_cons_data_house_profile.py`
+
+**Manual acceptance**
+
+- [x] Full run: no scenario/month selectbox, no hourly cost chart
+- [x] Total cost table with reference + scenarios + Δ
+- [x] Test run: charts/navigation only test month; consumers visible in timeline
+
+### Version 1.25.b — Consumption UI on three pages (2026-07-10)
+
+- [x] **House configurator** — `render_consumption_comparison_panel` via core, mode `csv_validation`
+- [x] **Backtesting** — `render_cons_data_section`: keep status/generation, visualization via core (`cons_data`)
+- [x] **Scenario editor** — section “Consumption profile (model)” for runtime house profile, mode `modeled_profile`
+
+**Manual acceptance**
+
+- [x] Three pages: same layout, navigation, legend colors
+- [x] Scenario editor without actual data; backtesting without model comparison
+
+### Version 1.25.a — Consumption UI core (2026-07-10)
+
+- [x] **Three modes** in `ui/consumption_display/`: `csv_validation`, `cons_data`, `modeled_profile`
+- [x] **Monthly overview:** separate bar per consumer; sum = total consumption; baseload as residual on its own track
+- [x] **Timeline:** ISO calendar week, hourly; navigation ←/→ (no month toggle; follow-up: datetime X-axis, lines per consumer)
+- [x] **Data layer:** `build_modeled_hourly_kw_by_consumer()` in `data/consumption_profiles.py`
+- [x] **Tests:** `tests/test_consumption_display.py`, `tests/test_consumption_display_integration.py`
+
+**Manual acceptance**
+
+- [x] House configurator + CSV: monthly bars actual vs. model; calendar-week navigation; consumers + baseload visible in weekly timeline
+- [x] Synthetic `cons_data`: stacked monthly bars sum ≈ `total_kw`
+- [x] ←/→ calendar week: correct ISO week boundaries; readable hourly timeline
+
+### Version 1.25.0 — Backtesting with house configuration (2026-07-10)
+
+- [x] **House configurator** — optional annual total consumption CSV (format check: monthly bars + hourly timeline)
+- [x] **Scenario editor** — subpage under configuration; house configurator only consumers + PV; battery/tariffs in scenario editor; default scenario runtime (required before backtesting/operation); additional scenarios with different batteries/tariffs
+- [x] **Backtesting from configuration** — data from house configuration + scenarios; load run when fingerprint matches, otherwise recalculate
+- [x] **Consumption data (`cons_data_hourly.csv`)** — visualization, synthetic generation (`scripts.generate_cons_data`), consumer ID match status, backtesting start disabled without valid file
+- [x] **cons_data plot** — navigation like annual CSV; column timelines `total_kw` / `baseload_kw` / `pv_kw`
+- [x] **Backtesting runner** — test run (one month), progress bar (`--progress-file`), grouped scenario bars in monthly cost comparison
+- [x] **Sidecar paths** — `tariffs.json` / `house_profiles.json` / `backtesting_scenarios.json` next to per-ENV `config.json` (`persist_paths`)
+- [x] **Fingerprint** — tariff specs and aWATTar pricing block in scenario fingerprint; export tariff alias `awattar_sunny_float` → `dynamic_epex`
+- [x] **Tests** — `test_backtesting_cons_data`, `test_backtesting_charts`, `test_backtesting_plausibility_charts`, `test_backtesting_ui_helpers`, `test_persist_paths_sidecars`
+
+**Manual acceptance (Greenfield, Streamlit :8511 or container :8502)**
+
+- [x] Greenfield reset; only house configurator + configuration visible; sidebar shows missing steps
+- [x] **House configurator** — save thermal house profile + PV system; optionally upload annual CSV → monthly bars and hourly timeline (actual vs. model)
+- [x] **Scenario editor** appears after house profile + PV — create battery, save runtime (battery, tariffs, house profile, geo)
+- [x] **Backtesting** appears after complete runtime scenario — configured scenarios displayed
+- [x] **Consumption data (`cons_data_hourly.csv`)** — without valid file: section with notice, **Start backtesting** button disabled
+- [x] Button **Generate consumption data (synthetic)** — `runtime/cons_data_hourly.csv` + `.meta.json` with data rows
+- [x] Monthly bars and calendar-week hourly timeline (actual vs. model) in consumption data section
+- [x] Consumer ID match status — matches current config (green) or warning on mismatch or missing meta file
+- [x] Button **Start backtesting** — run completes successfully; costs, months, plausibility and hourly chart visible
+- [x] After change to runtime/scenario — warning “Run does not match configuration” + **Recalculate**
+- [x] Merge PR #4
+
+### Bugfix runtime scenario save (2026-07-09)
+
+- [x] **KeyError on empty entity lists** — safe ID resolution in `scenario_form_helpers.py`; disabled selectboxes for empty PV/battery lists in runtime and scenario editor
+- [x] **PV/battery form state** — seed widget state from saved values (`planning_pv_form.py`, `planning_battery_form.py`)
+- [x] **Tests** — `tests/test_scenario_form_helpers.py`, extension `tests/test_planning_editors.py`
+
+### hausconfig: solar thermal, profile location (2026-07-09)
+
+- [x] **Solar thermal collector** — heating need model with solar thermal in `data/heating_need.py`; validation charts and tests (`tests/test_heating_need_solar.py`)
+- [x] **Profile location** — `latitude`/`longitude` and PV defaults at profile level (`house_profiles.schema.json`, `house_config_profile_form.py`)
+- [x] **Consumption validation** — extended charts and tests for thermal profile with solar thermal
+
+### Bugfix native filter window log spam (main.py) (2026-07-09)
+
+- [x] **`filter_contexts` once per run** — `main.py` resolves before `get_consumer_remaining_kwh` and passes through to MILP, remaining-target adjustment and `calculate_optimization_savings`
+- [x] **Horizon simulation** — `simulate_horizon` / `_simulate_single_hour_optimizer` / `calculate_optimization_savings` accept prebuilt `filter_contexts`; no repeated Loxone read per MILP hour
+- [x] **Logging** — INFO “native filter window Start=…” only at `resolve_filter_context`, not on every indirect call
+- [x] **CBC log spam** — `record_cbc_event` no longer logs per slot during active collection (`begin_cbc_event_collection`); `simulate_horizon` summarizes at end as one INFO line (`summarize_cbc_events`); live MILP in `main.py` unchanged at INFO
+- [x] **Tests** — `TestFilterContextCaching` in `tests/test_filter_context.py`; CBC suppression/summary in `tests/test_cbc_events.py`
+
+### Bugfix UI bugs 1.23.1 (2026-07-09)
+
+- [x] **Ranking table compact on mobile** — 3 columns (checkbox before time, quality, delta); cost column removed (`ui/pages/page_devices.py`)
+- [x] **Cockpit Chart 1/2 legend** — variant A (unified collapsible): `showlegend=False`, `margin.b` ≈ 55, HTML `<details>` on all viewports (`ui/chart_legend_mobile.py`, `ui/charts.py`)
+- [x] **Rated power/runtime with active plan** — input fields and save button disabled with notice text
+- [x] **SOC BL target bridge at zone boundaries** — `bridge_left=(index > 0)` in `add_baseline_soc_traces`
+- [x] **Price curve continuous** — single trace instead of segmented HV lines (`add_price_on_soc_axis_trace`)
+- [x] **Manual appliances hatching** — stable patterns per `appliance_id` (`manual_appliance_pattern_shape` in `ui/chart_colors.py`)
+
+### Bugfix mobile legend cockpit (Chart 1/2) (2026-07-09)
+
+- [x] **Mobile legend cockpit (Chart 1/2)** — Plotly legend hidden below 768px via CSS; colored `<details>` as replacement (mobile only). Desktop: Plotly legend only, no expander (`ui/chart_legend_mobile.py`). Prod acceptance confirmed.
+
+### Bugfix Sankey SwimSpa/filter case B (total meter) (2026-07-09)
+
+- [x] **Sankey + Chart 1 SwimSpa/filter (total meter case B)** — fix **v1.24.1**: Sankey/live UI load flex power when `optimizer_run_state` stale (>120 s) with `filter_contexts` + `slot_datetime` (`fetch_live_flex_kw_for_ui` in `data/live_consumption.py`); filter inference as in `main.py`. Prod acceptance: native window 10–14 — two Sankey flows (SwimSpa + SwimSpa filter), filter power correctly assigned, no misleading target/actual mismatch color at target 0. Reference dumps: `chart_debug_20260708_114712`, `chart_debug_20260709_120500`.
+
+### Version 1.24.g — monthly_float feed-in tariff (OeMAG reference curve) (2026-07-09)
+
+- [x] **Schema** — export type `monthly_float` in `tariffs.schema.json`; `oemag_monthly_feed_in_rates` + `monthly_float_reference_cent_kwh` in `backtesting_scenarios.schema.json`
+- [x] **Pricing pipeline** — `data/monthly_float_rates.py` (OeMAG scaling); `tariff_pricing.export_cent_kwh`; `get_backtesting_feed_in_settings()` builds scaled monthly table at runtime
+- [x] **Catalog & converter** — `tools/convert_dach_tariffs.py` from `einspeisetarife_dach_erweitert.json`; 5 `monthly_float` export tariffs in `config/tariffs.json`
+- [x] **OeMAG reference data** — 12 months Jul 2025–Jun 2026 in `backtesting_scenarios.example.json`; `fixed_monthly_feed_in_rates` (aWATTar-SUNNY) unchanged
+- [x] **Tests & docs** — `tests/test_monthly_float_rates.py`; extension of `test_tariff_pricing` / `test_house_config`; `docs/konfiguration/preise.md`
+
+### Version 1.24.f — DACH tariff catalog & pricing model (backtesting) (2026-07-09)
+
+- [x] **P1 — Schema & pricing functions** — `tariffs.schema.json` (DACH types + `catalog_as_of`); `house_config/tariffs_store.py` (`_import_tariff_spec`, `_export_tariff_spec`, scenario specs); `data/tariff_pricing.py` (`import_cent_kwh` / `export_cent_kwh`, legacy `awattar`/`dynamic_epex`)
+- [x] **P2 — Backtesting pipeline & market zones** — `data/data_loader.py` (AT / `DE-LU` / CH); tariff-aware pricing in `simulation/engine.py`, `data/backtesting_prices.py`, `data/feed_in_prices.py`
+- [x] **P3 — DACH converter & catalog** — `tools/convert_dach_tariffs.py`; `config/tariffs.json` with 44 tariffs (`catalog_as_of=2026`)
+- [x] **P4 — Planning UI** — `ui/planning_tariff_form.py`, `ui/pages/page_scenario_editor.py` (type labels, country/currency/notes, `catalog_as_of`, DE grid-fee override)
+- [x] **P5 — Tests & docs** — `tests/test_tariff_pricing.py`, extension of `tests/test_house_config.py`; `docs/konfiguration/preise.md`
+
+### Version 1.24.e — Planning editors & house configurator UX (2026-07-09)
+
+- [x] **P1 — Config drift** — `should_show_config_drift()` suppresses notice during `needs_planning_onboarding()`; empty `flexible_consumers` ignored in drift check
+- [x] **P2 — House configurator UX** — auto IDs (`house_config/id_slug.py`); type label “Haus Wärme”; building classes with HWB; optional `hwb_kwh_m2`
+- [x] **P3 — Planning configuration** — PV/battery/tariff tabs in house configurator; bootstrap `tariffs.json` from `tariffs.example.json`; tariff selection → `runtime_settings.import/export_tariff_id` (no tariff editor)
+- [x] **P4 — Tests & docs** — `tests/test_planning_editors.py`; setup/navigation/drift adjustments; [`greenfield-dev-stack.md`](docs/einrichtung/greenfield-dev-stack.md)
+
+### Version 1.24.d — Greenfield onboarding (minimal config + UI unlock) (2026-07-09)
+
+- [x] **P1 — Minimal bootstrap** — `config.minimal.json` + empty templates for `house_profiles`, `tariffs`, `backtesting_scenarios`; bootstrap uses minimal instead of example files; `config.example.json` remains reference
+- [x] **P2 — Runtime UI gating** — `ui/setup_readiness.py`, `ui/setup_progress.py`, `ui/navigation.py`: after Loxone setup only house configurator + configuration until planning complete
+- [x] **P3 — Backtesting unlock** — unlock with thermal house profile + PV + battery + import/export tariff; scenario editor locked for now (follow-up)
+- [x] **Tests + docs** — `tests/test_setup_readiness.py`, `tests/test_navigation_setup.py`; [`greenfield-dev-stack.md`](docs/einrichtung/greenfield-dev-stack.md)
+
+### Version 1.24.c — Greenfield dev stack (2026-07-09)
+
+- [x] **P1 — Greenfield compose** — `docker-compose-greenfield.yml` with `greenfield/config` + `greenfield/runtime`, container `ernie-greenfield-*`, UI port **8502**, Loxone verify off
+- [x] **P2 — Acceptance helpers** — checklist in [`docs/einrichtung/greenfield-dev-stack.md`](docs/einrichtung/greenfield-dev-stack.md); smoke test `tests/test_greenfield_bootstrap.py` (without fixture snapshot `tests/fixtures/greenfield/`)
+- [x] **Follow-up during walkthrough** — `Dockerfile`: `share/config/` extended with tariff, house profile and backtesting scenario templates (bootstrap on empty volume)
+
+### Version 1.24.0 — House configurator UX & EV profile (2026-07-09)
+
+- [x] **P1 — Data model `ev`** — type `ev` in `house_profiles.schema.json` and `house_config/profiles_store.py`; planning subset from live `eauto` without `loxone`; `house_profiles.example.json` with EV as `ev`
+- [x] **P2 — UI add/remove** — `ui/house_config_profile_form.py` (tab in `page_house_config.py`): `st.session_state` consumer list, “Add consumer” / “Remove”, type dropdown incl. “E-Auto” with conditional fields
+- [x] **P3 — Annual and hourly profile** — `house_config/ev_profile.py` (`estimate_ev_annual_kwh`, `ev_hourly_kw_for_day`); `baseload.py` and `data/consumption_profiles.py` with window-based `ev` branch
+- [x] **P4 — Tests** — `tests/test_house_config.py`: normalization, annual kWh, hourly profile only in charging window, `build_hourly_kw_profile`
+- [x] **P5 — Tariff list date in UI** — implemented with **1.24.f** (`catalog_as_of` in `planning_tariff_form.py` and `page_scenario_editor.py`)
+
+### Version 1.24.b — LOC refactoring top 3 (2026-07-09)
+
+- [x] **Epic 1 — `optimizer/milp.py`** (~991 → ~170) — `milp_consumers.py`, `milp_horizon.py`, `milp_result.py`; `_derive_control_from_milp` → `optimizer/battery.py`; re-exports for tests
+- [x] **Epic 2 — `config.py`** (~1543 → ~720) — package `settings/` (`json_io`, `flexible_consumers`, `appliances`, `scenarios`, `system_settings`); `config.py` as orchestrator facade
+- [x] **Epic 3 — `ui/charts.py`** (~2822 → ~400) — `chart_slot_axis`, `chart_trace_segments`, `chart_soc`, `chart_cumulative`, `chart_decorations`, `chart_consumer_stack`; thin facade + re-exports
+
+### Version 1.24.a — House configurator and scenarios (2026-07-09)
+
+- [x] **P1 — Battery & PV as entities** — `batteries[]` / `pv_systems[]` in `config.json`; scenario selects one ID each; backward compatible with flat `runtime_settings`
+- [x] **P2 — Electricity tariffs** — `config/tariffs.json` with import/export tariffs; scenario references `import_tariff_id` / `export_tariff_id`
+- [x] **P3 — Consumers & baseload** — `config/house_profiles.json`; generic, thermal, baseload with 5% lower bound
+- [x] **P4 — Composite scenario** — `backtesting_scenarios.json`; resolution in `config.py` for `simulation/engine.py`
+- [x] **P5 — UI** — house configurator (`page_house_config.py`) and scenario editor (`page_scenario_editor.py`)
+
+### Bugfix Chart 1 PV line = actual (forecast_pv after overlay) (2026-07-08)
+
+- [x] **Log `forecast_pv_kw` before live overlay** — `main.py` stores Forecast.Solar value, not `consumption_snapshot.pv_kw`; chart line vs. actual bars distinguishable
+- [x] **NaN `PV-Ist` in MILP rows** — flow balance falls back to forecast (`chart_flow_balance.py`)
+
+### UI S-2 — Chart 1 PV line continuous (2026-07-08)
+
+- [x] **PV forecast line continuous** — one yellow line (`CHART_PV_LINE_COLOR`) over gray/neutral/green; overlay “PV-Prognose (Log)” removed
+- [x] **Data model** — `PV-Prognose (kW)` = forecast; `PV-Ist (kW)` only for flow-balance bars in log
 - [x] Tests + `docs/ui/charts.md`
 
-### Manuelle Geräte — Chart 1 Cockpit (Follow-up Phase 5) (2026-07-08)
+### Manual appliances — Chart 1 cockpit (follow-up phase 5) (2026-07-08)
 
-- [x] **Eigene benannte Spuren im Chart-1-Flex-Stack** — geplante Geräte aus `appliance_schedules.json` als Flex-Balken (Waschmaschine, Trockner, …), nicht nur in `expected_p_act`/`Grundlast`; `apply_appliance_schedules_to_chart_rows` + `_finalize_chart_rows_for_display`
-- [x] **Gemeinsame Farbe, gerätespezifischer Hover** — `COLOR_MANUAL_APPLIANCE` / `flex_bar_chart_color`; Stack-Reihenfolge in `ordered_active_consumers_for_stack`
-- [x] **Live-Cache bei Plan-Checkbox** — `invalidate_live_optimization_cache()` auf „Manuelle Geräte“ nach Speichern/Löschen des Plans
+- [x] **Dedicated named traces in Chart 1 flex stack** — planned appliances from `appliance_schedules.json` as flex bars (washing machine, dryer, …), not only in `expected_p_act`/`Grundlast`; `apply_appliance_schedules_to_chart_rows` + `_finalize_chart_rows_for_display`
+- [x] **Shared color, appliance-specific hover** — `COLOR_MANUAL_APPLIANCE` / `flex_bar_chart_color`; stack order in `ordered_active_consumers_for_stack`
+- [x] **Live cache on plan checkbox** — `invalidate_live_optimization_cache()` on “Manuelle Geräte” after saving/deleting plan
 
-### Version 1.23 — Manuelle Geräte, Verbraucheranalyse & Charts (2026-07-08)
+### Version 1.23 — Manual appliances, consumer analysis & charts (2026-07-08)
 
-- [x] **Appliance-Parameter in config.json** — `update_appliance_defaults()`, Save-Form auf „Manuelle Geräte“
-- [x] **Sterne-Schwellen** — kombinierte k_act-/Prozent-Regel; Config-Block `appliance_recommendation` + UI-Expander
-- [x] **PV Ist + Prognose im grauen Bereich** — Spalte `PV-Prognose-Log (kW)`, gedämpfte Chart-Spur
-- [x] **Mobile Legende** — CSS + Expander unter Chart 1/2 (`ui/chart_legend_mobile.py`)
-- [x] **Planung manuelle Geräte → Optimierung** — `appliance_schedules.json`, Matrix-Injektion auf `expected_p_act`, Checkbox in Empfehlungstabelle (sofortige Übernahme); SMB-Fallback beim Schreiben
-- [x] **Verbraucheranalyse Swimspa** — Temperatur Ist/Soll + Filter autonom/Ernie (`page_consumer_analysis.py`)
-- [x] **Version 1.23.0** — Minor-Bump
+- [x] **Appliance parameters in config.json** — `update_appliance_defaults()`, save form on “Manuelle Geräte”
+- [x] **Star thresholds** — combined k_act/percent rule; config block `appliance_recommendation` + UI expander
+- [x] **PV actual + forecast in gray area** — column `PV-Prognose-Log (kW)`, muted chart trace
+- [x] **Mobile legend** — CSS + expander below Chart 1/2 (`ui/chart_legend_mobile.py`)
+- [x] **Manual appliance planning → optimization** — `appliance_schedules.json`, matrix injection on `expected_p_act`, checkbox in recommendation table (immediate adoption); SMB fallback on write
+- [x] **Consumer analysis Swimspa** — temperature actual/target + filter autonomous/Ernie (`page_consumer_analysis.py`)
+- [x] **Version 1.23.0** — minor bump
 
-### Bugfix Chart 1 SoC laufende Stunde vor Jetzt + BL-Ziel (2026-07-08)
+### Bugfix Chart 1 SoC current hour before now + BL target (2026-07-08)
 
-- [x] **Chart 1: SoC vor Jetzt ohne MILP-Konstante** — Rampe erster MILP-Viertelstunde → Jetzt aus Log-Hochrechnung (`_current_hour_soc_ramp_before_now`, `_soc_from_history_extrapolation`); Test `test_soc_intra_hour_ramp_before_now_replaces_flat_milp_head`
-- [x] **Chart 1: SoC BL Ziel nicht im grauen Bereich** — BL-Ziel-Spur nur ab Log-Grenze, ohne Brücke ins Graue; Test `test_baseline_soc_trace_starts_at_history_boundary_not_in_gray`
-- [x] **Chart 1: BL-Ziel und SoC treffen sich an Jetzt** — gemeinsamer Anker `soc_at_now` aus Log-Daten; Test `test_baseline_soc_meets_optimized_soc_at_now`
-- [x] **Live-Abnahme bestätigt**
-- [x] **Version 1.22.5** — Patch-Bump
+- [x] **Chart 1: SoC before now without MILP constant** — ramp first MILP quarter-hour → now from log extrapolation (`_current_hour_soc_ramp_before_now`, `_soc_from_history_extrapolation`); test `test_soc_intra_hour_ramp_before_now_replaces_flat_milp_head`
+- [x] **Chart 1: SoC BL target not in gray area** — BL target trace only from log boundary, no bridge into gray; test `test_baseline_soc_trace_starts_at_history_boundary_not_in_gray`
+- [x] **Chart 1: BL target and SoC meet at now** — shared anchor `soc_at_now` from log data; test `test_baseline_soc_meets_optimized_soc_at_now`
+- [x] **Live acceptance confirmed**
+- [x] **Version 1.22.5** — patch bump
 
-### Bugfix Ersparnis Manuelle Geräte (2026-07-08)
+### Bugfix savings manual appliances (2026-07-08)
 
-- [x] **Delta zu bestem Zeitpunkt statt Ersparnis** — Spalte/Caption „Delta zu bestem Zeitpunkt (€)“ (`Kosten − günstigste`); Vorzeichen `+`/`-`; rot bei positiv, grün bei negativ (`ui/pages/page_devices.py`, `tests/test_page_devices_display.py`)
-- [x] **Nennleistung immer editierbar** — `number_input` für alle `power_source`; `default_power_kw` aus Config nur als Vorbelegung/Hinweis-Caption
-- [x] **Version 1.22.2** — Patch-Bump
+- [x] **Delta to best time instead of savings** — column/caption “Delta to best time (€)” (`cost − cheapest`); sign `+`/`-`; red when positive, green when negative (`ui/pages/page_devices.py`, `tests/test_page_devices_display.py`)
+- [x] **Rated power always editable** — `number_input` for all `power_source`; `default_power_kw` from config only as default/hint caption
+- [x] **Version 1.22.2** — patch bump
 
-### Bugfix charging_context timezone-aware Live (2026-07-08)
+### Bugfix charging_context timezone-aware live (2026-07-08)
 
-- [x] **Streamlit TypeError naive/aware datetime** — `_align_like` in `optimizer/charging_context.py`; Config-Fenster (`car_available_from_hour`, Loxone-FertigUm) an timezone-aware Matrix-Slots angeglichen; Tests timezone-aware Horizont
-- [x] **Version 1.22.1** — Patch-Bump
+- [x] **Streamlit TypeError naive/aware datetime** — `_align_like` in `optimizer/charging_context.py`; config windows (`car_available_from_hour`, Loxone FertigUm) aligned to timezone-aware matrix slots; tests timezone-aware horizon
+- [x] **Version 1.22.1** — patch bump
 
-### Loxberry-Container Multi-Arch (2026-07-08)
+### Loxberry container multi-arch (2026-07-08)
 
-- [x] **7f — Loxberry-Container** — Multi-Arch-Build (`--target all`) via buildx; `docker-compose-loxberry.yml`; Go/No-Go in README und `container.md`; Dockerfile plattformneutral
-- [x] **Version 1.22.0** — Minor-Bump
+- [x] **7f — Loxberry container** — multi-arch build (`--target all`) via buildx; `docker-compose-loxberry.yml`; go/no-go in README and `container.md`; Dockerfile platform-neutral
+- [x] **Version 1.22.0** — minor bump
 
-### Bugfix Chart 1 SoC laufende Stunde (2026-07-08)
+### Bugfix Chart 1 SoC current hour (2026-07-08)
 
-- [x] **Chart 1: SoC nach Jetzt bis Stundenende extrapolieren** — keine horizontale Treppe im neutralen MILP-Bereich der laufenden Stunde; Rampe Jetzt → `_soc_tail_y_from_row` (`ui/charts.py`, `chart_now` durchgereicht); Live-Abnahme bestätigt; Test `test_soc_intra_hour_ramp_replaces_flat_milp_tail`
-- [x] **Version 1.21.5** — Patch-Bump
+- [x] **Chart 1: extrapolate SoC after now until end of hour** — no horizontal step in neutral MILP area of current hour; ramp now → `_soc_tail_y_from_row` (`ui/charts.py`, `chart_now` passed through); live acceptance confirmed; test `test_soc_intra_hour_ramp_replaces_flat_milp_tail`
+- [x] **Version 1.21.5** — patch bump
 
-### Bugfix Versionsanzeige Sidebar (2026-07-08)
+### Bugfix version display sidebar (2026-07-08)
 
-- [x] **Versionsanzeige ganz oben in der Sidebar** statt im Cockpit-Titel — `app.py` (`_render_sidebar_version`), `version`-Parameter aus `render_page_title_with_help` entfernt
-- [x] **Version 1.21.1** — Patch-Bump
+- [x] **Version display at top of sidebar** instead of cockpit title — `app.py` (`_render_sidebar_version`), `version` parameter removed from `render_page_title_with_help`
+- [x] **Version 1.21.1** — patch bump
 
-### Bugfix Chart 2 grau/neutral-Brücke (2026-07-08)
+### Bugfix Chart 2 gray/neutral bridge (2026-07-08)
 
-- [x] **Chart 2: Kosten und Verbrauch an grau|neutral-Grenze verbunden** — Prognose-Kurven kumulieren ab Ist-Summe (`_bridged_forecast_cumulative_series` in `ui/charts.py`); Kennzahlen BL Ziel / Optimiert / Ersparnis unverändert Horizont SA₀→SA₂; Tests `test_bridged_forecast_cumulative_continues_from_history`, `test_chart2_prognose_bridges_at_history_boundary`
-- [x] **Version 1.21.4** — Patch-Bump
+- [x] **Chart 2: cost and consumption connected at gray|neutral boundary** — forecast curves accumulate from actual sum (`_bridged_forecast_cumulative_series` in `ui/charts.py`); metrics BL target / optimized / savings unchanged horizon SA₀→SA₂; tests `test_bridged_forecast_cumulative_continues_from_history`, `test_chart2_prognose_bridges_at_history_boundary`
+- [x] **Version 1.21.4** — patch bump
 
-### UI-Menüstruktur & Empfehlungsmodus manuelle Geräte (2026-07-07)
+### UI menu structure & recommendation mode manual appliances (2026-07-07)
 
-Spec: [docs/spec/ui-menu-structure.md](docs/spec/ui-menu-structure.md). `### Version 1.21`-Feature-Block gemeinsam abgeschlossen.
+Spec: [docs/spec/ui-menu-structure.md](docs/spec/ui-menu-structure.md). `### Version 1.21` feature block completed together.
 
-- [x] **Menüstruktur als Sidebar-Ersatz** (`st.navigation` + `st.Page`) — `app.py` als Router, `ui/pages/`; bestehende Modi (Cockpit, Backtesting, Preis-Prognose Dev) als Seiten (Env-Gating erhalten); Roh-JSON-Config-Editor (`page_config.py`); Mockup-Seiten (Szenarieneditor, Hauskonfigurator, Verbraucheranalyse); Backtesting-/Preis-Prognose-Controls in den Seiten-Body verschoben
-- [x] **Empfehlungsmodus manuelle Geräte** — `optimizer/appliance_recommendation.py` (reine Startzeit-/Kostenlogik: Ranking der Startstunden im 6-h-Horizont nach Netzbezugskosten, 1–5 Sterne linear, Ersparnis vs. sofort) + Tests
-- [x] **`ui/pages/page_devices.py`** — pro Gerät (Waschmaschine, Trockner, Geschirrspüler) Nennleistung + Laufzeit → Startzeit-Empfehlung; rein beratend, kein Loxone-Schaltsignal
-- [x] **Config `appliances`-Block** — `config.get_appliances()` + Normalisierung, Schema + `config.example.json`; `default_power_kw` als Nennleistung für die Kostenbewertung (bei `power_source=loxone` Pflicht), `loxone_power_name` reserviert für späteren Adaptionsalgo
-- [x] **Version 1.21.0** — Minor-Bump
+- [x] **Menu structure as sidebar replacement** (`st.navigation` + `st.Page`) — `app.py` as router, `ui/pages/`; existing modes (cockpit, backtesting, price forecast dev) as pages (env gating preserved); raw JSON config editor (`page_config.py`); mockup pages (scenario editor, house configurator, consumer analysis); backtesting/price forecast controls moved to page body
+- [x] **Recommendation mode manual appliances** — `optimizer/appliance_recommendation.py` (pure start-time/cost logic: ranking of start hours in 6-h horizon by grid import cost, 1–5 stars linear, savings vs. immediate) + tests
+- [x] **`ui/pages/page_devices.py`** — per appliance (washing machine, dryer, dishwasher) rated power + runtime → start-time recommendation; advisory only, no Loxone switch signal
+- [x] **Config `appliances` block** — `config.get_appliances()` + normalization, schema + `config.example.json`; `default_power_kw` as rated power for cost evaluation (required for `power_source=loxone`), `loxone_power_name` reserved for later adaptation algo
+- [x] **Version 1.21.0** — minor bump
 
-### Swimspa Filternutzung optimieren (2026-07-07)
+### Optimize Swimspa filter usage (2026-07-07)
 
-Spec: [docs/spec/swimspa-filter.md](docs/spec/swimspa-filter.md). Ziel: kostenoptimale **ergänzende** Filterlaufzeit; `Sollstunden` (Schulden in h) langfristig → 0; nativer Duty-Cycle unabhängig.
+Spec: [docs/spec/swimspa-filter.md](docs/spec/swimspa-filter.md). Goal: cost-optimal **supplementary** filter runtime; `Sollstunden` (debt in h) long-term → 0; native duty cycle independent.
 
-- [x] **Code Phasen 1–4** — `loxone_remaining_hours`, `filter_context`/MILP-Sperrung, Schema/`config.example.json`/Doku, Live-Parser + `verify_swimspa_filter_live` / `patch_swimspa_filter_config`
-- [x] **Live-Abnahme (Nutzer)** — Prod-`config.json` gepatcht; Formate `filter1hour` und `Sollstunden` am Miniserver bestätigt
-- [x] **Deviation-Regeln SwimSpa-Filter (S8–S10)** — `swimspa_filter_should_run_missing`, `swimspa_filter_runs_unexpectedly` (nur außerhalb nativem Fenster), `swimspa_filter_over_nominal`; neue Prädikate `power_ist_without_soll`, `slot_outside_native_filter_window`, `ist_power_above_nominal`; natives Fenster als `filter_contexts` in `optimization_history.jsonl` mitgeloggt
-- [x] **Ist-Leistung Heizen/Filtern getrennt geprüft + Fall B korrigiert** — getrennte Loxone-Merker/Keys/Charts bestätigt; Heizungszähler `Ernie_Swim-Spa-P_act` misst inkl. Filter → `subtract_consumer_ids` zieht Filter-Anteil vom Heizungs-Ist ab (kein Doppelzählen in `flex_sum_kw`/`baseload_kw`); `patch_swimspa_filter_config` idempotent erweitert. Follow-up (historische Logs / Loxone-Trennung) als eigener 1.+1-Punkt
-- [x] **Version 1.20.0** — Minor-Bump
+- [x] **Code phases 1–4** — `loxone_remaining_hours`, `filter_context`/MILP blocking, schema/`config.example.json`/docs, live parser + `verify_swimspa_filter_live` / `patch_swimspa_filter_config`
+- [x] **Live acceptance (user)** — prod `config.json` patched; formats `filter1hour` and `Sollstunden` confirmed on miniserver
+- [x] **Deviation rules SwimSpa filter (S8–S10)** — `swimspa_filter_should_run_missing`, `swimspa_filter_runs_unexpectedly` (only outside native window), `swimspa_filter_over_nominal`; new predicates `power_ist_without_soll`, `slot_outside_native_filter_window`, `ist_power_above_nominal`; native window logged as `filter_contexts` in `optimization_history.jsonl`
+- [x] **Actual power heating/filtering checked separately + case B corrected** — separate Loxone markers/keys/charts confirmed; heating meter `Ernie_Swim-Spa-P_act` measures incl. filter → `subtract_consumer_ids` subtracts filter share from heating actual (no double counting in `flex_sum_kw`/`baseload_kw`); `patch_swimspa_filter_config` extended idempotently. Follow-up (historical logs / Loxone separation) as separate 1.+1 item
+- [x] **Version 1.20.0** — minor bump
 
-### Chart 1 Prognose-Sättigung PV & Grundlast (2026-07-07)
+### Chart 1 forecast saturation PV & baseload (2026-07-07)
 
-- [x] **Chart 1: Prognose-Sättigung auch für PV und Grundlast reduziert** — Zonenlogik aus den Flex-Verbrauchern auf `PV` und `Grundlast` erweitert; Historie bleibt voll gesättigt, neutraler und grüner Bereich nutzen denselben Sättigungsfaktor wie Flex; Regressionstests für Farbableitung und zonenspezifische Buckets ergänzt
-- [x] **Version 1.19.0** — Minor-Bump
+- [x] **Chart 1: forecast saturation reduced for PV and baseload too** — zone logic extended from flex consumers to `PV` and `Grundlast`; history remains fully saturated, neutral and green area use same saturation factor as flex; regression tests for color derivation and zone-specific buckets added
+- [x] **Version 1.19.0** — minor bump
 
-### Debug-Dump Vorarbeit (2026-07-07)
+### Debug dump preparatory work (2026-07-07)
 
-- [x] **Reproduzierbare Repro-Inputs für Debug-Dumps zentralisiert** — gemeinsame Sammlung in `runtime_store/debug_dump_inputs.py`; `chart_debug_capture` und `archive_prod_dump` sichern jetzt aktive `config.json`, `deviation_rules.json`, optionale `local_settings.json`, relevante Env-Overrides und aufgelöste Pfade
-- [x] **Explizit konfigurierte Zusatzdateien in Dumps aufgenommen** — Preisprognose-Modell (`forecast_model_path`) und `cons_data_hourly.csv` werden bei vorhandener aktiver Referenz mitarchiviert; fokussierte Tests für ZIP- und Prod-Dump-Archiv ergänzt
+- [x] **Reproducible repro inputs for debug dumps centralized** — shared collection in `runtime_store/debug_dump_inputs.py`; `chart_debug_capture` and `archive_prod_dump` now secure active `config.json`, `deviation_rules.json`, optional `local_settings.json`, relevant env overrides and resolved paths
+- [x] **Explicitly configured additional files included in dumps** — price forecast model (`forecast_model_path`) and `cons_data_hourly.csv` archived when active reference present; focused tests for ZIP and prod dump archive added
 
-### Verbraucher-Farben P1 — NAS-Deploy Cleanup (2026-07-07)
+### Consumer colors P1 — NAS deploy cleanup (2026-07-07)
 
-- [x] **Temporären lokalen `chart_color_index`-Test zurückgenommen** — lokale `config/config.json` entfernt; NAS-Pfad `ENERGY_OPTIMIZER_CONFIG_PATH=\\DS-KO-DO-2\docker\energy_optimizer\config\config.json` wieder maßgeblich, lokaler Override nicht mehr aktiv
+- [x] **Reverted temporary local `chart_color_index` test** — local `config/config.json` removed; NAS path `ENERGY_OPTIMIZER_CONFIG_PATH=\\DS-KO-DO-2\docker\energy_optimizer\config\config.json` authoritative again, local override no longer active
 
-### Verbraucher-Farben P2 — Zonenabhängige Sättigung (2026-07-07)
+### Consumer colors P2 — Zone-dependent saturation (2026-07-07)
 
-- [x] **P2 — Zonenabhängige Sättigung (nur Chart-1-Flex-Balken)** — History volle Palette; neutral + Forecast gemeinsam `CONSUMER_CHART_SATURATION_MUTED` (0,6); Slot → Zone via `chart_zone_kind_for_slot_start`; Flex-Farbe pro Slot/Bucket; Legende Vollfarbe (`legendonly`); Sankey unverändert; Tests und `docs/ui/charts.md`
-- [x] **Version 1.18.0** — Minor-Bump
+- [x] **P2 — Zone-dependent saturation (Chart 1 flex bars only)** — history full palette; neutral + forecast shared `CONSUMER_CHART_SATURATION_MUTED` (0.6); slot → zone via `chart_zone_kind_for_slot_start`; flex color per slot/bucket; legend full color (`legendonly`); Sankey unchanged; tests and `docs/ui/charts.md`
+- [x] **Version 1.18.0** — minor bump
 
-### Verbraucher-Farben P1 — 8er-Palette & chart_color_index (2026-07-07)
+### Consumer colors P1 — 8-color palette & chart_color_index (2026-07-07)
 
-- [x] **P1 — Feste 8er-Palette & `chart_color_index`** — `CONSUMER_PALETTE` (H 260→40, S=90, L=50); `color_from_hsl()` mit optionalem Alpha; Grundfarben als `_HSL_*` + `_ALPHA_*`; `consumer_chart_color()` zentral für Chart 1 (`chart_flow_balance`) und Sankey; `chart_color` entfernt, Schema/`config.example.json` mit Indizes SwimSpa=0, E-Auto=2, Wärmepumpe=7; Tests und `docs/ui/charts.md`
+- [x] **P1 — Fixed 8-color palette & `chart_color_index`** — `CONSUMER_PALETTE` (H 260→40, S=90, L=50); `color_from_hsl()` with optional alpha; base colors as `_HSL_*` + `_ALPHA_*`; `consumer_chart_color()` central for Chart 1 (`chart_flow_balance`) and Sankey; `chart_color` removed, schema/`config.example.json` with indices SwimSpa=0, E-Auto=2, Wärmepumpe=7; tests and `docs/ui/charts.md`
 
-### Chart-Farben zentralisieren (2026-07-07)
+### Centralize chart colors (2026-07-07)
 
-- [x] **Phase 1–4 `ui/chart_colors.py`** — Single Source für Zonen, Energiebilanz-Balken, Chart-1-Linien/Overlays, Chart-2-Kosten, Sankey, Flex-Palette, Legacy-Steuerbefehl-Balken; `chart_flow_balance`, `charts`, `sankey`, `sankey_produktiv`, `planning_window` nur noch Konsumenten
-- [x] **Version 1.17.3** — Patch-Bump
+- [x] **Phases 1–4 `ui/chart_colors.py`** — single source for zones, energy balance bars, Chart 1 lines/overlays, Chart 2 costs, Sankey, flex palette, legacy control-command bars; `chart_flow_balance`, `charts`, `sankey`, `sankey_produktiv`, `planning_window` consumers only
+- [x] **Version 1.17.3** — patch bump
 
-### Bugfix Chart 1 Zonen & Balken-X (2026-07-07)
+### Bugfix Chart 1 zones & bar X (2026-07-07)
 
-- [x] **Balken in grüner Zone SA₀→SA₁ unsichtbar** — `ChartSlotAxis.at()` ignorierte `slice(start, end)`; Extrapolations-Balken landeten am Chart-Anfang statt in der grünen Zone (`ui/charts.py`); Regressionstests
-- [x] **Zonenfarben grau/grün zentral & kontrastreicher** — `ui/chart_colors.py` mit `hsl`, `blend_hsl`, `rgba_from_hsl`, `CHART_ZONE_HISTORY_FILL`, `CHART_ZONE_FORECAST_FILL`; Forecast bewusst Gelb-Grün (H≠120) statt Material-Grün; Anbindung `data/planning_window.py`
-- [x] **Version 1.17.2** — Patch-Bump (zwei Bugfixes)
+- [x] **Bars invisible in green zone SA₀→SA₁** — `ChartSlotAxis.at()` ignored `slice(start, end)`; extrapolation bars landed at chart start instead of green zone (`ui/charts.py`); regression tests
+- [x] **Zone colors gray/green centralized & more contrast** — `ui/chart_colors.py` with `hsl`, `blend_hsl`, `rgba_from_hsl`, `CHART_ZONE_HISTORY_FILL`, `CHART_ZONE_FORECAST_FILL`; forecast deliberately yellow-green (H≠120) instead of material green; connection `data/planning_window.py`
+- [x] **Version 1.17.2** — patch bump (two bugfixes)
 
-### Chart 1 Rauf/Runter-Energiebilanz (2026-07-06)
+### Chart 1 up/down energy balance (2026-07-06)
 
-- [x] **Entladesperre besser visualisieren** — gelb-schwarzes Streifenband unter SoC (`ui/charts.py`)
-- [x] **Rauf/Runter-Balken** statt Batterie-/Verbraucher-Balken — Basis `ui/chart_flow_balance.py`, `ui/flow_balance_allocate.py`
-- [x] **Farbpalette Netz & Batterie** — Netz blau, Batterie-Flüsse gedämpft (HSL in `ui/chart_colors.py`); Szenarien A–I, `docs/ui/charts.md`
-- [x] **PV-Überschuss & volle Batterie** — SoC-Rand-Korrektur (MILP); Szenario I; Produktiv-Log: Ist-`battery_kw` aus `consumption_snapshot` → `Ist Batterie-Leistung (kW)` (`runtime_store/history_timeline.py`)
-- [x] **Netz- und Grundlast-Linien entfernt** — Darstellung nur noch über Rauf/Runter-Balken (`ui/charts.py`)
-- [x] **SoC-Verlauf** — gemeinsame Farbe optimiert + „SoC BL Ziel“ über `_HSL_SOC` in `ui/chart_colors.py`
-- [x] **Version 1.17.0** — Minor-Bump nach abgeschlossenem Version-0.+1-Block Chart 1
+- [x] **Better visualize discharge lock** — yellow-black striped band below SoC (`ui/charts.py`)
+- [x] **Up/down bars** instead of battery/consumer bars — basis `ui/chart_flow_balance.py`, `ui/flow_balance_allocate.py`
+- [x] **Color palette grid & battery** — grid blue, battery flows muted (HSL in `ui/chart_colors.py`); scenarios A–I, `docs/ui/charts.md`
+- [x] **PV surplus & full battery** — SoC edge correction (MILP); scenario I; prod log: actual `battery_kw` from `consumption_snapshot` → `Ist Batterie-Leistung (kW)` (`runtime_store/history_timeline.py`)
+- [x] **Grid and baseload lines removed** — display only via up/down bars (`ui/charts.py`)
+- [x] **SoC timeline** — shared color optimized + “SoC BL Ziel” via `_HSL_SOC` in `ui/chart_colors.py`
+- [x] **Version 1.17.0** — minor bump after completed Version-0.+1 block Chart 1
 
-### UI S-2 Cold-Start & Preisprognose-Logging (2026-07-06)
+### UI S-2 cold start & price forecast logging (2026-07-06)
 
-- [x] **Initiales Rendering UI (SA-2-SA)** — Cold-Start ~112 s → ~7 s: Archive-EU-Feature-Abruf für Zukunfts-Slots übersprungen (`_archive_covers_slot_range` in `data/price_forecast_live.py`); JSONL-In-Memory-Cache in `runtime_store/optimization_history.py`
-- [x] **Terminal-Warnung EU-Features (Open-Meteo 400)** — `print()` durch `logging` ersetzt; erwarteter Live-Fall nur `logger.debug`, API-Fehler als kompaktes `logger.warning` ohne volle URL
+- [x] **Initial UI rendering (SA-2-SA)** — cold start ~112 s → ~7 s: archive EU feature fetch for future slots skipped (`_archive_covers_slot_range` in `data/price_forecast_live.py`); JSONL in-memory cache in `runtime_store/optimization_history.py`
+- [x] **Terminal warning EU features (Open-Meteo 400)** — `print()` replaced by `logging`; expected live case only `logger.debug`, API errors as compact `logger.warning` without full URL
 
-### Preis-Prognose (EU-Wetter & Erzeugung) Epic abgeschlossen (2026-07-06)
+### Price forecast (EU weather & generation) epic completed (2026-07-06)
 
-- [x] **Preis-Prognose (EU-Wetter & Erzeugung):** Korrelationsmodell für grüne Zone (kein Day-Ahead bis SA₂) statt Spiegelung — Wind + Solar auf EU-Ebene; Spec [price-forecast-renewables.md](docs/spec/price-forecast-renewables.md)
-- [x] **Phase 0:** Scope festgelegt (AT Day-Ahead, EU-Länder, OLS, Akzeptanz)
-- [x] **Phase 1:** Dataset-Pipeline `data/eu_market_features.py`, `scripts/build_price_training_dataset.py`, `data/cache/price_training_*.csv`
-- [x] **Phase 2:** OLS + Walk-forward; **extended** (+ EU-Last/Residuallast) via `enrich_price_training_dataset` + `compare_price_forecast_features`; Bias-Korrektur (Nicht-Peak P90)
-- [x] **Phase 3:** UI-Eval (`ui/price_forecast.py`); Live in `resolve_market_slots` (`data/price_forecast_live.py`, `data/profile_manager.py`); `config.market_prices.missing_price_strategy` (`mirror` \| `forecast`, Default **forecast**)
-- [x] **Jahresvergleich 2025:** `run_price_strategy_backtests` (333 Fenster, `sunset_window`, alle Szenarien); Bericht `backtesting_logs/price_strategy_compare/comparison.md` — Prognose vs. Spiegelung marginal (±0,1–0,6 %), Go-Live mit `forecast`
-- [x] **Rollierende Bias-Rekalibrierung** — zurückgestellt; statische P90-Bias-Korrektur beim Training bleibt für Live aktiv
+- [x] **Price forecast (EU weather & generation):** correlation model for green zone (no day-ahead until SA₂) instead of mirroring — wind + solar at EU level; spec [price-forecast-renewables.md](docs/spec/price-forecast-renewables.md)
+- [x] **Phase 0:** scope defined (AT day-ahead, EU countries, OLS, acceptance)
+- [x] **Phase 1:** dataset pipeline `data/eu_market_features.py`, `scripts/build_price_training_dataset.py`, `data/cache/price_training_*.csv`
+- [x] **Phase 2:** OLS + walk-forward; **extended** (+ EU load/residual load) via `enrich_price_training_dataset` + `compare_price_forecast_features`; bias correction (non-peak P90)
+- [x] **Phase 3:** UI eval (`ui/price_forecast.py`); live in `resolve_market_slots` (`data/price_forecast_live.py`, `data/profile_manager.py`); `config.market_prices.missing_price_strategy` (`mirror` \| `forecast`, default **forecast**)
+- [x] **Annual comparison 2025:** `run_price_strategy_backtests` (333 windows, `sunset_window`, all scenarios); report `backtesting_logs/price_strategy_compare/comparison.md` — forecast vs. mirroring marginal (±0.1–0.6%), go-live with `forecast`
+- [x] **Rolling bias recalibration** — deferred; static P90 bias correction at training remains active for live
 
-### Preis-Prognose Backtesting Jahresvergleich (2026-07-06)
+### Price forecast backtesting annual comparison (2026-07-06)
 
-- [x] **Backtesting Jahresvergleich (Infrastruktur):** Grüne Zone im `sunset_window` — Day-Ahead-Cutoff, Spiegelung vs. OLS (`data/backtesting_prices.py`, `resolve_market_slots` forecast); `--price-strategy` / `--output-dir` in `run_backtesting`; Orchestrator `run_price_strategy_backtests` + `compare_price_strategy_backtests`; Tests
+- [x] **Backtesting annual comparison (infrastructure):** green zone in `sunset_window` — day-ahead cutoff, mirroring vs. OLS (`data/backtesting_prices.py`, `resolve_market_slots` forecast); `--price-strategy` / `--output-dir` in `run_backtesting`; orchestrator `run_price_strategy_backtests` + `compare_price_strategy_backtests`; tests
 
-### Preis-Prognose UI per config.json (2026-07-06)
+### Price forecast UI via config.json (2026-07-06)
 
-- [x] **Extra-UI-Seite für Preismodell über config.json aktivierbar** — `ui.price_forecast_page_enabled` (Standard: `false`); ohne `ENERGY_OPTIMIZER_UI_MODES` nur Sunset-2-Sunset + Backtesting, Preis-Prognose (Dev) optional per Config; Env-Variable hat weiterhin Vorrang (`ui/mode_selector.py`, `config.py`, Schema/Beispiel, Tests `tests/test_mode_selector.py`)
+- [x] **Extra UI page for price model activatable via config.json** — `ui.price_forecast_page_enabled` (default: `false`); without `ENERGY_OPTIMIZER_UI_MODES` only Sunset-2-Sunset + backtesting, price forecast (dev) optional via config; env variable still takes precedence (`ui/mode_selector.py`, `config.py`, schema/example, tests `tests/test_mode_selector.py`)
 
-### Bugfixes: Test-Fixtures & Wärmepumpe (2026-07-06)
+### Bugfixes: test fixtures & heat pump (2026-07-06)
 
-- [x] **Testdaten für frisches Checkout ausführbar** — Prod-Dump-Fixtures ergänzt (`.gitignore`-Ausnahmen, `scripts/complete_prod_dump_fixtures.py`), thermische CSV-Fixtures (`tests/fixtures/thermal/`), Smoke-Tests auf `tests/fixtures/historical/cons_data_hourly.csv`; **551 passed** (Commit `71a4764`)
-- [x] **Wärmepumpe in `config.json` wiederhergestellt** — Eintrag `flexible_consumers[id=waermepumpe]` aus Produktiv-Backup (`config_back.json`, Commit `3b7fa1c`): `Ernie_WP_Freigabe`, `Ernie_WP_P_act`, historisches Tagesziel, `chart_color` `#ff9800`; auch `config.example.json`
-- [x] **Soll-Ist Hinweis: Wärmepumpe nicht angesprungen** — Regel `waermepumpe_enable_no_start` (Kategorie Hinweis), Doku/Szenario S5, Seed-Skript und Tests
+- [x] **Test data executable on fresh checkout** — prod dump fixtures added (`.gitignore` exceptions, `scripts/complete_prod_dump_fixtures.py`), thermal CSV fixtures (`tests/fixtures/thermal/`), smoke tests on `tests/fixtures/historical/cons_data_hourly.csv`; **551 passed** (commit `71a4764`)
+- [x] **Heat pump restored in `config.json`** — entry `flexible_consumers[id=waermepumpe]` from production backup (`config_back.json`, commit `3b7fa1c`): `Ernie_WP_Freigabe`, `Ernie_WP_P_act`, historical daily target, `chart_color` `#ff9800`; also `config.example.json`
+- [x] **Target/actual notice: heat pump did not start** — rule `waermepumpe_enable_no_start` (category notice), docs/scenario S5, seed script and tests
 
-### Chart 1 gestapelte Flex-Verbraucher (2026-07-06)
+### Chart 1 stacked flex consumers (2026-07-06)
 
-- [x] **Chart 1: variable Flex-Verbraucher als gestapelter Negativ-Balken** — ein Balken pro Slot (gleiche X-Position wie Batterie, `barmode=overlay`, Stapelung per `base`); Sortierung nach Horizont-Energie SA₀…SA₂, Cache bis nächster SA₀; Farben via `flexible_consumers.chart_color` in `config.json`; Tests `tests/test_chart_consumer_stack.py` (`ui/charts.py`, `config.py`)
-- [x] **Version 1.15.0** — Minor-Bump nach abgeschlossenem Version-0.+1-Punkt; Regel `.cursor/rules/versioning.mdc` (Minor vs. Patch)
+- [x] **Chart 1: variable flex consumers as stacked negative bars** — one bar per slot (same X position as battery, `barmode=overlay`, stacking via `base`); sort by horizon energy SA₀…SA₂, cache until next SA₀; colors via `flexible_consumers.chart_color` in `config.json`; tests `tests/test_chart_consumer_stack.py` (`ui/charts.py`, `config.py`)
+- [x] **Version 1.15.0** — minor bump after completed Version-0.+1 item; rule `.cursor/rules/versioning.mdc` (minor vs. patch)
 
-### UI S-2 Nav & Hilfe-Icons Mobile (2026-07-06)
+### UI S-2 nav & help icons mobile (2026-07-06)
 
-- [x] **Kompakte S-2-Navigation** — `←` / `Heute` / Kalender-Icon / `→` in `st.container(horizontal=True)`; Datumsauswahl im Popover (nur SA₀-Tage mit Log); `Heute` und Zyklus-Logik in `ui/s2_navigation.py`, `ui/chart_context.py`, `ui/history_navigation.py`
-- [x] **Mini-Hilfe-Icons** — Material-Icon + tertiary-Popover statt `?`-Button; horizontales Layout ohne Extra-Zeile auf Mobile; CSS in `ui/styles.py` (`inject_help_hint_css`); `ui/help_hint.py`, `ui/countdown.py`
+- [x] **Compact S-2 navigation** — `←` / `Heute` / calendar icon / `→` in `st.container(horizontal=True)`; date selection in popover (only SA₀ days with log); `Heute` and cycle logic in `ui/s2_navigation.py`, `ui/chart_context.py`, `ui/history_navigation.py`
+- [x] **Mini help icons** — material icon + tertiary popover instead of `?` button; horizontal layout without extra row on mobile; CSS in `ui/styles.py` (`inject_help_hint_css`); `ui/help_hint.py`, `ui/countdown.py`
 
-### Entladesperre: Netz-Trickelladen (2026-07-06)
+### Discharge lock: grid trickle charging (2026-07-06)
 
-- [x] **Bugfix: SOC stieg bei Halten aus dem Netz (05.07. ~22–23 Uhr)** — Prod-Log (`runtime-prod/runtime.zip`): PV=0, `battery_plan_kw=0`, gemessen ~0,2 kW Laden + Netzbezug; Ursache `target_soc_percent=100` bei Huawei-Steuerbefehl 1; Fix: bei `MODE_ENTLADESPERRE` `target_soc = current_soc` (`optimizer/milp.py`); Test `test_entladesperre_target_soc_matches_current_soc`
+- [x] **Bugfix: SOC rose when holding from grid (05.07. ~22–23 h)** — prod log (`runtime-prod/runtime.zip`): PV=0, `battery_plan_kw=0`, measured ~0.2 kW charging + grid import; cause `target_soc_percent=100` with Huawei control command 1; fix: at `MODE_ENTLADESPERRE` `target_soc = current_soc` (`optimizer/milp.py`); test `test_entladesperre_target_soc_matches_current_soc`
 
-### Migration-Skript entfernt (2026-07-05)
+### Migration script removed (2026-07-05)
 
-- [x] **`scripts.migrate_persist_layout` gelöscht** — Einmal-Migration config/ + runtime/ nicht mehr nötig; Skript, Test, `ernie-migrate-layout`-Entrypoint und Doku-Hinweise entfernt
+- [x] **`scripts.migrate_persist_layout` deleted** — one-time migration config/ + runtime/ no longer needed; script, test, `ernie-migrate-layout` entrypoint and doc references removed
 
-### Chart 1 Soll-Ist-Marker NAS (2026-07-05)
+### Chart 1 target/actual markers NAS (2026-07-05)
 
-- [x] **Bugfix: Chart-1-Soll/Ist-Marker auf NAS fehlten trotz gleichem `optimization_history.jsonl`** — Ursache fehlende `config/deviation_rules.json` (und Vorlagen) auf dem NAS-Config-Volume; ohne Regeldatei unterdrückt `deviation_timeline` alle Events still. Fix: Dateien manuell auf NAS kopiert; Bootstrap legt `deviation_rules.example.json`, `deviation_rules.schema.json` und `deviation_rules.json` aus Image-Vorlage an; Dockerfile `share/config/` ergänzt (`runtime_store/bootstrap.py`)
+- [x] **Bugfix: Chart 1 target/actual markers missing on NAS despite same `optimization_history.jsonl`** — cause missing `config/deviation_rules.json` (and templates) on NAS config volume; without rules file `deviation_timeline` suppresses all events silently. Fix: files manually copied to NAS; bootstrap creates `deviation_rules.example.json`, `deviation_rules.schema.json` and `deviation_rules.json` from image template; Dockerfile `share/config/` extended (`runtime_store/bootstrap.py`)
 
-### UI S-2 Chart 2 Einsparungs-Text (2026-07-05)
+### UI S-2 Chart 2 savings text (2026-07-05)
 
-- [x] **UI S-2 Chart 2: Einsparungs-Texteinblendungen in beiden Segmenten** — `show_cost_summary` nicht mehr an `not split_mode` gekoppelt; Annotationen (`BL Ziel`, `Optimiert`, `Ersparnis`) in SA₀→SA₁ und SA₁→SA₂ mit Gesamt-Horizont-Werten aus `_cost_totals_from_savings`; Test `test_chart2_s2_split_mode_shows_cost_summary_annotations` (`ui/charts.py`)
+- [x] **UI S-2 Chart 2: savings text annotations in both segments** — `show_cost_summary` no longer tied to `not split_mode`; annotations (`BL Ziel`, `Optimiert`, `Ersparnis`) in SA₀→SA₁ and SA₁→SA₂ with full-horizon values from `_cost_totals_from_savings`; test `test_chart2_s2_split_mode_shows_cost_summary_annotations` (`ui/charts.py`)
 
-### Chart 2 Ist-Kosten Log-Bereich (2026-07-05)
+### Chart 2 actual cost log area (2026-07-05)
 
-- [x] **Bugfix Chart 2: Ist-Kosten im grauen Log-Bereich konstant 0 €** — `entry_to_chart_row` nutzt bei vorhandenem Snapshot **`consumption_snapshot.grid_kw`** für Netzbezug statt Soll-Bilanz (PV + `battery_plan_kw`); `_netzbezug_kw_from_entry` in `runtime_store/history_timeline.py`; Regressionstest `test_build_chart_history_uses_snapshot_grid_kw_for_slot_cost`
+- [x] **Bugfix Chart 2: actual cost in gray log area constantly 0 €** — `entry_to_chart_row` uses **`consumption_snapshot.grid_kw`** for grid import when snapshot present instead of target balance (PV + `battery_plan_kw`); `_netzbezug_kw_from_entry` in `runtime_store/history_timeline.py`; regression test `test_build_chart_history_uses_snapshot_grid_kw_for_slot_cost`
 
-### UI Chart 1 SoC-Brücke Log/MILP (2026-07-05)
+### UI Chart 1 SoC bridge log/MILP (2026-07-05)
 
-- [x] **Bugfix Chart 1: SoC-Lücke grau → neutral (Log/MILP-Grenze)** — `add_optimized_soc_trace` deaktivierte `bridge_left` fälschlich an `history_slot_count`; Brückenpunkt wie bei neutral→grün wieder aktiv; Test `test_soc_trace_bridges_at_history_boundary` (`ui/charts.py`)
+- [x] **Bugfix Chart 1: SoC gap gray → neutral (log/MILP boundary)** — `add_optimized_soc_trace` incorrectly disabled `bridge_left` at `history_slot_count`; bridge point like neutral→green active again; test `test_soc_trace_bridges_at_history_boundary` (`ui/charts.py`)
 
-### UI Chart PV-Zeitbasis (2026-07-05)
+### UI Chart PV time base (2026-07-05)
 
-- [x] **PV-Leistung auf X-Achse korrekt positioniert** — Ursache: glatte Linearinterpolation zwischen Slotbeginnen ließ PV vor Sonnenaufgang ansteigen (Rohdaten stündlich ab Slotbeginn waren plausibel); Fix: PV-Anker in **Slotmitte** (`_LINE_ANCHOR_SLOT_CENTER` in `_add_pv_trace`, `ui/charts.py`); Regressionstest `test_chart1_pv_center_anchor_avoids_early_morning_ramp`; S-2-Nav zwischen Chart 1/2 aus Fragment ausgelagert (`StreamlitFragmentWidgetsNotAllowedOutsideError`, `ui/live_mode.py`)
+- [x] **PV power correctly positioned on X-axis** — cause: smooth linear interpolation between slot starts let PV rise before sunrise (raw hourly data from slot start was plausible); fix: PV anchors at **slot center** (`_LINE_ANCHOR_SLOT_CENTER` in `_add_pv_trace`, `ui/charts.py`); regression test `test_chart1_pv_center_anchor_avoids_early_morning_ramp`; S-2 nav between Chart 1/2 extracted from fragment (`StreamlitFragmentWidgetsNotAllowedOutsideError`, `ui/live_mode.py`)
 
-### UI Fragment-Refresh (2026-07-05)
+### UI fragment refresh (2026-07-05)
 
-- [x] **UI: Fragment-Refresh getrennt konfigurierbar** — `ui/fragment_refresh.py`; Charts 1+2 **60 s** (`ui/live_mode.py`), Sankey/Countdown **10 s** (`ui/sankey.py`, `ui/countdown.py`); optional `config.json` → `ui.fragment_refresh_charts_sec` / `ui.fragment_refresh_status_sec` oder Env `ENERGY_OPTIMIZER_UI_FRAGMENT_CHARTS_SEC` / `ENERGY_OPTIMIZER_UI_FRAGMENT_STATUS_SEC`; Schema/Beispiel, Tests `tests/test_fragment_refresh.py`
+- [x] **UI: fragment refresh separately configurable** — `ui/fragment_refresh.py`; Charts 1+2 **60 s** (`ui/live_mode.py`), Sankey/countdown **10 s** (`ui/sankey.py`, `ui/countdown.py`); optional `config.json` → `ui.fragment_refresh_charts_sec` / `ui.fragment_refresh_status_sec` or env `ENERGY_OPTIMIZER_UI_FRAGMENT_CHARTS_SEC` / `ENERGY_OPTIMIZER_UI_FRAGMENT_STATUS_SEC`; schema/example, tests `tests/test_fragment_refresh.py`
 
-### Historische Tests & Energiebilanz (2026-07-05)
+### Historical tests & energy balance (2026-07-05)
 
-- [x] **stderr-Warnung `Keine historischen Daten in cons_data_hourly`** — `profile_manager.get_historical_day_data`: `cons_data_hourly.csv` fehlt oder ist leer (Datum in der Meldung = angefragter Tag, typisch heute via `consumer_targets` in der Live-UI); Ausgabe per `print()` → stderr; Fallback Grundlast 0,5 kW/h, Verbraucher-Tagesziele 0; Abhilfe: `runtime/cons_data_hourly.csv` pflegen (`main.py` oder `scripts/generate_cons_data.py`)
-- [x] **Pre-commit / historische Testsuite validieren** — Nachholen von `--no-verify` (Commit `8721df2`): `pytest tests` inkl. 25× `test_historical_24h_consistency` grün; Pre-commit-Hook wieder sinnvoll nutzbar für Code-Änderungen
-- [x] **`runtime/cons_data_hourly.csv`** aus Loxone-Logs regeneriert (≥12 Monate Retention)
-- [x] **Test-Fixture** `tests/fixtures/historical/cons_data_hourly.csv` + `scripts/extract_historical_fixtures.py` (isoliert von Runtime)
-- [x] **`test_historical_24h_consistency.py`:** Fixture-Pfad, parametrisierte Konsistenzläufe grün
-- [x] **Bugfix** `simulate_horizon`: `finalize_chart_row_energy` nach jeder Stunde — Netzbezug konsistent mit gerundeten Flex-Spalten (Δ 8 W am Fall `2026-03-21_high_pv`)
-- [x] **Testsuite-Inventur (optional / Env, kein Blocker):** Loxone-Integration (`test_loxone_integration.py`, 5× Skip ohne Env), thermische CSV-Fixtures (`tests/fixtures/thermal/` fehlt, 2× Skip) — bewusst unverändert offen
+- [x] **stderr warning `Keine historischen Daten in cons_data_hourly`** — `profile_manager.get_historical_day_data`: `cons_data_hourly.csv` missing or empty (date in message = requested day, typically today via `consumer_targets` in live UI); output via `print()` → stderr; fallback baseload 0.5 kW/h, consumer daily targets 0; remedy: maintain `runtime/cons_data_hourly.csv` (`main.py` or `scripts/generate_cons_data.py`)
+- [x] **Pre-commit / validate historical test suite** — catch-up after `--no-verify` (commit `8721df2`): `pytest tests` incl. 25× `test_historical_24h_consistency` green; pre-commit hook usable again for code changes
+- [x] **`runtime/cons_data_hourly.csv`** regenerated from Loxone logs (≥12 months retention)
+- [x] **Test fixture** `tests/fixtures/historical/cons_data_hourly.csv` + `scripts/extract_historical_fixtures.py` (isolated from runtime)
+- [x] **`test_historical_24h_consistency.py`:** fixture path, parametrized consistency runs green
+- [x] **Bugfix** `simulate_horizon`: `finalize_chart_row_energy` after each hour — grid import consistent with rounded flex columns (Δ 8 W on case `2026-03-21_high_pv`)
+- [x] **Test suite inventory (optional / env, no blocker):** Loxone integration (`test_loxone_integration.py`, 5× skip without env), thermal CSV fixtures (`tests/fixtures/thermal/` missing, 2× skip) — deliberately left open unchanged
 
-### UI main.py-Sync (2026-07-05)
+### UI main.py sync (2026-07-05)
 
-- [x] **Doppelte UI-Wartezeit nach main.py-Durchlauf klären**
-  - Ursache: feste 60-s-Phase (`delay`) ohne `completed_at`-Check, danach bis 120 s Grace (`wait_main`) — wirkte wie zweimaliges Warten
-  - Fix: früher Exit bei Sync im aktuellen Slot; max. 60+30 s Wartezeit; UNC-Lesefix in `run_state`; einheitlicher UI-Hinweis; Tests `tests/test_schedule.py`
-- [x] **UI: main.py-Sync schneller nach Durchlauf** — Fallback **15+15 s** (`optimizer/schedule.py`); Anzeige „nächster Abgleich spätestens in X s“ statt voller Fallback-Countdown (`sync_ui_countdown_seconds`, `ui/main_py_sync.py`); 15-s-Poll-Fragment `poll_main_py_sync_if_pending` + Footer (`ui/countdown.py`, `app.py`); Config `ui.main_sync_poll_sec` / Env `ENERGY_OPTIMIZER_UI_MAIN_SYNC_POLL_SEC`; Tests `tests/test_schedule.py`, `tests/test_main_py_sync_ui.py`
+- [x] **Clarify duplicate UI wait time after main.py run**
+  - Cause: fixed 60-s phase (`delay`) without `completed_at` check, then up to 120 s grace (`wait_main`) — felt like waiting twice
+  - Fix: early exit on sync in current slot; max. 60+30 s wait; UNC read fix in `run_state`; unified UI notice; tests `tests/test_schedule.py`
+- [x] **UI: main.py sync faster after run** — fallback **15+15 s** (`optimizer/schedule.py`); display “next sync at latest in X s” instead of full fallback countdown (`sync_ui_countdown_seconds`, `ui/main_py_sync.py`); 15-s poll fragment `poll_main_py_sync_if_pending` + footer (`ui/countdown.py`, `app.py`); config `ui.main_sync_poll_sec` / env `ENERGY_OPTIMIZER_UI_MAIN_SYNC_POLL_SEC`; tests `tests/test_schedule.py`, `tests/test_main_py_sync_ui.py`
 
-### UI Sunset-2-Sunset Epic abgeschlossen (2026-07-05)
+### UI Sunset-2-Sunset epic completed (2026-07-05)
 
-- [x] Prod-Cockpit **Sunset-2-Sunset** (`ENERGY_OPTIMIZER_UI_MODES=sunset2sunset,backtesting`); ersetzt Echtzeit, Historischer Tag, Produktiv-Archiv
-- [x] Phasen 1–3 UI + Follow-up Layout; Phase 4 P4a–P4c (Betriebsmodi-Doku, Deployment-Querverweise, Navigationstests); P4d entfallen
-- [x] Spec [docs/spec/ui-sunset2sunset.md](docs/spec/ui-sunset2sunset.md) **v0.7.0**; App-Version **1.14.0**
-- Follow-ups (eigenständig im Backlog): Soll/Ist-Abweichung, Nachrechnung Backtesting, Preis-Spiegelung, optionales Layout/Mobil
+- [x] Prod cockpit **Sunset-2-Sunset** (`ENERGY_OPTIMIZER_UI_MODES=sunset2sunset,backtesting`); replaces realtime, historical day, production archive
+- [x] Phases 1–3 UI + follow-up layout; phase 4 P4a–P4c (operating modes docs, deployment cross-references, navigation tests); P4d dropped
+- [x] Spec [docs/spec/ui-sunset2sunset.md](docs/spec/ui-sunset2sunset.md) **v0.7.0**; app version **1.14.0**
+- Follow-ups (standalone in Backlog): target/actual deviation, backtesting recalculation, price mirroring, optional layout/mobile
 
-### UI Sunset-2-Sunset — Phase 4 P4d entfallen (2026-07-05)
+### UI Sunset-2-Sunset — Phase 4 P4d dropped (2026-07-05)
 
-- [x] **P4d** gestrichen — dedizierte Missing-Slots-Tests entfallen; Abdeckung durch bestehende Chart-/Tabellen-Tests (Spec §6)
+- [x] **P4d** removed — dedicated missing-slots tests dropped; coverage via existing chart/table tests (spec §6)
 
-### UI Sunset-2-Sunset — Phase 4 P4c Navigationstests (2026-07-05)
+### UI Sunset-2-Sunset — Phase 4 P4c navigation tests (2026-07-05)
 
-- [x] **P4c** `tests/test_s2_navigation.py`: `segment_navigation_label`, `max_sunrise_cycle_offset`, `build_live_chart_context` (Segment-/Zyklus-Fenster, zone_reference, max_cycle ↔ Nav); Spec §4
+- [x] **P4c** `tests/test_s2_navigation.py`: `segment_navigation_label`, `max_sunrise_cycle_offset`, `build_live_chart_context` (segment/cycle window, zone_reference, max_cycle ↔ nav); spec §4
 
-### UI Sunset-2-Sunset — Phase 4 P4b Deployment & Querverweise (2026-07-05)
+### UI Sunset-2-Sunset — Phase 4 P4b deployment & cross-references (2026-07-05)
 
-- [x] **P4b** `docker-compose-synology.yml` bestätigt (`sunset2sunset,backtesting`); `betrieb.md`, `container.md`, `docs/README.md`, `charts.md`, `ueberblick.md`, `preise.md`, `batterie-pv.md`; Spec-Status Phasen 1–3 erledigt
+- [x] **P4b** `docker-compose-synology.yml` confirmed (`sunset2sunset,backtesting`); `betrieb.md`, `container.md`, `docs/README.md`, `charts.md`, `ueberblick.md`, `preise.md`, `batterie-pv.md`; spec status phases 1–3 completed
 
-### UI Sunset-2-Sunset — Phase 4 P4a Betriebsmodi-Doku (2026-07-05)
+### UI Sunset-2-Sunset — Phase 4 P4a operating modes docs (2026-07-05)
 
-- [x] **P4a** `docs/ui/betriebsmodi.md` auf Spec v0.6.2: Sunset-2-Sunset (Prod), Backtesting (Dev); SA₀→SA₁/SA₁→SA₂, Navigation, Panels, Kennzahlen Jetzt→SA₂; entfallene Modi; Env-Var `sunset2sunset,backtesting`
+- [x] **P4a** `docs/ui/betriebsmodi.md` per spec v0.6.2: Sunset-2-Sunset (prod), backtesting (dev); SA₀→SA₁/SA₁→SA₂, navigation, panels, metrics now→SA₂; dropped modes; env var `sunset2sunset,backtesting`
 
-### UI Sunset-2-Sunset — Follow-up Layout (2026-07-05)
+### UI Sunset-2-Sunset — Follow-up layout (2026-07-05)
 
-- [x] **Layout-a** Navigation kompakt zwischen Chart 1 und Chart 2; Segment-Label in Chart-1-Überschrift (`ui/history_navigation.py`, `ui/charts.py`, `ui/simulation_results.py`, `ui/live_mode.py`)
-- [x] **Layout-b** Hilfe-„?“ (`ui/help_hint.py`, `st.popover`): Zonen (Chart 1), Chart 2 Ist/Prognose, Sync-Wartezeit, Modus-Scope am Seitentitel; Version als Caption neben Titel
-- [x] **Datenbasis** Expander im Footer unter Trennlinie, vor Optimierungs-Takt (`ui/countdown.py`, `app.py`)
-- [x] **H2/H6/H7** bewusst ohne Änderung (kein „Aktuelle Stunde“-Hinweis; Tabellen-/Energievergleich-Expander unverändert)
-- [x] Docs: `docs/ui/charts.md`, Spec §7.1 in `docs/spec/ui-sunset2sunset.md`
+- [x] **Layout-a** navigation compact between Chart 1 and Chart 2; segment label in Chart 1 heading (`ui/history_navigation.py`, `ui/charts.py`, `ui/simulation_results.py`, `ui/live_mode.py`)
+- [x] **Layout-b** help “?” (`ui/help_hint.py`, `st.popover`): zones (Chart 1), Chart 2 actual/forecast, sync wait time, mode scope at page title; version as caption next to title
+- [x] **Data basis** expander in footer below separator, before optimization cadence (`ui/countdown.py`, `app.py`)
+- [x] **H2/H6/H7** deliberately unchanged (no “current hour” notice; table/energy comparison expanders unchanged)
+- [x] Docs: `docs/ui/charts.md`, spec §7.1 in `docs/spec/ui-sunset2sunset.md`
 
-### UI Sunset-2-Sunset — Phase 3 Charts & Kennzahlen abgeschlossen (2026-07-05)
+### UI Sunset-2-Sunset — Phase 3 charts & metrics completed (2026-07-05)
 
-- [x] **Phase 3 (P3a–P3d)** — Chart 2 Ist/Prognose, SA-Marker, Legacy-Cleanup Prod-UI, Kennzahlen-Horizont Jetzt→SA₂; Details in den Unterpunkten unten
+- [x] **Phase 3 (P3a–P3d)** — Chart 2 actual/forecast, SA markers, legacy cleanup prod UI, metrics horizon now→SA₂; details in sub-items below
 
-### UI Sunset-2-Sunset — Phase 3 P3d Kennzahlen-Horizont Jetzt→SA₂ (2026-07-05)
+### UI Sunset-2-Sunset — Phase 3 P3d metrics horizon now→SA₂ (2026-07-05)
 
-- [x] **P3d** Ersparnis-/Kosten-Kennzahlen und Energievergleich über volle Matrix (Jetzt→SA₂), nicht Chart-Segment; Labels „(24h)“ entfernt; `[:24]` bei Grundlast/Profil-Zielen bereinigt (`ui/chart_context.py`, `ui/simulation_results.py`, `ui/charts.py`, `optimizer/targets.py`, `data/consumer_targets.py`); Tests `test_horizon_targets.py`, `test_chart_context.py`
+- [x] **P3d** savings/cost metrics and energy comparison over full matrix (now→SA₂), not chart segment; labels “(24h)” removed; `[:24]` cleaned up for baseload/profile targets (`ui/chart_context.py`, `ui/simulation_results.py`, `ui/charts.py`, `optimizer/targets.py`, `data/consumer_targets.py`); tests `test_horizon_targets.py`, `test_chart_context.py`
 
-### UI Sunset-2-Sunset — Phase 3 P3c Legacy-Pfade entfernt (2026-07-05)
+### UI Sunset-2-Sunset — Phase 3 P3c legacy paths removed (2026-07-05)
 
-- [x] **P3c** `history_offset_days`, Produktiv-Archiv-Navigation, Modus „Historischer Tag“ und `render_historical_*` aus Prod-UI entfernt; S-2 nur noch `render_s2_navigation` (`ui/history_navigation.py`, `ui/live_mode.py`, `app.py`, `ui/mode_selector.py`); `ui/historical.py` gelöscht; Tests `test_mode_selector.py`
+- [x] **P3c** `history_offset_days`, production archive navigation, mode “Historischer Tag” and `render_historical_*` removed from prod UI; S-2 only `render_s2_navigation` (`ui/history_navigation.py`, `ui/live_mode.py`, `app.py`, `ui/mode_selector.py`); `ui/historical.py` deleted; tests `test_mode_selector.py`
 
-### UI Sunset-2-Sunset — Phase 3 P3a Chart 2 Ist/Prognose (2026-07-05)
+### UI Sunset-2-Sunset — Phase 3 P3a Chart 2 actual/forecast (2026-07-05)
 
-- [x] **P3a** Chart 2: „Ist bisher“ (Log) und „Prognose optimiert“ (MILP) getrennt, keine Brücke an Log/MILP-Grenze; Matrix-Index-Fix für SA₁→SA₂; matched baseline über volle Matrix (`ui/chart_context.py`, `ui/charts.py`, `optimizer/simulation.py`); Tests `test_chart2_s2_split.py`, `test_chart_context.py`
+- [x] **P3a** Chart 2: “actual so far” (log) and “optimized forecast” (MILP) separated, no bridge at log/MILP boundary; matrix index fix for SA₁→SA₂; matched baseline over full matrix (`ui/chart_context.py`, `ui/charts.py`, `optimizer/simulation.py`); tests `test_chart2_s2_split.py`, `test_chart_context.py`
 
-### UI Sunset-2-Sunset — Phase 3 P3b SA-Marker (2026-07-05)
+### UI Sunset-2-Sunset — Phase 3 P3b SA markers (2026-07-05)
 
-- [x] **P3b** Vertikale Marker SA₀/SA₁/SA₂ im Chart (nur Anker im sichtbaren Fenster); **Jetzt** nur Live-Segment SA₀→SA₁ (`ui/charts.py`, `ui/simulation_results.py`); Tests `test_chart_ui_bugs.py`
+- [x] **P3b** vertical markers SA₀/SA₁/SA₂ in chart (anchors only in visible window); **now** only live segment SA₀→SA₁ (`ui/charts.py`, `ui/simulation_results.py`); tests `test_chart_ui_bugs.py`
 
-### UI Sunset-2-Sunset — Chart-Darstellung (2026-07-05)
+### UI Sunset-2-Sunset — Chart display (2026-07-05)
 
-- [x] **SOC-Sprünge / fehlende Log-Slots (Spec §6)** — Orange vrect im Chart und Tabellenzeilen für `SLOT_MISSING`; sichtbare SoC-Lücken an Log/MILP-Grenze (kein fälscher Brückenpunkt) und neutral→grün (Extrap-Start); kein UTC-Versatz mehr bei SoC/Preis-X
-- [x] **SoC-Lücke am Übergang neutral→grün** — extrapoliertes Segment ohne Brückenpunkt (`bridge_left` fälschlich für gesamtes MILP deaktiviert); Fix: nur an Log/MILP-Grenze (`abs_start == history_slot_count`); Test `test_soc_trace_bridges_extrapolation_start`
-- [x] **Kein Strichwechsel/Transparenz in grüner Zone** — gepunktete Preis-Linie und 50 %-Opacity extrapolierter Traces entfernt (Kennzeichnung nur noch grüner Hintergrund, Spec §5)
-- [x] **SoC/Preis-Zeitbezug im Chart** — Plotly-X für SOC- und Preis-Traces wurde fälschlich als `datetime64[ns, UTC]` erzeugt (+2 h Versatz in CEST, wirkte wie fehlende Linien bis zum Achsenrand); Fix: `_chart_time_series()` in `ui/charts.py`; Test `test_soc_and_price_traces_align_with_slot_datetimes`
-- [x] **Grau-/Grünzone an X-Achsen-Rändern** — variable Slot-Dauer in `ChartSlotAxis`; Zonen auf Display-Slots (`ui/simulation_results.py`); Fensterrand SA₀/SA₁ via `x_range(range_start=chart.start)`; volle Grauzone bei Vergangenheits-Zyklen (`is_live_segment=False`)
-- [x] **15-Min → 1-h gemischte Achse** — Preis stündliche HV-Treppe an Slot-Grenzen; Balkenbreite pro Slot (`_bar_widths_ms`); Zonen/vrect auf `display_ctx.slot_datetimes`
-- [x] **SU-Marker entfernt** — nur noch Jetzt + SA (SOC)
-- [x] **Tests:** `tests/test_chart_ui_bugs.py`, `tests/test_chart_mixed_resolution_traces.py` (Zeitbezug, Zonen, extrap-Brücke, gemischte Achse)
+- [x] **SOC jumps / missing log slots (spec §6)** — orange vrect in chart and table rows for `SLOT_MISSING`; visible SoC gaps at log/MILP boundary (no false bridge point) and neutral→green (extrap start); no more UTC offset on SoC/price X
+- [x] **SoC gap at neutral→green transition** — extrapolated segment without bridge point (`bridge_left` incorrectly disabled for entire MILP); fix: only at log/MILP boundary (`abs_start == history_slot_count`); test `test_soc_trace_bridges_extrapolation_start`
+- [x] **No line style/opacity change in green zone** — dotted price line and 50% opacity extrapolated traces removed (marking only green background, spec §5)
+- [x] **SoC/price time reference in chart** — Plotly X for SOC and price traces incorrectly created as `datetime64[ns, UTC]` (+2 h offset in CEST, looked like missing lines to axis edge); fix: `_chart_time_series()` in `ui/charts.py`; test `test_soc_and_price_traces_align_with_slot_datetimes`
+- [x] **Gray/green zone at X-axis edges** — variable slot duration in `ChartSlotAxis`; zones on display slots (`ui/simulation_results.py`); window edge SA₀/SA₁ via `x_range(range_start=chart.start)`; full gray zone for past cycles (`is_live_segment=False`)
+- [x] **15-min → 1-h mixed axis** — price hourly HV step at slot boundaries; bar width per slot (`_bar_widths_ms`); zones/vrect on `display_ctx.slot_datetimes`
+- [x] **SU marker removed** — only now + SA (SOC)
+- [x] **Tests:** `tests/test_chart_ui_bugs.py`, `tests/test_chart_mixed_resolution_traces.py` (time reference, zones, extrap bridge, mixed axis)
 
-### UI Sunset-2-Sunset — Navigation SA-Zyklen (2026-07-04)
+### UI Sunset-2-Sunset — Navigation SA cycles (2026-07-04)
 
-- [x] **Symmetrische Zyklus-Navigation** — `ui/s2_navigation.py` (reine Zustandslogik); `ui/history_navigation.py`: „Vor →“ bei `cycle_offset > 0` einen Zyklus Richtung Live, bei `cycle_offset == 0` Wechsel SA₁→SA₂; Zyklus zurück setzt Segment auf SA₀→SA₁ — **in Prod prinzipiell ok** (2026-07-04)
-- [x] **Crash bei Zyklus zurück behoben** — fehlender SoC im Historie-Fenster (`TypeError` in `_soc_tail_y_from_row`); Baseline-SoC bei `history_only` aus; `None`/NaN-sichere SoC-Linien (`ui/charts.py`, `ui/simulation_results.py`)
+- [x] **Symmetric cycle navigation** — `ui/s2_navigation.py` (pure state logic); `ui/history_navigation.py`: “Vor →” at `cycle_offset > 0` one cycle toward live, at `cycle_offset == 0` switch SA₁→SA₂; cycle back sets segment to SA₀→SA₁ — **in prod fundamentally ok** (2026-07-04)
+- [x] **Crash on cycle back fixed** — missing SoC in history window (`TypeError` in `_soc_tail_y_from_row`); baseline SoC from `history_only`; `None`/NaN-safe SoC lines (`ui/charts.py`, `ui/simulation_results.py`)
 - [x] **Tests:** `tests/test_s2_navigation.py`, `test_soc_tail_y_returns_none_for_missing_soc`
 
-### Simulations-Tabelle & Datenbasis UI (2026-07-04)
+### Simulation table & data basis UI (2026-07-04)
 
-- [x] **Fixierung Kopfzeile und Uhrzeit-Spalte** — scrollbare HTML-Tabelle mit CSS Freeze-Panes (`ui/simulation_table_view.py`); orange Zeilen via Pandas-Styler
-- [x] **Datenbasis-Hinweis als Expander** — eingeklappt nur Produktiv-Log-Pfad, ausgeklappt voller Merge-/Runtime-Text
-- [x] **Layout:** Simulations-Tabelle direkt unter Chart, vor Energievergleich
+- [x] **Freeze header and time column** — scrollable HTML table with CSS freeze panes (`ui/simulation_table_view.py`); orange rows via Pandas Styler
+- [x] **Data basis notice as expander** — collapsed only production log path, expanded full merge/runtime text
+- [x] **Layout:** simulation table directly below chart, before energy comparison
 - [x] **Tests:** `test_simulation_results_table`, `test_production_log_source`
 
-### UI Sunset-2-Sunset Phase 2 — Vergangenheit füllen (2026-07-04)
+### UI Sunset-2-Sunset Phase 2 — fill past (2026-07-04)
 
-- [x] **Daten-Schicht v0.6.1:** `build_chart_history`, `build_chart_display_context` — 15-min Produktiv-Log (kein Hold-Forward im Live-Chart), MILP-Tail (1 h bzw. 15-min-Soll ab x:15)
-- [x] **Chart + Tabelle:** gemeinsamer Merge-Pfad (`display_ctx`), Soll aus `consumer_powers_kw`; Datenbasis-Hinweis (Runtime-Pfad, Merge-Status)
-- [x] **Simulationsergebnis-Tabelle:** Log/MILP-Mix, Spalte Datenquelle, `st.table`, Flex-kW-Spalten nach vorne; orange für fehlende Log-Slots
-- [x] **Chart vs. Tabelle grauer Bereich:** Abweichung war Darstellungsart (`st.dataframe`, Spaltenverwechslung); `chart_key` für Live-Chart
-- [x] **Produktiv-Log:** `k_push_act`, Einspeisevergütung und `sofort_laden` in Tabellenzeilen; TZ-Fix für `completed_at`-Lookup
+- [x] **Data layer v0.6.1:** `build_chart_history`, `build_chart_display_context` — 15-min production log (no hold-forward in live chart), MILP tail (1 h or 15-min target from x:15)
+- [x] **Chart + table:** shared merge path (`display_ctx`), target from `consumer_powers_kw`; data basis notice (runtime path, merge status)
+- [x] **Simulation results table:** log/MILP mix, data source column, `st.table`, flex kW columns moved forward; orange for missing log slots
+- [x] **Chart vs. table gray area:** deviation was display type (`st.dataframe`, column mix-up); `chart_key` for live chart
+- [x] **Production log:** `k_push_act`, feed-in compensation and `sofort_laden` in table rows; TZ fix for `completed_at` lookup
 - [x] **Tests:** `test_chart_history`, `test_simulation_results_table`, `test_production_log_source`
-- [x] **Diagnose:** `scripts/_diag_swimspa_nas.py` (NAS-`optimization_history.jsonl`)
+- [x] **Diagnosis:** `scripts/_diag_swimspa_nas.py` (NAS `optimization_history.jsonl`)
 
-### Dev-Umgebung NAS-Produktiv-Log (2026-07-04)
+### Dev environment NAS production log (2026-07-04)
 
-- [x] **VS Code-Launch „Streamlit app.py (NAS Produktiv-Log)“** — `ENERGY_OPTIMIZER_RUNTIME_DIR` und `ENERGY_OPTIMIZER_CONFIG_PATH` auf NAS-Pfade (`.vscode/launch.json`)
-- [x] **Lokale Produktiv-Runtime bereinigt** — versehentliche Nutzung lokaler Logs ausgeschlossen; historischer E-Auto-Baseline-Test ohne lokale `cons_data` überspringen
+- [x] **VS Code launch “Streamlit app.py (NAS Produktiv-Log)”** — `ENERGY_OPTIMIZER_RUNTIME_DIR` and `ENERGY_OPTIMIZER_CONFIG_PATH` to NAS paths (`.vscode/launch.json`)
+- [x] **Local production runtime cleaned up** — accidental use of local logs excluded; historical EV baseline test skips without local `cons_data`
 
 ### UI Sunset-2-Sunset Phase 1 (2026-07-04)
 
-- [x] **Phase 1 — Modus & Fenster:** `mode_selector`, `app.py`, Sidebar ohne adaptives PV-Tuning; Sunset-2-Sunset-Modus in der UI
-- [x] **Phase 1b — MILP bis SA₂ (Spec-Korrektur):** `compute_planning_window` — Horizontende Sonnenaufgang SA₂; Tests und Spec angepasst
+- [x] **Phase 1 — Mode & window:** `mode_selector`, `app.py`, sidebar without adaptive PV tuning; Sunset-2-Sunset mode in UI
+- [x] **Phase 1b — MILP until SA₂ (spec correction):** `compute_planning_window` — horizon end sunrise SA₂; tests and spec adjusted
 
-### Live-Chart IndexError kumulierte Kosten (2026-07-04)
+### Live chart IndexError cumulative costs (2026-07-04)
 
-- [x] **IndexError in Produktiv-UI behoben** (`_segment_connected_line_xy`, kumulierte Kosten/Verbrauch)
-  - Ursache: Stundenkosten-Listen kürzer als sunrise→sunrise-Chart-Fenster (Matrix vs. `display_df`)
-  - `align_hourly_values_to_chart_slots` in `ui/chart_context.py`; Padding in `ui/charts.py`
+- [x] **IndexError in production UI fixed** (`_segment_connected_line_xy`, cumulative costs/consumption)
+  - Cause: hourly cost lists shorter than sunrise→sunrise chart window (matrix vs. `display_df`)
+  - `align_hourly_values_to_chart_slots` in `ui/chart_context.py`; padding in `ui/charts.py`
   - Release **1.13.1**
 
-### Cursor Session-Abschluss (2026-07-04)
+### Cursor session conclusion (2026-07-04)
 
-- [x] **Zweiphasiger Session-Abschluss automatisieren**
-  - Phase 1: `Backlog.md` pflegen, alle offenen Änderungen committen und pushen (bei lokalen/temporären Dateien nachfragen)
-  - Phase 2: optional Docker-Image bauen und nach ghcr.io pushen (`python -m scripts.build_container --push`)
-  - Skill: `.cursor/skills/session-abschluss/SKILL.md`; Rule: `.cursor/rules/session-abschluss.mdc`
-  - Hook: `docker push` erfordert explizite Bestätigung (`.cursor/hooks/approve_docker_push.py`)
-  - Trigger: „Session beenden“, „Backlog sync“, „Commit und Push“
+- [x] **Automate two-phase session conclusion**
+  - Phase 1: maintain `Backlog.md`, commit and push all open changes (ask about local/temporary files)
+  - Phase 2: optionally build Docker image and push to ghcr.io (`python -m scripts.build_container --push`)
+  - Skill: `.cursor/skills/session-abschluss/SKILL.md`; rule: `.cursor/rules/session-abschluss.mdc`
+  - Hook: `docker push` requires explicit confirmation (`.cursor/hooks/approve_docker_push.py`)
+  - Trigger: “end session”, “backlog sync”, “commit and push”
 
-### Konfiguration Dev/Prod (2026-07-04)
+### Configuration dev/prod (2026-07-04)
 
-- [x] **Zentrale `config.json` über NAS-Pfad adressierbar**
-  - Pfad per `ENERGY_OPTIMIZER_CONFIG_PATH` (in `.env`, siehe `.env.example`); Dev-Beispiel: `\\DS-KO-DO-2\docker\energy_optimizer\config\config.json`
-  - Fallback unverändert: `config/config.json` → Legacy `config.json` im Projektroot
-  - Docker/Synology: Volume `./config` → `config/config.json` im Container
-- [x] **`loxone_silent_mode` in lokale Datei ausgelagert**
-  - Maschinenspezifisch: `runtime/local_settings.json` (Vorlage `runtime/local_settings.example.json`)
-  - Optional: `ENERGY_OPTIMIZER_LOCAL_SETTINGS_PATH`; Bootstrap legt fehlende Datei an
-  - Aus zentraler `config.json` / Schema / Example entfernt; verbleibender Schlüssel dort → klare Fehlermeldung
+- [x] **Central `config.json` addressable via NAS path**
+  - Path via `ENERGY_OPTIMIZER_CONFIG_PATH` (in `.env`, see `.env.example`); dev example: `\\DS-KO-DO-2\docker\energy_optimizer\config\config.json`
+  - Fallback unchanged: `config/config.json` → legacy `config.json` in project root
+  - Docker/Synology: volume `./config` → `config/config.json` in container
+- [x] **`loxone_silent_mode` moved to local file**
+  - Machine-specific: `runtime/local_settings.json` (template `runtime/local_settings.example.json`)
+  - Optional: `ENERGY_OPTIMIZER_LOCAL_SETTINGS_PATH`; bootstrap creates missing file
+  - Removed from central `config.json` / schema / example; remaining key there → clear error message
   - Tests: `tests/test_local_settings.py`
 
-### Sunset-Planungshorizont + SOC_min am Sonnenaufgang (2026-07-04)
+### Sunset planning horizon + SOC_min at sunrise (2026-07-04)
 
-- [x] **Hauptfeature abgeschlossen** (Branch `feature/sunset-planning-horizon`, merged)
+- [x] **Main feature completed** (branch `feature/sunset-planning-horizon`, merged)
   - Spec: [docs/spec/planning-horizon-sunset.md](docs/spec/planning-horizon-sunset.md)
-  - Fenster: Jetzt→SA₁ + SA₁→SA₂; harte SOC-Randbedingung am nächsten Sonnenaufgang; danach frei bis SA₂
-  - Ersetzt `battery_end_soc_equals_start` im Live-Betrieb
-  - Backtesting: E-Auto-`ready_by_hour`-Anker; `--horizon-mode fixed_24h|sunset_window`
-  - Entscheidung: **Live** `sunset_window`; **Backtesting-Referenz** `fixed_24h` (10 kWh dyn. ~779 € vs. sunset ~784 €/J; früherer Sunset-Vorteil war Plausibilitäts-Artefakt)
-- [x] **Phase 1:** `data/planning_window.py` + Tests
-- [x] **Phase 2:** Matrix/Preise/PV generalisieren, MILP SOC-Anker
-  - Day-Ahead für variable Fensterlänge (`resolve_market_slots`); aWATTar-Abruf bis SA₂
-  - Preis-Spiegelung: gleiche Uhrzeit, bis 7 Tage zurück; aWATTar-Lookback für Spiegelquellen
-  - Zeitzonen-Ausrichtung Planungs-Slots ↔ aWATTar (`Europe/Vienna`)
-  - Loxone-Verify: fehlende E-Auto-Fertig-Uhrzeit nur **Warnung** (nicht angeschlossen)
-- [x] **Phase 3:** `main.py`, Live-Simulation — **Live-Durchlauf verifiziert 2026-07-04**
-- [x] **Phase 4:** UI sunrise→sunrise mit Zonenfarben — **verifiziert 2026-07-04** (wird durch Epic **UI Sunset-2-Sunset** abgelöst: SA₀→SA₁/SA₁→SA₂, neue Zonenlogik)
-  - UI Live: sunrise→sunrise; Zonen grau (Vergangenheit) / neutral (jetzt→SA) / grün (Rest)
-  - `ui/chart_context.py`: Chart-Fenster, Zeilen-Ausrichtung, Kosten-Summe nur über sunrise→sunrise
-  - Live-Navigation ←/→; Button **Produktiv-Archiv** für 24h-Historie (Sankey/Countdown dort deaktiviert)
-  - Platzhalter-Slots im Chart: NaN-sichere Hilfsfunktionen in `ui/charts.py`
-  - Debug-Snapshot: `slot_datetime` (pandas Timestamp) JSON-serialisierbar; Persist nach Chart-Render
-  - Sankey **Energiefluss (Live)** unverändert unterhalb der Charts in `app.py`
-- [x] **Phase 5:** Backtesting-Vergleich fixed_24h vs sunset_window — **abgeschlossen 2026-07-04**
-  - CLI `--horizon-mode`; Log-Feld `period.horizon_mode`; Standard Backtesting `fixed_24h`
-  - Kein rollierendes Re-Optimieren im Backtesting (1× MILP pro Anker-Schritt; Spec Abschnitt 4.2)
-  - Sunset-Pfad in `simulation/engine.py` (MILP Jetzt→SA₂, 24h Output/Schritt)
-  - Performance: Sunset-Matrix vor `simulate_horizon` auf 24 h gekürzt (volle SA₂-Matrix wäre ~36–39 MILP/Schritt)
-  - Jahres-Backtest 2025 beide Modi; Plausibilität sunset **333/333** nach Grundlast-Overlay-Fix
-  - **Grundlast-Overlay** in `build_sunset_window_matrix`: 24h-`expected_p_act` aus Schritt-Matrix
-  - Diagnose-Skripte: `scripts/diagnose_sunset_plausibility.py`, `scripts/debug_sunset_matrix_alignment.py`
-  - Jahreslauf-Log: `backtesting_logs/horizon_compare_2025_full_sunset_window_v3.log`
-  - Kostenvergleich: Referenz 1.195 €; fixed_24h 10 kWh dyn. 779 €; sunset 784 € (Einsparung vs. Historisch 416 € bzw. 411 €)
+  - Window: now→SA₁ + SA₁→SA₂; hard SOC boundary at next sunrise; then free until SA₂
+  - Replaces `battery_end_soc_equals_start` in live operation
+  - Backtesting: EV `ready_by_hour` anchor; `--horizon-mode fixed_24h|sunset_window`
+  - Decision: **live** `sunset_window`; **backtesting reference** `fixed_24h` (10 kWh dyn. ~779 € vs. sunset ~784 €/yr; earlier sunset advantage was plausibility artifact)
+- [x] **Phase 1:** `data/planning_window.py` + tests
+- [x] **Phase 2:** generalize matrix/prices/PV, MILP SOC anchor
+  - Day-ahead for variable window length (`resolve_market_slots`); aWATTar fetch until SA₂
+  - Price mirroring: same time of day, up to 7 days back; aWATTar lookback for mirror sources
+  - Timezone alignment planning slots ↔ aWATTar (`Europe/Vienna`)
+  - Loxone verify: missing EV completion time only **warning** (not connected)
+- [x] **Phase 3:** `main.py`, live simulation — **live run verified 2026-07-04**
+- [x] **Phase 4:** UI sunrise→sunrise with zone colors — **verified 2026-07-04** (replaced by epic **UI Sunset-2-Sunset**: SA₀→SA₁/SA₁→SA₂, new zone logic)
+  - UI live: sunrise→sunrise; zones gray (past) / neutral (now→SA) / green (remainder)
+  - `ui/chart_context.py`: chart window, row alignment, cost sum only over sunrise→sunrise
+  - Live navigation ←/→; button **Produktiv-Archiv** for 24h history (Sankey/countdown disabled there)
+  - Placeholder slots in chart: NaN-safe helpers in `ui/charts.py`
+  - Debug snapshot: `slot_datetime` (pandas Timestamp) JSON-serializable; persist after chart render
+  - Sankey **energy flow (live)** unchanged below charts in `app.py`
+- [x] **Phase 5:** backtesting comparison fixed_24h vs sunset_window — **completed 2026-07-04**
+  - CLI `--horizon-mode`; log field `period.horizon_mode`; backtesting default `fixed_24h`
+  - No rolling re-optimization in backtesting (1× MILP per anchor step; spec section 4.2)
+  - Sunset path in `simulation/engine.py` (MILP now→SA₂, 24h output/step)
+  - Performance: sunset matrix truncated to 24 h before `simulate_horizon` (full SA₂ matrix would be ~36–39 MILP/step)
+  - Annual backtest 2025 both modes; plausibility sunset **333/333** after baseload overlay fix
+  - **Baseload overlay** in `build_sunset_window_matrix`: 24h `expected_p_act` from step matrix
+  - Diagnosis scripts: `scripts/diagnose_sunset_plausibility.py`, `scripts/debug_sunset_matrix_alignment.py`
+  - Annual run log: `backtesting_logs/horizon_compare_2025_full_sunset_window_v3.log`
+  - Cost comparison: reference 1,195 €; fixed_24h 10 kWh dyn. 779 €; sunset 784 € (savings vs. historical 416 € or 411 €)
 
-### Config-Aufräumen Planungshorizont (2026-07-04)
+### Config cleanup planning horizon (2026-07-04)
 
-- [x] **`battery_end_soc_equals_start` entfernt** (NAS-Config, Schema, Example, `get_battery_params`, Test-Fixtures)
-  - Terminal-SOC nur noch über `terminal_soc_percent` (Backtesting `fixed_24h`) bzw. Sonnenaufgang-Anker (Live `sunset_window`)
-  - Kein separater Config-Parameter mehr
+- [x] **`battery_end_soc_equals_start` removed** (NAS config, schema, example, `get_battery_params`, test fixtures)
+  - Terminal SOC only via `terminal_soc_percent` (backtesting `fixed_24h`) or sunrise anchor (live `sunset_window`)
+  - No separate config parameter anymore
 
-### Epic Soll-Ist (2026-07-05)
+### Epic target/actual (2026-07-05)
 
-- [x] **Soll/Ist-Abweichung in Chart 1** — Icons Hinweis / Warnung / Fehler im grauen Produktiv-Log-Bereich
-  - Spec [docs/spec/soll-ist-abweichung.md](docs/spec/soll-ist-abweichung.md) v0.2 · Regeln `config/deviation_rules.json`
-  - P1–P4: Facts, Regelwerk, Slot-Auswertung, Chart-Marker, Szenario-Katalog S1–S7, [docs/ui/charts.md](docs/ui/charts.md)
-  - Dev-Test: `scripts/seed_deviation_test_log.py`, VS Code Launch **Streamlit app.py (Deviation-Test)**
+- [x] **Target/actual deviation in Chart 1** — notice / warning / error icons in gray production log area
+  - Spec [docs/spec/soll-ist-abweichung.md](docs/spec/soll-ist-abweichung.md) v0.2 · rules `config/deviation_rules.json`
+  - P1–P4: facts, rule engine, slot evaluation, chart markers, scenario catalog S1–S7, [docs/ui/charts.md](docs/ui/charts.md)
+  - Dev test: `scripts/seed_deviation_test_log.py`, VS Code launch **Streamlit app.py (Deviation-Test)**
 
-### Verbrauchshistorie Live (2026-07-04)
+### Consumption history live (2026-07-04)
 
-- [x] **Erster Schritt** der Verbrauchshistorie im Live-Modus (Produktiv-Archiv, 96×15 min) — vollständige Integration → Epic **UI Sunset-2-Sunset**
+- [x] **First step** of consumption history in live mode (production archive, 96×15 min) — full integration → epic **UI Sunset-2-Sunset**
 
-### E-Auto-MILP (2026-07-04)
+### EV MILP (2026-07-04)
 
-- [x] **Hybrid-Lieferung / Preset-Rest:** experimentell verworfen (Jahres-Backtest 2025)
+- [x] **Hybrid delivery / preset rest:** experimentally discarded (annual backtest 2025)
 
-### Optimierung & Einspeise (2026-07-03)
+### Optimization & feed-in (2026-07-03)
 
-- [x] **Batterieschädigung als Straffaktor in der MILP-Zielfunktion**
-  - `optimizer/battery_wear.py`, Config-Block `battery_wear`; Durchsatz-Modell (2,5 ct/kWh bei 5 kWh: 1500 € / 6000 Zyklen / 50 % zyklenbedingt)
-  - Jahres-Backtest 2025: ~33 €/J weniger Nettonutzen vs. ohne Verschleiß; Einsparung ~416 € (10 kWh dynamisch) — Parameter **plausibel**
-- [x] **Monatliche Fix-Einspeisetarife im Backtesting**
-  - `fixed_monthly_feed_in_rates` in `backtesting_scenarios.json`; Tarif = Kalendermonat der Stunde
-  - `get_backtesting_feed_in_settings()`; Randfenster Dez 2024 ergänzt
-  - Jahres-Backtest 2025: **333/333** Plausibilität (Log `backtesting_logs/backtesting_2025_wear_monthly.log`)
+- [x] **Battery degradation as penalty factor in MILP objective**
+  - `optimizer/battery_wear.py`, config block `battery_wear`; throughput model (2.5 ct/kWh at 5 kWh: 1500 € / 6000 cycles / 50% cycle-related)
+  - Annual backtest 2025: ~33 €/yr less net benefit vs. without wear; savings ~416 € (10 kWh dynamic) — parameters **plausible**
+- [x] **Monthly fixed feed-in tariffs in backtesting**
+  - `fixed_monthly_feed_in_rates` in `backtesting_scenarios.json`; tariff = calendar month of hour
+  - `get_backtesting_feed_in_settings()`; edge window Dec 2024 added
+  - Annual backtest 2025: **333/333** plausibility (log `backtesting_logs/backtesting_2025_wear_monthly.log`)
 
 ### Backtesting & CBC (2026-07-03)
 
-- [x] **Grundlast-Validierung (Backtesting)**
-  - `simulation/baseload_validation.py`; getrennte Plausibilität Grundlast + Flex + Gesamt
+- [x] **Baseload validation (backtesting)**
+  - `simulation/baseload_validation.py`; separate plausibility baseload + flex + total
   - `scripts/analyze_plausibility_failures.py`
-- [x] **E-Auto-MILP (Phase 1–4)**
-  - Phase 1–4: logged_day binär, Preset, Live Modus A/B, Tie-Break; Config `eauto_milp`
-  - Jahres-Backtest 2025 (Phase 3+4): 303/333 Plausibilität, 10 kWh dynamisch 774,51 € (`backtesting_logs/backtesting_2025_phase34.log`)
-- [x] **UTF-8 für Backtesting-Logs**
-- [x] **CBC zweistufiger Solver** (`cbc_gap_rel`, Strict-Timeout 3 s)
-- [x] **CBC-Gap-Diagnose** (`scripts/bench_cbc_gaps.py`, `analyze_benchmark_window.py`)
-- [x] **Backtesting urgent / Zeitfenster** (logged_day ohne urgent-Nebenbedingung)
-- [x] **`run_backtesting` parallelisiert** (`--workers N`)
-- [x] **Dynamische Einspeise (Awattar SUNNY Spot)** + MILP `k_push_act` aus Matrix
+- [x] **EV MILP (phases 1–4)**
+  - Phases 1–4: logged_day binary, preset, live mode A/B, tie-break; config `eauto_milp`
+  - Annual backtest 2025 (phases 3+4): 303/333 plausibility, 10 kWh dynamic 774.51 € (`backtesting_logs/backtesting_2025_phase34.log`)
+- [x] **UTF-8 for backtesting logs**
+- [x] **CBC two-stage solver** (`cbc_gap_rel`, strict timeout 3 s)
+- [x] **CBC gap diagnosis** (`scripts/bench_cbc_gaps.py`, `analyze_benchmark_window.py`)
+- [x] **Backtesting urgent / time window** (logged_day without urgent constraint)
+- [x] **`run_backtesting` parallelized** (`--workers N`)
+- [x] **Dynamic feed-in (Awattar SUNNY Spot)** + MILP `k_push_act` from matrix
 
-### Ältere Meilensteine (Kurz)
+### Older milestones (brief)
 
-- [x] MILP-Optimierung (PV/Verbrauch), NAS-Deployment, Sankey/UI, Versionierung
-- [x] Flexible Verbraucher (E-Auto, SwimSpa, WP), historische Simulation, Testsuite 24 h
-- [x] E-Auto: variable Leistung, PV-Follow, Event-Trigger, SOFORT-LADEN, Loxone-Debug
-- [x] Charts (Ersparnis, Einspeisung), Silent-Modus, 24h-Horizont, Refactoring
-- [x] Thermische Modelle (Swim-Spa Prio1, WP indirekt), dynamische Einspeise (Vorstufe)
-- [x] Packaging 7a–7d (pyproject, Bootstrap, Build, Streamlit extern)
+- [x] MILP optimization (PV/consumption), NAS deployment, Sankey/UI, versioning
+- [x] Flexible consumers (EV, SwimSpa, HP), historical simulation, 24 h test suite
+- [x] EV: variable power, PV follow, event trigger, SOFORT-LADEN, Loxone debug
+- [x] Charts (savings, feed-in), silent mode, 24h horizon, refactoring
+- [x] Thermal models (Swim-Spa prio1, HP indirect), dynamic feed-in (preliminary stage)
+- [x] Packaging 7a–7d (pyproject, bootstrap, build, Streamlit external)

@@ -120,12 +120,16 @@ def is_flat_target_override(consumer_daily_targets_kwh: dict | None) -> bool:
 def resolve_horizon_consumer_targets_kwh(
     optimization_matrix: list,
     consumer_daily_targets_kwh: dict | None = None,
+    *,
+    flexible_consumers: list | None = None,
 ) -> dict[str, float]:
     """
     Flex-Zielenergie je Verbraucher für den gesamten Planungshorizont (einmalig).
     Kein erneutes Zählen bei Kalendertagwechsel im rollierenden Horizont.
     """
-    consumers_cfg = config.get_flexible_consumers(optimizer_only=True)
+    consumers_cfg = flexible_consumers or config.get_flexible_consumers(
+        optimizer_only=True
+    )
     if not optimization_matrix:
         return {c["id"]: 0.0 for c in consumers_cfg}
     logged_targets_only = (

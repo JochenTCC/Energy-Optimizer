@@ -99,6 +99,7 @@ def build_power_soc_chart_figure(
     slot_deviation_events: tuple[tuple[DeviationEvent, ...], ...] | None = None,
     optimization_matrix: list[dict] | None = None,
     chart_now: datetime | None = None,
+    battery_params: dict | None = None,
 ) -> go.Figure:
     """Baut Chart 1 (Leistung, SoC, Preis) ohne Streamlit-Rendering."""
     plot_df = _mask_missing_log_slots(df, slot_qualities)
@@ -130,10 +131,12 @@ def build_power_soc_chart_figure(
         fig, plot_df, axis, extrap_start=extrap_start, extrap_end=extrap_end,
         history_slot_count=history_slot_count,
         chart_now=chart_now,
+        battery_params=battery_params,
     )
     if show_baseline_soc:
         soc_at_now = _soc_at_chart_now(
             axis, plot_df, chart_now, history_slot_count,
+            battery_params=battery_params,
         )
         add_baseline_soc_traces(
             fig,
@@ -143,6 +146,7 @@ def build_power_soc_chart_figure(
             chart_now=chart_now,
             history_slot_count=history_slot_count,
             soc_at_now=soc_at_now,
+            battery_params=battery_params,
         )
     add_price_on_soc_axis_trace(
         fig, plot_df, axis, extrap_start=extrap_start, extrap_end=extrap_end
@@ -195,6 +199,7 @@ def render_power_soc_chart(
     chart_header_help: str | None = None,
     slot_deviation_events: tuple[tuple[DeviationEvent, ...], ...] | None = None,
     optimization_matrix: list[dict] | None = None,
+    battery_params: dict | None = None,
 ) -> None:
     """Leistungen (PV, Verbrauch, Batterie, Flex) und SoC-Verläufe."""
     if chart_header_label and chart_header_help:
@@ -218,6 +223,7 @@ def render_power_soc_chart(
         slot_deviation_events=slot_deviation_events,
         optimization_matrix=optimization_matrix,
         chart_now=chart_now,
+        battery_params=battery_params,
     )
     plotly_kwargs: dict = {"width": "stretch"}
     if chart_key:
@@ -243,8 +249,8 @@ def render_cumulative_cost_chart(
     history_slot_count: int | None = None,
     slot_actual_cost_euro: list[float] | None = None,
     slot_actual_consumption_kwh: list[float] | None = None,
+    chart_key: str | None = None,
 ) -> None:
-    """Kumulierte Stromkosten und Verbrauch BL Ziel vs. optimiert."""
     axis = ChartSlotAxis.from_dataframe(df)
     extrap_start, extrap_end = _extrapolation_bounds(df)
     range_start = _chart_range_start(chart_window)
@@ -345,7 +351,10 @@ def render_cumulative_cost_chart(
                 "Gesamtverbrauch Grundlast + Flex. BL Ziel: historisches Profil skaliert."
             )
     inject_mobile_legend_css()
-    st.plotly_chart(fig, width="stretch")
+    plotly_kwargs: dict = {"width": "stretch"}
+    if chart_key:
+        plotly_kwargs["key"] = chart_key
+    st.plotly_chart(fig, **plotly_kwargs)
     render_collapsible_legend_from_figure(fig)
 
 
@@ -365,6 +374,7 @@ def render_price_savings_chart(
     history_slot_count: int | None = None,
     slot_actual_cost_euro: list[float] | None = None,
     slot_actual_consumption_kwh: list[float] | None = None,
+    chart_key: str | None = None,
 ) -> None:
     """Alias für kumulierte Kosten- und Verbrauchslinien."""
     render_cumulative_cost_chart(
@@ -382,6 +392,7 @@ def render_price_savings_chart(
         history_slot_count=history_slot_count,
         slot_actual_cost_euro=slot_actual_cost_euro,
         slot_actual_consumption_kwh=slot_actual_consumption_kwh,
+        chart_key=chart_key,
     )
 
 

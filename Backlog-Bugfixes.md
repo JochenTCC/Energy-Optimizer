@@ -1,42 +1,42 @@
-# Offene Bugs
+# Open Bugs
 
-Erledigte Punkte → [Backlog-Erledigt.md](Backlog-Erledigt.md) (Abschnitte `### Bugfix …` / Regressionen)
+Completed items → [Backlog-Erledigt.md](Backlog-Erledigt.md) (sections `### Bugfix …` / regressions)
 
-Feature-Roadmap → [Backlog.md](Backlog.md)
+Feature roadmap → [Backlog.md](Backlog.md)
 
-## Einordnung
+## Classification
 
-**Hier:** Prod-Abweichung, Regression (`xfail`), bekannte Fehlverhalten, Review mit klarem Beheben/Entfernen-Ergebnis.
-**Nicht hier:** Neues Verhalten, UX, Modelle, Research — siehe Feature-Backlog in `Backlog.md`.
-**Versionierung:** abgeschlossene Bugfixes → nur **PATCH** in `version.py` (kein Minor-Bump).
+**Here:** Prod deviation, regression (`xfail`), known misbehavior, review with clear fix/remove outcome.
+**Not here:** New behavior, UX, models, research — see feature backlog in `Backlog.md`.
+**Versioning:** completed bugfixes → **PATCH** only in `version.py` (no minor bump).
 
 ### `## Bugfix Verifications Pending`
 
-Fix ist **implementiert** (Code + Tests + ggf. PATCH in `version.py`), aber die **Prod-/Live-Abnahme** steht noch aus.
+Fix is **implemented** (code + tests + optional PATCH in `version.py`), but **prod/live acceptance** is still pending.
 
-- Punkt aus dem thematischen Bugfix-Kapitel hierher verschieben, sobald der Fix committed ist — **nicht** direkt nach `Backlog-Erledigt.md`.
-- Kurz vermerken, was geändert wurde (Commit/Version), falls hilfreich.
-- Nach erfolgreicher Verifikation: aus diesem Kapitel entfernen → `Backlog-Erledigt.md` (`### Bugfix …`) mit `- [x]`.
-- Schlägt die Verifikation fehl: zurück ins offene Bugfix-Kapitel oder Follow-up formulieren; PATCH ggf. dokumentieren, aber nicht als erledigt archivieren.
+- Move item from the thematic bugfix chapter here once the fix is committed — **not** directly to `Backlog-Erledigt.md`.
+- Briefly note what changed (commit/version) if helpful.
+- After successful verification: remove from this chapter → `Backlog-Erledigt.md` (`### Bugfix …`) with `- [x]`.
+- If verification fails: return to open bugfix chapter or formulate follow-up; document PATCH if applicable, but do not archive as done.
 
 ## Bugfix Verifications Pending
 
-- [ ] **E-Auto: urgent-Nebenbedingung entfernt** (2026-07-09)
-  - MILP: separate `urgent >= target`-Constraint entfernt; Deadline weiter über `eligible`-Slots bis Fertigstellungszeit
-  - Observability bleibt (`role` post-hoc); Parsing für ISO-Deadlines ergänzt
-  - Regression: `eauto_urgent_deferred_cheap_hours_2026-06-28`, neu `eauto_urgent_deferred_cheap_hours_2026-07-09`; xfail entfernt
-  - **Prod-Abnahme:** nächster Ladezyklus mit Deadline 07:45 — Plan nutzt günstige Nachtstunden (02–04), `urgent_rule_observability.eauto.role == redundant`
+- [ ] **EV: urgent constraint removed** (2026-07-09)
+  - MILP: separate `urgent >= target` constraint removed; deadline still enforced via `eligible` slots until completion time
+  - Observability retained (`role` post-hoc); ISO deadline parsing added
+  - Regression: `eauto_urgent_deferred_cheap_hours_2026-06-28`, new `eauto_urgent_deferred_cheap_hours_2026-07-09`; `xfail` removed
+  - **Prod acceptance:** next charge cycle with deadline 07:45 — plan uses cheap night hours (02–04), `urgent_rule_observability.eauto.role == redundant`
 
-## Neue Bugs (Das Kapitel nicht entfernen - auch wenn es leer ist)
+## New Bugs (Do not remove this chapter — even if empty)
 
-## Bugs nach Test von 1.25.0
-- [ ] Loxone-Zugangsdaten erst abfragen, wenn Live-Betrieb aktiviert wird und getestet werden soll, ob alle Merker richtig sind (auf später verschieben)
+## Bugs after testing 1.25.0
+- [ ] Query Loxone credentials only when live operation is enabled and markers should be verified (defer to later)
 
 
-## E-Auto: urgent-Regel, Prod-Dump, PWM
-Verknüpfte Themen — gemeinsam priorisieren und abarbeiten.
+## EV: urgent rule, prod dump, PWM
+Related topics — prioritize and work through together.
 
-- [ ] **urgent-Regel Observability-Review** (bis ca. **2026-07-12**, nach Prod-Abnahme)
-  - Nebenbedingung entfernt → Auswertung: `urgent_rule_observability` in Log + `optimization_history.jsonl` (`role`: erwartet `redundant`)
-  - Akzeptanz: durchgehend `redundant` über mehrere Ladezykklus → Review abschließen, Observability-Logging ggf. vereinfachen
-- [ ] **PWM für E-Auto-Laden** — nur für Ströme < A_min; sonst Mindestlademenge pro h (Zähler runterzählen, bei jedem Ladevorgang reset → bei Null fünf Minuten mit Mindest-Strom laden)
+- [ ] **Urgent rule observability review** (by approx. **2026-07-12**, after prod acceptance)
+  - Constraint removed → evaluate `urgent_rule_observability` in log + `optimization_history.jsonl` (`role`: expected `redundant`)
+  - Acceptance: consistently `redundant` over several charge cycles → close review, simplify observability logging if applicable
+- [ ] **PWM for EV charging** — only for currents < A_min; otherwise minimum charge amount per h (count down meter, reset on each charge → at zero charge charge five minutes at minimum current)

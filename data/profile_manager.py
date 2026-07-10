@@ -19,12 +19,20 @@ from runtime_store.persist_paths import (
 
 def _cons_data_to_profile_dataframe(cons_df: pd.DataFrame) -> pd.DataFrame:
     """Wandelt cons_data_hourly in das interne Profil-Format (Total, BaseLoad, Verbraucher-Namen)."""
+    from data.cons_data_house_profile import (
+        consumer_labels_for_ids,
+        expected_cons_data_consumer_ids,
+    )
+
     df = pd.DataFrame(index=cons_df.index)
     df["Total"] = cons_df["total_kw"]
     df["BaseLoad"] = cons_df["baseload_kw"]
-    for consumer in config.get_flexible_consumers():
-        col = f"{consumer['id']}_kw"
-        df[consumer["name"]] = cons_df[col] if col in cons_df.columns else 0.0
+    consumer_ids = expected_cons_data_consumer_ids()
+    labels = consumer_labels_for_ids(consumer_ids)
+    for consumer_id in consumer_ids:
+        col = f"{consumer_id}_kw"
+        name = labels.get(consumer_id, consumer_id)
+        df[name] = cons_df[col] if col in cons_df.columns else 0.0
     return df
 
 
@@ -383,6 +391,8 @@ def get_historical_day_data(target_date) -> Tuple[List[float], dict, List[float]
 
     historical_totals = {
         consumer["id"]: round(float(df_day[consumer["name"]].sum()), 3)
+        if consumer["name"] in df_day.columns
+        else 0.0
         for consumer in config.get_flexible_consumers()
     }
     actual_baseload = df_day['BaseLoad'].round(3).tolist()
