@@ -240,7 +240,7 @@ def _run_scenario_worker(
     price_strategy: str,
     feature_dataset_path: str | None,
     forecast_model_path: str | None,
-) -> tuple[str, pd.DataFrame, object, list[dict]]:
+) -> tuple[str, pd.DataFrame, object, list[dict], list[dict]]:
     """Top-Level-Worker für ProcessPoolExecutor (Windows spawn)."""
     from pathlib import Path
 
@@ -255,6 +255,7 @@ def _run_scenario_worker(
         feature_dataset_path=Path(feature_dataset_path) if feature_dataset_path else None,
         forecast_model_path=Path(forecast_model_path) if forecast_model_path else None,
     )
+    snapshots: list[dict] = []
     df_result, plausibility, cbc_events = run_simulation(
         start,
         end,
@@ -264,8 +265,9 @@ def _run_scenario_worker(
         scenario_id=name,
         horizon_mode=horizon_mode,
         price_resources=price_resources,
+        snapshot_collector=snapshots,
     )
-    return name, df_result, plausibility, cbc_events
+    return name, df_result, plausibility, cbc_events, snapshots
 
 
 def _run_scenarios_parallel(
@@ -279,10 +281,11 @@ def _run_scenarios_parallel(
     price_strategy: str,
     feature_dataset_path: str | None,
     forecast_model_path: str | None,
-) -> tuple[dict[str, pd.DataFrame], dict[str, object], dict[str, list[dict]]]:
+) -> tuple[dict[str, pd.DataFrame], dict[str, object], dict[str, list[dict]], list[dict]]:
     sim_results: dict[str, pd.DataFrame] = {}
     plausibility_by_scenario: dict[str, object] = {}
     cbc_events_by_scenario: dict[str, list[dict]] = {}
+    window_snapshots: list[dict] = []
     start_iso = start.isoformat()
     end_iso = end.isoformat()
 
@@ -307,7 +310,7 @@ def _run_scenarios_parallel(
             name = futures[future]
             display = labels.get(name, name)
             try:
-                result_name, df_result, plausibility, cbc_events = future.result()
+                result_name, df_result, plausibility, cbc_events, snapshots = future.result()
             except Exception as exc:
                 raise RuntimeError(
                     f"Szenario '{display}' ({name}) fehlgeschlagen: {exc}"
@@ -315,8 +318,9 @@ def _run_scenarios_parallel(
             sim_results[result_name] = df_result
             plausibility_by_scenario[result_name] = plausibility
             cbc_events_by_scenario[result_name] = cbc_events
+            window_snapshots.extend(snapshots)
             print(f"  Fertig: {display}")
-    return sim_results, plausibility_by_scenario, cbc_events_by_scenario
+    return sim_results, plausibility_by_scenario, cbc_events_by_scenario, window_snapshots
 
 
 _PROGRESS_WRITE_MIN_INTERVAL_SEC = 1.0
@@ -643,12 +647,14 @@ def main(argv: list[str] | None = None):
     }
     plausibility_by_scenario: dict = {}
     cbc_events_by_scenario: dict[str, list[dict]] = {}
+    window_snapshots: list[dict] = []
 
     scenarios = config.get_backtesting_scenarios()
     if args.workers == 1:
         for name, params in scenarios.items():
             display = labels.get(name, name)
             print(f"Simuliere Szenario: '{display}'...")
+            scenario_snapshots: list[dict] = []
             df_result, plausibility, cbc_events = run_simulation(
                 start,
                 end,
@@ -659,13 +665,16 @@ def main(argv: list[str] | None = None):
                 scenario_id=name,
                 horizon_mode=horizon_mode,
                 price_resources=price_resources,
+                snapshot_collector=scenario_snapshots,
             )
             sim_results[name] = df_result
             plausibility_by_scenario[name] = plausibility
             cbc_events_by_scenario[name] = cbc_events
+            window_snapshots.extend(scenario_snapshots)
             print_plausibility_report(plausibility)
     else:
-        parallel_results, parallel_plausibility, parallel_cbc = _run_scenarios_parallel(
+        parallel_results, parallel_plausibility, parallel_cbc, parallel_snapshots = (
+            _run_scenarios_parallel(
             scenarios,
             labels,
             start,
@@ -677,9 +686,11 @@ def main(argv: list[str] | None = None):
             feature_dataset_str,
             forecast_model_str,
         )
+        )
         sim_results.update(parallel_results)
         plausibility_by_scenario.update(parallel_plausibility)
         cbc_events_by_scenario.update(parallel_cbc)
+        window_snapshots.extend(parallel_snapshots)
         for name in scenarios:
             print_plausibility_report(plausibility_by_scenario[name])
 
@@ -717,6 +728,7 @@ def main(argv: list[str] | None = None):
         period_meta,
         log_dir=args.output_dir,
         cbc_events_by_scenario=cbc_events_by_scenario,
+        window_snapshots=window_snapshots,
     )
     if progress_file:
         Path(progress_file).unlink(missing_ok=True)

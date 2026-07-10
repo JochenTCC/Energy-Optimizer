@@ -20,6 +20,7 @@ from runtime_store.history_timeline import (
 from ui.chart_context import (
     LiveChartContext,
     SLOT_MILP,
+    align_rows_to_chart_slots,
     align_rows_to_display_slots,
     build_chart_display_context,
     build_display_savings_series,
@@ -65,6 +66,7 @@ class OptimizationDisplayBundle:
     slot_deviation_events: tuple[tuple[DeviationEvent, ...], ...]
     simulation_table_title: str | None
     optimization_matrix: list[dict] | None = None
+    battery_params: dict | None = None
 
 
 def build_optimization_display_bundle(
@@ -76,6 +78,10 @@ def build_optimization_display_bundle(
     simulation_table_title: str | None = "📋 Simulations-Details (Nächste 24 Stunden)",
     chart_context: LiveChartContext | None = None,
     optimization_matrix: list | None = None,
+    battery_params: dict | None = None,
+    chart_header_label: str | None = None,
+    chart_header_help: str | None = None,
+    backtesting_chart: bool = False,
 ) -> OptimizationDisplayBundle:
     if matched_baseline_df is None and savings_info.get("matched_baseline_rows"):
         matched_baseline_df = pd.DataFrame(savings_info["matched_baseline_rows"])
@@ -92,7 +98,27 @@ def build_optimization_display_bundle(
     merge_active = False
     history_slot_count: int | None = None
     slot_deviation_events: tuple[tuple[DeviationEvent, ...], ...] = ()
-    if chart_context is not None and optimization_matrix is not None:
+    if chart_context is not None and optimization_matrix is not None and backtesting_chart:
+        merge_active = True
+        savings_view = savings_view_for_chart(
+            savings_info,
+            optimization_matrix,
+            chart_context.chart_window,
+        )
+        optimized_rows = align_rows_to_chart_slots(
+            optimized_df.to_dict("records"),
+            chart_context.chart_window,
+        )
+        display_df = pd.DataFrame(optimized_rows)
+        table_df = display_df
+        if matched_baseline_df is not None:
+            display_matched = pd.DataFrame(
+                align_rows_to_chart_slots(
+                    matched_baseline_df.to_dict("records"),
+                    chart_context.chart_window,
+                )
+            )
+    elif chart_context is not None and optimization_matrix is not None:
         merge_active = True
         savings_view = savings_view_for_chart(
             savings_info,
@@ -160,11 +186,11 @@ def build_optimization_display_bundle(
         )
 
     matched_cost, optimized_cost = _cost_totals_from_savings(savings_info)
-    chart_header_label = None
-    chart_header_help = None
-    if chart_context is not None:
-        chart_header_label = s2_chart_header_label(chart_context)
-        chart_header_help = s2_zone_help_text()
+    resolved_header_label = chart_header_label
+    resolved_header_help = chart_header_help
+    if resolved_header_label is None and chart_context is not None:
+        resolved_header_label = s2_chart_header_label(chart_context)
+        resolved_header_help = s2_zone_help_text()
 
     return OptimizationDisplayBundle(
         savings_info=savings_info,
@@ -182,15 +208,20 @@ def build_optimization_display_bundle(
         history_slot_count=history_slot_count,
         matched_cost=matched_cost,
         optimized_cost=optimized_cost,
-        chart_header_label=chart_header_label,
-        chart_header_help=chart_header_help,
+        chart_header_label=resolved_header_label,
+        chart_header_help=resolved_header_help,
         slot_deviation_events=slot_deviation_events,
         simulation_table_title=simulation_table_title,
         optimization_matrix=optimization_matrix,
+        battery_params=battery_params,
     )
 
 
-def render_optimization_chart1(bundle: OptimizationDisplayBundle) -> None:
+def render_optimization_chart1(
+    bundle: OptimizationDisplayBundle,
+    *,
+    chart_key: str = "live_power_soc_chart",
+) -> None:
     render_power_soc_chart(
         bundle.display_df,
         bundle.baseline_df,
@@ -201,15 +232,20 @@ def render_optimization_chart1(bundle: OptimizationDisplayBundle) -> None:
         sun_markers=bundle.sun_markers,
         slot_qualities=bundle.chart_qualities,
         history_slot_count=bundle.history_slot_count,
-        chart_key="live_power_soc_chart",
+        chart_key=chart_key,
         chart_header_label=bundle.chart_header_label,
         chart_header_help=bundle.chart_header_help,
         slot_deviation_events=bundle.slot_deviation_events,
         optimization_matrix=bundle.optimization_matrix,
+        battery_params=bundle.battery_params,
     )
 
 
-def render_optimization_chart2(bundle: OptimizationDisplayBundle) -> None:
+def render_optimization_chart2(
+    bundle: OptimizationDisplayBundle,
+    *,
+    chart_key: str = "live_price_savings_chart",
+) -> None:
     render_price_savings_chart(
         bundle.display_df,
         bundle.savings_view.get("hourly_matched_baseline_cost_euro"),
@@ -225,6 +261,7 @@ def render_optimization_chart2(bundle: OptimizationDisplayBundle) -> None:
         history_slot_count=bundle.history_slot_count,
         slot_actual_cost_euro=bundle.savings_view.get("slot_actual_cost_euro"),
         slot_actual_consumption_kwh=bundle.savings_view.get("slot_actual_consumption_kwh"),
+        chart_key=chart_key,
     )
 
 

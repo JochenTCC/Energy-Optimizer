@@ -22,6 +22,11 @@ from .engine import (
     HISTORICAL_REFERENCE_ID,
     PlausibilityReport,
 )
+from .backtesting_snapshots import (
+    BACKTESTING_WINDOW_SNAPSHOTS_JSONL,
+    remove_window_snapshots_jsonl,
+    write_window_snapshots_jsonl,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -260,6 +265,7 @@ def save_backtesting_log(
     log_dir: str | None = None,
     cbc_events_by_scenario: dict[str, list[dict]] | None = None,
     config_fingerprint: str | None = None,
+    window_snapshots: list[dict] | None = None,
 ) -> str:
     """Schreibt Metadaten (JSON) und Stundenwerte (CSV). Gibt den JSON-Pfad zurück."""
     target_dir = _DEFAULT_LOG_DIR if log_dir is None else log_dir
@@ -307,6 +313,14 @@ def save_backtesting_log(
     )
     payload["critical_cases"] = critical_cases
     payload["critical_cases_summary"] = summarize_critical_cases(critical_cases)
+    if window_snapshots:
+        snapshots_path = write_window_snapshots_jsonl(target_dir, window_snapshots)
+        if snapshots_path:
+            payload["window_snapshots_file"] = BACKTESTING_WINDOW_SNAPSHOTS_JSONL
+            payload["window_snapshots_count"] = len(window_snapshots)
+            payload["window_snapshots_horizon_mode"] = period.get("horizon_mode")
+    else:
+        remove_window_snapshots_jsonl(target_dir)
     if all_ts:
         payload["period"]["first_ts"] = pd.Timestamp(min(all_ts)).isoformat()
         payload["period"]["last_ts"] = pd.Timestamp(max(all_ts)).isoformat()
@@ -353,6 +367,11 @@ def load_backtesting_log(log_dir: str | None = None) -> tuple[dict, pd.DataFrame
     return meta, hourly
 
 
-def log_exists(log_dir: str | None = None) -> bool:
+def backtesting_log_json_path(log_dir: str | None = None) -> str:
+    """Absoluter Pfad zu backtesting_log.json im Backtesting-Ausgabeordner."""
     target_dir = _DEFAULT_LOG_DIR if log_dir is None else log_dir
-    return os.path.exists(os.path.join(target_dir, BACKTESTING_LOG_JSON))
+    return os.path.join(target_dir, BACKTESTING_LOG_JSON)
+
+
+def log_exists(log_dir: str | None = None) -> bool:
+    return os.path.exists(backtesting_log_json_path(log_dir))

@@ -38,15 +38,27 @@ def expected_cons_data_consumer_ids() -> list[str]:
 
 
 def consumer_labels_for_ids(consumer_ids: list[str]) -> dict[str, str]:
+    labels = {cid: cid for cid in consumer_ids}
+    config_by_id = {
+        str(c["id"]): str(c.get("name") or c["id"])
+        for c in config.get_flexible_consumers()
+        if c.get("id")
+    }
+    for cid in consumer_ids:
+        if cid in config_by_id:
+            labels[cid] = config_by_id[cid]
     profile = resolve_runtime_house_profile()
     if not profile:
-        return {cid: cid for cid in consumer_ids}
+        return labels
     by_id = {
         str(c["id"]): str(c.get("label") or c["id"])
         for c in profile.get("consumers", [])
         if c.get("id")
     }
-    return {cid: by_id.get(cid, cid) for cid in consumer_ids}
+    for cid in consumer_ids:
+        if cid not in config_by_id:
+            labels[cid] = by_id.get(cid, labels[cid])
+    return labels
 
 
 def build_synthetic_dataframe_from_house_profile(

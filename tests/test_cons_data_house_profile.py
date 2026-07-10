@@ -52,5 +52,9 @@ def test_consumer_labels_for_ids_uses_profile_labels(monkeypatch):
         "data.cons_data_house_profile.resolve_runtime_house_profile",
         lambda: _sample_profile(),
     )
+    monkeypatch.setattr(
+        "data.cons_data_house_profile.config.get_flexible_consumers",
+        lambda: [],
+    )
     labels = consumer_labels_for_ids(["swimspa"])
     assert labels["swimspa"] == "Swimspa"

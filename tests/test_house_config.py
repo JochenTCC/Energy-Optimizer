@@ -116,7 +116,7 @@ def test_dach_tariffs_catalog():
     doc = load_tariffs_document(str(root / "config" / "tariffs.json"))
     assert doc.get("catalog_as_of") == "2026"
     assert len(doc["import_tariffs"]) == 33
-    assert len(doc["export_tariffs"]) == 11
+    assert len(doc["export_tariffs"]) == 12
     assert "awattar_at" in doc["import_tariffs"]
     assert "dynamic_epex" in doc["export_tariffs"]
 
