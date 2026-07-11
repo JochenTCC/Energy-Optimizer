@@ -41,18 +41,18 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 
 
 
+### Version 2.+1 — Quality epic / Remove legacy data model trunks
+
+- [ ] Evaluate option for code coverage testing and identification of deprecated code / tests (especially due to substantial data model change) / obsolete patches because of legacy data model
+- [ ] Thorough code review and refactoring
+- [ ] Search for deprecated and unneccessary files and remove them
+- [ ] Evaluate option for automated UI testing
+
+
 ### Version 2.+1
 
 - [ ] Define CSV data format for consumer annual demand (except house and EV) and provide import option (in addition to rated values). Annual profile from rated values can be compared graphically and in summary with measured profile.
 - [ ] Set up debug page for Loxone communication showing read data with last update, whether data was sent to Loxone successfully (with value and timestamp — when silentmode==false)
-
-
-### Version 2.+1 — Quality epic
-
-- [ ] Evaluate option for code coverage testing and identification of deprecated code / tests
-- [ ] Thorough code review and refactoring
-- [ ] Search for deprecated and unneccessary files and remove them
-- [ ] Evaluate option for automated UI testing
 
 
 ### Version 2.+1
@@ -178,10 +178,11 @@ Recommended order: **Adaptation P1 → Adaptation P2 → Adaptation P3 → Therm
 
 ### Version 2.+1
 
-- [ ] **Optional: live planning horizon switchable via** `config.json` (`planning_horizon.mode`: `fixed_24h` | `sunset_window`)
-  - Currently live only `sunset_window` (schema/code); backtesting already knows both modes — live branching still to implement (`main.py`, `profile_manager`, UI chart, aWATTar window)
+- [ ] **Optional: live planning horizon switchable via** `config.json` (`planning_horizon.mode`: `fixed_24h` | `sunrise_window`)
+  - **Prerequisite:** Version 2.0 rename `sunset_window` → `sunrise_window` (schema/code/docs)
+  - After 2.0 rename: live only `sunrise_window` today; backtesting already supports both modes — live branching still to implement (`main.py`, `profile_manager`, UI chart, aWATTar window)
   - Mode `fixed_24h`**:** end-SOC behavior **fixed in mode** — economically equivalent to former `battery_end_soc_equals_start: true` (start SOC at horizon end), **or** introduce hard equality constraint via existing `battery_wear` penalty that appropriately "punishes" lower end SOC (choose one variant, not both in parallel)
-  - Mode `sunset_window`**:** unchanged **SOC_min at sunrise** (hard)
+  - Mode `sunrise_window`**:** unchanged **SOC_min at sunrise** (hard)
   - Extend spec, live tests for both modes
 
 
