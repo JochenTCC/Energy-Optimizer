@@ -4,13 +4,26 @@
         {
             "id": "awattar_at",
             "label": "aWATTar Österreich (EPEX + Aufschlag)",
-            "type": "awattar"
+            "type": "awattar",
+            "fix_aufschlag_cent": 1.5,
+            "netzverlust_faktor": 1.03,
+            "mwst_austria_faktor": 1.2
         },
         {
             "id": "fixed_25ct",
             "label": "Fix 25 ct/kWh Bezug",
             "type": "fixed_cent",
             "fix_cent_kwh": 25.0
+        },
+        {
+            "id": "import_monthly_example",
+            "label": "Monatliche Bezugspreise (Beispiel)",
+            "type": "monthly_table",
+            "monthly_rates": [
+                {"year": 2025, "month": 1, "tariff_cent_kwh": 22.0},
+                {"year": 2025, "month": 6, "tariff_cent_kwh": 18.0},
+                {"year": 2025, "month": 12, "tariff_cent_kwh": 24.0}
+            ]
         }
     ],
     "export_tariffs": [
@@ -23,7 +36,9 @@
         {
             "id": "dynamic_epex",
             "label": "Dynamisch EPEX (SUNNY Spot)",
-            "type": "dynamic_epex"
+            "type": "dynamic_epex",
+            "feed_in_fee_factor": 0.19,
+            "feed_in_fix_cent": 0.0
         },
         {
             "id": "monthly_sunny",

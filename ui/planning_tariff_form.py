@@ -15,11 +15,12 @@ from ui.house_config_io import (
 )
 
 _IMPORT_TYPE_LABELS = {
-    "awattar": "aWATTar (EPEX + Aufschlag aus config.json)",
+    "awattar": "aWATTar (EPEX + Aufschlag aus tariffs.json)",
     "fixed_cent": "Fixpreis Bezug",
     "spot_hourly": "Spot stündlich",
     "ex_post_spot": "Spot ex-post",
     "monthly_market": "Monatsmarkt",
+    "monthly_table": "Monatstabelle Bezug",
 }
 
 _EXPORT_TYPE_LABELS = {

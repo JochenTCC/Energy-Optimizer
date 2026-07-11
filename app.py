@@ -17,7 +17,7 @@ import streamlit as st
 
 import config
 
-from runtime_store.dotenv_io import needs_loxone_setup
+from runtime_store.dotenv_io import needs_loxone_setup, require_loxone_credentials_for_config
 from ui.setup_dotenv import render_loxone_setup_page
 
 config.reinit_config()
@@ -62,7 +62,7 @@ def main() -> None:
         render_loxone_setup_page()
         st.stop()
 
-    config.reinit_config(require_loxone_credentials=True)
+    config.reinit_config(require_loxone_credentials=require_loxone_credentials_for_config())
     inject_compact_numeric_css()
     inject_help_hint_css()
     _render_sidebar_version()

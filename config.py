@@ -78,6 +78,7 @@ class Config:
             require_loxone_credentials = _default_require_loxone_credentials()
         self.require_loxone_credentials = require_loxone_credentials
         self._raw_config = None
+        self._runtime_params_deferred = False
         self._load_all()
 
     def _load_all(self) -> None:
@@ -239,33 +240,71 @@ class Config:
     def _consumer_path(self, consumer_id: str, default: str = "") -> str:
         return fc_settings.consumer_path(self._raw_config, consumer_id, default)
 
-    def _load_dynamic_params(self) -> None:
-        self.K_PUSH_CENT = self._get_strict(self._raw_config, ["runtime_settings", "k_push_cent"])
-        feed_in_mode_raw = self._raw_config.get("runtime_settings", {}).get("feed_in_mode")
-        if feed_in_mode_raw is None:
-            self.FEED_IN_MODE = "fixed"
-        else:
-            from data.feed_in_prices import validate_feed_in_mode
+    def _lookup_runtime_value(self, resolved: dict, key: str):
+        if key in resolved:
+            return resolved[key]
+        runtime = self._raw_config.get("runtime_settings", {})
+        if isinstance(runtime, dict) and key in runtime:
+            return runtime[key]
+        raise KeyError(
 
-            self.FEED_IN_MODE = validate_feed_in_mode(feed_in_mode_raw)
-        self.PV_TILT = self._get_strict(self._raw_config, ["runtime_settings", "pv_tilt"])
-        self.PV_AZIMUTH = self._get_strict(self._raw_config, ["runtime_settings", "pv_azimuth"])
-        self.PV_KWP = self._get_strict(self._raw_config, ["runtime_settings", "pv_kwp"])
-
-        self.BATTERY_MAX_POWER_KW = self._get_strict(self._raw_config, ["runtime_settings", "battery_max_power_kw"])
-        self.BATTERY_EFFICIENCY = self._get_strict(self._raw_config, ["runtime_settings", "battery_efficiency"])
-        self.BATTERY_CAPACITY_KWH = self._get_strict(self._raw_config, ["runtime_settings", "battery_capacity_kwh"])
-        self.BATTERY_MIN_SOC = self._get_strict(self._raw_config, ["runtime_settings", "battery_min_soc"])
-        self.BATTERY_MAX_SOC = self._get_strict(self._raw_config, ["runtime_settings", "battery_max_soc"])
-        self.THRESHOLD_POWER = self._validate_threshold_power(
-            self._get_strict(self._raw_config, ["runtime_settings", "threshold_power"])
+            f"Kritischer Konfigurationsfehler: runtime_settings.{key} fehlt in {self.config_path}!"
         )
 
-        self.LATITUDE = self._get_strict(self._raw_config, ["runtime_settings", "latitude"])
-        self.LONGITUDE = self._get_strict(self._raw_config, ["runtime_settings", "longitude"])
-        self.PLANNING_TIMEZONE = self._get_strict(
-            self._raw_config, ["runtime_settings", "timezone_name"]
+    def _resolve_runtime_settings_dict(self) -> dict:
+        from house_config.scenario_resolution import resolve_runtime_settings
+
+        holder: dict = {}
+        resolved = resolve_runtime_settings(
+            self._raw_config,
+            tariffs_path=self.tariffs_path,
+            house_profiles_path=self.house_profiles_path,
+            monthly_rates_holder=holder,
         )
+        if holder.get("_monthly_fixed_tariffs") is not None:
+            resolved["_monthly_fixed_tariffs"] = holder["_monthly_fixed_tariffs"]
+        return resolved
+
+    def get_resolved_runtime_settings(self) -> dict:
+        """Aufgelöstes Runtime-Szenario (Entitäts-IDs → flache Parameter)."""
+        return dict(self._resolved_runtime_settings)
+
+    def is_runtime_params_deferred(self) -> bool:
+        """True während Greenfield-Onboarding, bevor Planungs-Konfiguration vollständig ist."""
+        return self._runtime_params_deferred
+
+    def require_runtime_params_loaded(self) -> None:
+        """Erzwingt vollständig aufgelöste PV-/Batterie-/Tarif-Parameter (Live-Optimierung)."""
+        if not self._runtime_params_deferred:
+            return
+        from ui.setup_readiness import missing_planning_setup_items_for
+
+        missing = missing_planning_setup_items_for(
+            self._raw_config,
+            tariffs_path=self.tariffs_path,
+            house_profiles_path=self.house_profiles_path,
+        )
+        detail = "; ".join(missing) if missing else "unbekannte Lücken"
+        raise RuntimeError(
+            "Planungs-Konfiguration unvollständig — Optimierung nicht möglich. "
+            f"Fehlende Schritte: {detail}"
+        )
+
+    def _should_defer_runtime_params(self) -> bool:
+        from ui.setup_readiness import (
+            is_planning_ready_for,
+            needs_planning_onboarding_from_raw,
+        )
+
+        if not needs_planning_onboarding_from_raw(self._raw_config):
+            return False
+        return not is_planning_ready_for(
+            self._raw_config,
+            tariffs_path=self.tariffs_path,
+            house_profiles_path=self.house_profiles_path,
+        )
+
+    def _load_planning_horizon_mode(self) -> None:
         planning_raw = self._raw_config.get("planning_horizon", {})
         if not isinstance(planning_raw, dict):
             raise ValueError(
@@ -277,6 +316,61 @@ class Config:
                 "Kritischer Konfigurationsfehler: planning_horizon.mode fehlt in config.json."
             )
         self.PLANNING_HORIZON_MODE = str(mode_raw)
+
+    def _load_geo_timezone_params(self, resolved: dict) -> None:
+        self.LATITUDE = float(self._lookup_runtime_value(resolved, "latitude"))
+        self.LONGITUDE = float(self._lookup_runtime_value(resolved, "longitude"))
+        self.PLANNING_TIMEZONE = str(
+            self._lookup_runtime_value(resolved, "timezone_name")
+        )
+        self._load_planning_horizon_mode()
+
+    def _load_deferred_runtime_params(self, resolved: dict) -> None:
+        self.FEED_IN_MODE = "fixed"
+        self._load_geo_timezone_params(resolved)
+
+    def _load_full_runtime_params(self, resolved: dict) -> None:
+        feed_in_mode_raw = resolved.get("feed_in_mode")
+        if feed_in_mode_raw is None:
+            feed_in_mode_raw = self._raw_config.get("runtime_settings", {}).get("feed_in_mode")
+        if feed_in_mode_raw is None:
+            self.FEED_IN_MODE = "fixed"
+        else:
+            from data.feed_in_prices import validate_feed_in_mode
+
+            self.FEED_IN_MODE = validate_feed_in_mode(feed_in_mode_raw)
+
+        self.K_PUSH_CENT = float(self._lookup_runtime_value(resolved, "k_push_cent"))
+        self.PV_TILT = float(self._lookup_runtime_value(resolved, "pv_tilt"))
+        self.PV_AZIMUTH = float(self._lookup_runtime_value(resolved, "pv_azimuth"))
+        self.PV_KWP = float(self._lookup_runtime_value(resolved, "pv_kwp"))
+        self.BATTERY_MAX_POWER_KW = float(
+            self._lookup_runtime_value(resolved, "battery_max_power_kw")
+        )
+        self.BATTERY_EFFICIENCY = float(
+            self._lookup_runtime_value(resolved, "battery_efficiency")
+        )
+        self.BATTERY_CAPACITY_KWH = float(
+            self._lookup_runtime_value(resolved, "battery_capacity_kwh")
+        )
+        self.BATTERY_MIN_SOC = float(self._lookup_runtime_value(resolved, "battery_min_soc"))
+        self.BATTERY_MAX_SOC = float(self._lookup_runtime_value(resolved, "battery_max_soc"))
+        self.THRESHOLD_POWER = self._validate_threshold_power(
+            self._lookup_runtime_value(resolved, "threshold_power")
+        )
+        self._load_geo_timezone_params(resolved)
+
+    def _load_dynamic_params(self) -> None:
+        resolved = self._resolve_runtime_settings_dict()
+        self._resolved_runtime_settings = resolved
+
+        if self._should_defer_runtime_params():
+            self._runtime_params_deferred = True
+            self._load_deferred_runtime_params(resolved)
+            return
+
+        self._runtime_params_deferred = False
+        self._load_full_runtime_params(resolved)
 
     def get_planning_timezone(self) -> str:
         return str(self.PLANNING_TIMEZONE)
@@ -323,6 +417,12 @@ class Config:
             fc_settings.normalize_consumer(raw)
             for raw in self._raw_config.get("flexible_consumers", [])
         ]
+        resolved = self.get_resolved_runtime_settings()
+        planning = resolved.get("_planning_flex_consumers") or []
+        if planning:
+            from house_config.planning_flex_bridge import merge_flexible_consumers
+
+            consumers = merge_flexible_consumers(consumers, planning)
         if optimizer_only:
             return [
                 c for c in consumers
@@ -373,11 +473,24 @@ class Config:
         return validate_eauto_milp_params(self._raw_config.get("eauto_milp"))
 
     def get_battery_wear_cent_per_kwh(self, capacity_kwh: float) -> float:
-        """Verschleiß ct/kWh Durchsatz für MILP; 0 wenn battery_wear.enabled=false."""
+        """Verschleiß ct/kWh Durchsatz für MILP; aus batteries[] wenn battery_id gesetzt."""
         from optimizer.battery_wear import (
             battery_wear_cent_per_kwh_from_config,
             validate_battery_wear_config,
         )
+
+        resolved = self.get_resolved_runtime_settings()
+        wear_raw = resolved.get("_battery_wear")
+        if wear_raw is not None:
+            return battery_wear_cent_per_kwh_from_config(wear_raw, float(capacity_kwh))
+
+        runtime = self._raw_config.get("runtime_settings", {})
+        battery_id = str(runtime.get("battery_id", "") or "").strip()
+        if battery_id:
+            raise ValueError(
+                f"Batterie '{battery_id}': battery_wear fehlt in batteries[] "
+                "(Pflicht wenn battery_id gesetzt)."
+            )
 
         wear = validate_battery_wear_config(self._raw_config.get("battery_wear"))
         return battery_wear_cent_per_kwh_from_config(wear, float(capacity_kwh))
@@ -398,9 +511,18 @@ class Config:
     def get_feed_in_settings(self, runtime_override: dict | None = None):
         from data.feed_in_prices import feed_in_settings_from_dict
 
-        runtime = runtime_override if runtime_override is not None else self._raw_config["runtime_settings"]
+        runtime = (
+            runtime_override
+            if runtime_override is not None
+            else self.get_resolved_runtime_settings()
+        )
         awattar = self._raw_config.get("awattar", {})
-        return feed_in_settings_from_dict(runtime, awattar)
+        monthly = runtime.get("_monthly_fixed_tariffs")
+        return feed_in_settings_from_dict(
+            runtime,
+            awattar,
+            monthly_fixed_tariffs=monthly,
+        )
 
     def get_backtesting_fixed_monthly_feed_in_rates(
         self,
@@ -421,7 +543,11 @@ class Config:
             load_oemag_monthly_reference_rates,
         )
 
-        runtime = runtime_override if runtime_override is not None else self._raw_config["runtime_settings"]
+        runtime = (
+            runtime_override
+            if runtime_override is not None
+            else self.get_resolved_runtime_settings()
+        )
         awattar = self._raw_config.get("awattar", {})
         monthly = None
         export_spec = runtime.get("_export_tariff_spec")
@@ -431,8 +557,8 @@ class Config:
             oemag_rates = load_oemag_monthly_reference_rates(scenarios_doc)
             reference_cent = load_monthly_float_reference_cent(scenarios_doc)
             monthly = build_monthly_float_lookup(oemag_rates, reference_cent, export_spec)
-        elif runtime_override and runtime_override.get("_monthly_fixed_tariffs") is not None:
-            monthly = runtime_override["_monthly_fixed_tariffs"]
+        elif runtime.get("_monthly_fixed_tariffs") is not None:
+            monthly = runtime["_monthly_fixed_tariffs"]
         elif validate_feed_in_mode(runtime.get("feed_in_mode", FEED_IN_MODE_FIXED)) == FEED_IN_MODE_FIXED:
             monthly = self.get_backtesting_fixed_monthly_feed_in_rates()
         return feed_in_settings_from_dict(
@@ -547,6 +673,9 @@ class Config:
         return list(pv_systems_by_id(self._raw_config).values())
 
     def resolve_scenario_settings_dict(self, settings: dict) -> dict:
+        return self._resolve_scenario_settings_dict(settings)
+
+    def _resolve_scenario_settings_dict(self, settings: dict) -> dict:
         from house_config.scenario_resolution import resolve_scenario_settings
 
         holder: dict = {}
@@ -563,20 +692,12 @@ class Config:
 
     def get_backtesting_scenarios(self) -> dict[str, dict]:
         """runtime_settings als Baseline, gefolgt von aufgelösten Szenarien."""
-        from house_config.scenario_resolution import resolve_runtime_settings_for_backtesting
-
-        baseline_holder: dict = {}
-        baseline = resolve_runtime_settings_for_backtesting(
-            self._raw_config,
-            tariffs_path=self.tariffs_path,
-            house_profiles_path=self.house_profiles_path,
-            monthly_rates_holder=baseline_holder,
-        )
-        if baseline_holder.get("_monthly_fixed_tariffs") is not None:
-            baseline["_monthly_fixed_tariffs"] = baseline_holder["_monthly_fixed_tariffs"]
+        baseline = self._resolve_runtime_settings_dict()
         scenarios = {"runtime_settings": baseline}
         for scenario in self.get_scenarios():
-            scenarios[scenario["id"]] = self.resolve_scenario_settings_dict(scenario["settings"])
+            scenarios[scenario["id"]] = self._resolve_scenario_settings_dict(
+                scenario["settings"]
+            )
         return scenarios
 
     def get_value(self, name: str, default=None, cast=None):
@@ -610,6 +731,18 @@ class Config:
 
         self._raw_config = data
         self._load_dynamic_params()
+
+
+def get_resolved_runtime_settings() -> dict:
+    return CONFIG.get_resolved_runtime_settings()
+
+
+def is_runtime_params_deferred() -> bool:
+    return CONFIG.is_runtime_params_deferred()
+
+
+def require_runtime_params_loaded() -> None:
+    CONFIG.require_runtime_params_loaded()
 
 
 CONFIG = Config(require_loxone_credentials=_default_require_loxone_credentials())

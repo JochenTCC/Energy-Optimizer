@@ -28,7 +28,7 @@ Im Browser: `http://localhost:8502`
 1. **Bootstrap** — Entrypoint legt fehlende Dateien an (`python -m scripts.bootstrap_runtime`, siehe [Container](container.md)). `config.json` und die Planungs-Dateien starten **minimal** (leere Kataloge, keine Ernie-Beispieldaten).
 2. **UI: Loxone-Zugang** — Formular aus [`ui/setup_dotenv.py`](../../ui/setup_dotenv.py); Platzhalter in `config/.env` reichen nicht.
 3. **Dummy-Zugangsdaten** — Für Greenfield ohne echte Miniserver-Anbindung z. B. IP `192.168.178.99`, beliebiger Benutzer/Passwort eintragen und **Speichern**.
-4. **Planungs-Konfiguration** — Nur **Hauskonfigurator** und **Konfiguration** sind sichtbar. Im Hauskonfigurator (Tabs): thermisches **Hausprofil**, **PV-Anlage**, **Batterie** anlegen; unter **Tarife** Bezugs- und Einspeisetarif aus dem Katalog wählen (`tariffs.json` — neue Einträge nur manuell in der Datei). Sidebar zeigt fehlende Schritte. Während der Planung erscheint **kein** Config-Drift-Hinweis zu `flexible_consumers` aus `config.example.json`.
+4. **Planungs-Konfiguration** — **Hauskonfigurator**, **Konfiguration** und (nach Freischaltung) **Szenarieneditor** sind sichtbar. Im Hauskonfigurator (Tabs): thermisches **Hausprofil**, **PV-Anlage**, **Batterie** anlegen; unter **Tarife** Bezugs- und Einspeisetarif aus dem Katalog wählen (`tariffs.json` — neue Einträge nur manuell in der Datei). Im Szenarieneditor: Runtime-Szenario (Entitäts-IDs) speichern. Sidebar zeigt fehlende Schritte. Während der Planung erscheint **kein** Config-Drift-Hinweis zu `flexible_consumers` aus `config.example.json`.
 5. **Backtesting** — Nach vollständiger Planungs-Konfiguration erscheint die Backtesting-Seite. Szenarieneditor folgt in einem späteren Schritt.
 6. **Worker** — `ernie-greenfield-worker` läuft weiter; Loxone-Startup-Prüfung ist deaktiviert (`ENERGY_OPTIMIZER_VERIFY_LOXONE_ON_START=0`).
 
@@ -38,7 +38,7 @@ Nach `up` (vor manueller Ersteinrichtung) sollten u. a. vorhanden sein:
 
 | Pfad | Erwartung |
 |------|-----------|
-| `greenfield/config/config.json` | Aus `config.minimal.json` — leere `batteries`/`pv_systems`/`flexible_consumers`, Platzhalter-Loxone |
+| `greenfield/config/config.json` | Aus `config.minimal.json` — leere `batteries`/`pv_systems`/`flexible_consumers`, ID-only `runtime_settings` (keine flachen PV-/Batterie-/Tarif-Duplikate), Platzhalter-Loxone |
 | `greenfield/config/config.example.json` | Vollständiges Referenzbeispiel (Ernie) — nur zum Nachschlagen |
 | `greenfield/config/.env` | Aus `.env.example` (Platzhalter → Setup-Seite) |
 | `greenfield/runtime/local_settings.json` | z. B. `{"loxone_silent_mode": false}` |
@@ -69,7 +69,30 @@ Mit abgeschlossener Ersteinrichtung und vollständiger Planungs-Konfiguration:
 2. **Backtesting** — Seite erscheint nach Freischaltung; Szenario anlegen, Planung starten.
 3. **Szenarieneditor** — vorerst nicht freigeschaltet.
 
-`ENERGY_OPTIMIZER_UI_MODES=backtesting` — Sunset-2-Sunset ist in diesem Stack absichtlich aus. Bis zur Freischaltung sind nur Hauskonfigurator und Konfiguration sichtbar.
+`ENERGY_OPTIMIZER_UI_MODES=sunset2sunset,backtesting` — Sunset-2-Sunset ist seit **1.26.0 P0** für Live-Pfad-Smoke freigeschaltet (zusammen mit Backtesting).
+
+## Abnahme Live-Pfad (1.26.0 P0)
+
+Ziel: Greenfield nutzt **ID-only** `runtime_settings` (Entitäts-Referenzen + Geo/Zeitzone, keine flachen PV-/Batterie-/Tarif-Felder). Live-Optimierung und Backtesting sollen dieselbe Auflösungslogik nutzen.
+
+**Voraussetzung:** ~~Backlog **1.26.0 P2** (`resolve_runtime_settings()` im Live-Pfad) ist implementiert.~~ Ab **1.26.0 P2** nutzt `_load_dynamic_params()` dieselbe Auflösung wie Backtesting.
+
+### Checkliste (nach P2)
+
+| Schritt | Prüfung | Erwartung |
+|---------|---------|-----------|
+| 1. Config | `greenfield/config/config.json` → `runtime_settings` | Nur `battery_id`, `import_tariff_id`, `export_tariff_id`, `house_profile_id`, optional `pv_system_id`, `latitude`, `longitude`, `timezone_name` — **keine** `pv_kwp`, `battery_capacity_kwh`, `k_push_cent`, `feed_in_mode` usw. |
+| 2. Entitäts-Auflösung | Szenarieneditor → Runtime → **Auflösung testen** | JSON mit aufgelösten PV-, Batterie- und Tarifparametern aus `batteries[]`, `pv_systems[]`, `tariffs.json` |
+| 3. Live-Zyklus | `docker compose -f docker-compose-greenfield.yml logs -f optimizer-worker` | `main.py` durchläuft mindestens einen Optimierungszyklus ohne Config-Fehler |
+| 4. UI Sunset-2-Sunset | Modus **Sunset-2-Sunset** in der UI | Aufgelöste Werte (PV kWp, Batterie, Einspeisevergütung) **read-only** — keine flachen Sidebar-Edits auf Duplikat-Felder |
+| 5. Backtesting-Parität | Gleiche Tarif-IDs, gleiches Zeitfenster | Import/Export-cent/kWh identisch zu Live (Detail-Paritätstest folgt in **1.26.0 P3**) |
+
+```powershell
+docker compose -f docker-compose-greenfield.yml up -d --build
+docker compose -f docker-compose-greenfield.yml logs -f optimizer-worker
+```
+
+Bei lokalem venv (Port **8511**): VS Code Compound **„main.py + Streamlit (Greenfield :8511)“** — Worker + UI mit `greenfield/config` + `greenfield/runtime`. Alternativ nur UI: „Streamlit app.py (LOKAL, Greenfield :8511)“.
 
 ## Stack zurücksetzen
 

@@ -35,6 +35,40 @@ def test_needs_loxone_setup_respects_offline(monkeypatch):
     assert dotenv_io.needs_loxone_setup() is False
 
 
+def test_needs_loxone_setup_deferred_during_planning_onboarding(tmp_path, monkeypatch):
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ENERGY_OPTIMIZER_CONFIG_PATH", str(config_dir / "config.json"))
+    monkeypatch.delenv("ENERGY_OPTIMIZER_OFFLINE", raising=False)
+    monkeypatch.delenv("LOXONE_IP", raising=False)
+    monkeypatch.delenv("LOXONE_USER", raising=False)
+    monkeypatch.delenv("LOXONE_PASS", raising=False)
+    (config_dir / "config.json").write_text(
+        '{"flexible_consumers": [], "batteries": [], "pv_systems": []}',
+        encoding="utf-8",
+    )
+
+    assert dotenv_io.loxone_setup_deferred() is True
+    assert dotenv_io.needs_loxone_setup() is False
+    assert dotenv_io.require_loxone_credentials_for_config() is False
+
+
+def test_require_loxone_credentials_for_prod_without_onboarding(tmp_path, monkeypatch):
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ENERGY_OPTIMIZER_CONFIG_PATH", str(config_dir / "config.json"))
+    monkeypatch.delenv("ENERGY_OPTIMIZER_OFFLINE", raising=False)
+    (config_dir / "config.json").write_text(
+        '{"flexible_consumers": [{"id": "swimspa"}]}',
+        encoding="utf-8",
+    )
+
+    assert dotenv_io.loxone_setup_deferred() is False
+    assert dotenv_io.require_loxone_credentials_for_config() is True
+
+
 def test_validate_loxone_ip_rejects_invalid():
     assert dotenv_io.validate_loxone_ip("") == "IP-Adresse ist erforderlich."
     assert dotenv_io.validate_loxone_ip("not-an-ip") is not None

@@ -7,7 +7,7 @@
 #   mkdir greenfield\config greenfield\runtime
 #   docker compose -f docker-compose-greenfield.yml up -d --build
 #
-# UI: http://localhost:8502 — Ersteinrichtung (setup_dotenv), danach Backtesting + Hauskonfigurator.
+# UI: http://localhost:8502 — Ersteinrichtung (setup_dotenv), Sunset-2-Sunset + Backtesting (1.26.0 P0).
 # Checkliste: docs/einrichtung/greenfield-dev-stack.md
 #
 # Stack stoppen (Daten bleiben in greenfield/):
@@ -45,4 +45,4 @@ services:
     volumes: *persist-volumes
     environment:
       <<: *common-env
-      ENERGY_OPTIMIZER_UI_MODES: backtesting
+      ENERGY_OPTIMIZER_UI_MODES: sunset2sunset,backtesting

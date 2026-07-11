@@ -53,20 +53,12 @@
         "control_cmd_name": "Control_Cmd"
     },
     "runtime_settings": {
-        "k_push_cent": 3.5,
-        "feed_in_mode": "fixed",
-        "pv_tilt": 25,
-        "pv_azimuth": 0,
-        "pv_kwp": 0,
-        "battery_max_power_kw": 0,
-        "battery_efficiency": 0.97,
-        "battery_capacity_kwh": 0,
-        "battery_min_soc": 10.0,
-        "battery_max_soc": 100.0,
-        "threshold_power": 0.05,
         "latitude": 48.2,
         "longitude": 16.37,
         "timezone_name": "Europe/Vienna",
+        "battery_id": "",
+        "pv_system_id": "",
+        "house_profile_id": "",
         "import_tariff_id": "",
         "export_tariff_id": ""
     },

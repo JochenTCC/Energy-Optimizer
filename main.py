@@ -35,6 +35,7 @@ def _baseline_trigger_snapshot() -> dict:
 
 def main(run_trigger: str = TRIGGER_QUARTER_HOUR):
     config.reload_config()
+    config.require_runtime_params_loaded()
     event_run = is_event_trigger(run_trigger)
     trigger_specs = config.get_event_triggers()
 
@@ -383,8 +384,13 @@ if __name__ == "__main__":
             "kein Event-Polling zwischen den regulären Läufen."
         )
 
-    from runtime_store.dotenv_io import needs_loxone_setup
+    from runtime_store.dotenv_io import (
+        loxone_credentials_configured,
+        loxone_setup_deferred,
+        needs_loxone_setup,
+    )
     from runtime_store.dotenv_loader import load_app_dotenv
+    from ui.setup_readiness import is_planning_ready, needs_planning_onboarding
 
     _SETUP_WAIT_SEC = 60
     next_trigger = TRIGGER_QUARTER_HOUR
@@ -402,6 +408,30 @@ if __name__ == "__main__":
             )
             time.sleep(_SETUP_WAIT_SEC)
             load_app_dotenv(override=True)
+            config.reinit_config()
+            continue
+
+        if loxone_setup_deferred() and not loxone_credentials_configured():
+            logger.info(
+                "Loxone-Zugangsdaten noch nicht hinterlegt (optional bis Live-/Silent-Betrieb). "
+                "Planung/Backtesting in der UI (Port %s) möglich. "
+                "Erneuter Versuch in %s Sekunden.",
+                config.get_ui_streamlit_port(),
+                _SETUP_WAIT_SEC,
+            )
+            time.sleep(_SETUP_WAIT_SEC)
+            config.reinit_config()
+            continue
+
+        if needs_planning_onboarding() and not is_planning_ready():
+            logger.warning(
+                "Planungs-Konfiguration unvollständig. "
+                "Bitte in der Streamlit-UI (Port %s) Hauskonfigurator und Runtime-Szenario abschließen. "
+                "Erneuter Versuch in %s Sekunden.",
+                config.get_ui_streamlit_port(),
+                _SETUP_WAIT_SEC,
+            )
+            time.sleep(_SETUP_WAIT_SEC)
             config.reinit_config()
             continue
 

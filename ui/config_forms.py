@@ -42,10 +42,11 @@ def render_battery_config_inputs(settings: dict) -> tuple[float, float, float, f
     st.markdown("#### 🔋 Batterie-Speicher")
     bat_capacity = st.number_input(
         "Speicher-Kapazität (kWh)",
-        min_value=0.1,
+        min_value=0.0,
         value=float(settings["BATTERY_CAPACITY_KWH"]),
         step=0.5,
         format="%.1f",
+        help="0 = kein Hausspeicher (z. B. nur PV oder reine Verbrauchersteuerung).",
     )
     bat_min_soc = st.number_input(
         "Minimaler SoC (%)",
@@ -63,10 +64,11 @@ def render_battery_config_inputs(settings: dict) -> tuple[float, float, float, f
     )
     bat_max_power = st.number_input(
         "Max. Lade-/Entladeleistung (kW)",
-        min_value=0.1,
+        min_value=0.0,
         value=float(settings["BATTERY_MAX_POWER_KW"]),
         step=0.1,
         format="%.2f",
+        help="0 = kein Speicher aktiv (Kapazität ebenfalls 0).",
     )
     threshold_percent = st.number_input(
         "Leistungs-Schwelle (%)",
@@ -108,5 +110,13 @@ def render_config_form_body(settings: dict) -> None:
 
 def render_system_parameter_section() -> None:
     """Komfort-Ansicht der Kern-Laufzeitparameter (PV/Batterie) im Seiten-Body."""
+    import config
+
+    if config.is_runtime_params_deferred():
+        st.info(
+            "PV- und Batterie-Parameter werden nach Abschluss der Planungs-Konfiguration "
+            "aus den gewählten Entitäten aufgelöst. Bitte Hauskonfigurator und Szenarieneditor nutzen."
+        )
+        return
     st.markdown("Änderungen werden direkt über das Konfigurationsmodul angewendet.")
     render_config_form_body(get_runtime_settings())

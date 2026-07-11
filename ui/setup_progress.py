@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import streamlit as st
 
+from runtime_store.dotenv_io import loxone_credentials_configured, loxone_setup_deferred
+from ui.setup_dotenv import render_loxone_credentials_form, render_loxone_verify_results
 from ui.setup_readiness import (
     is_betrieb_unlocked,
     is_house_config_ready,
@@ -15,16 +17,35 @@ from ui.setup_readiness import (
 )
 
 
+def _render_deferred_loxone_section() -> None:
+    """Loxone-.env optional bis Live-/Silent-Betrieb oder Merker-Test."""
+    if not loxone_setup_deferred():
+        return
+
+    expand = not loxone_credentials_configured() and is_planning_ready()
+    with st.sidebar.expander("Loxone-Zugang (Live / Silent-Modus)", expanded=expand):
+        st.caption(
+            "Miniserver-Zugang erst für Live-Optimierung, Silent-Modus (Lesen) "
+            "oder Merker-Test erforderlich — nicht für Planung/Backtesting."
+        )
+        if loxone_credentials_configured():
+            st.success("Zugangsdaten hinterlegt.")
+            render_loxone_verify_results()
+        else:
+            render_loxone_credentials_form(form_key="loxone_sidebar_form")
+
+
 def render_setup_progress_notice() -> None:
     """Zeigt fehlende Einrichtungsschritte, solange Navigation eingeschränkt ist."""
     if not needs_planning_onboarding():
         return
+    _render_deferred_loxone_section()
     if is_planning_ready():
         if is_betrieb_unlocked():
             return
         st.sidebar.success(
             "Planungs-Konfiguration vollständig — Analyse ist freigeschaltet. "
-            "Betrieb folgt nach Loxone-Anbindung."
+            "Betrieb folgt nach Loxone-Anbindung (Sidebar)."
         )
         return
     if not is_setup_navigation_restricted():

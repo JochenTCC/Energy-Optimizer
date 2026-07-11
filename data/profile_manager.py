@@ -162,7 +162,24 @@ def _load_hourly_profile(target_hours: List, profile_path: str, column: str = "C
 
 def _load_consumption_profile(target_hours: List) -> List[float]:
     """Lädt das Grundlast-Profil für die Zielstunden."""
-    return _load_hourly_profile(target_hours, consumption_profiles_file())
+    base = _load_hourly_profile(target_hours, consumption_profiles_file())
+    return _apply_house_profile_baseload_overlay(target_hours, base)
+
+
+def _apply_house_profile_baseload_overlay(
+    target_hours: List,
+    baseload: List[float],
+) -> List[float]:
+    """Fixe generic-Verbraucher aus Hausprofil auf Grundlast (Greenfield ohne flexible_consumers)."""
+    if config.CONFIG._raw_config.get("flexible_consumers"):
+        return baseload
+    profile = config.get_resolved_runtime_settings().get("_house_profile")
+    if not profile:
+        return baseload
+    from house_config.planning_flex_bridge import fixed_generic_hourly_overlay
+
+    overlay = fixed_generic_hourly_overlay(profile, target_hours)
+    return [round(base + extra, 3) for base, extra in zip(baseload, overlay)]
 
 
 def _load_total_consumption_profile(target_hours: List) -> List[float]:

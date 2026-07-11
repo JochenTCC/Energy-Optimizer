@@ -1,6 +1,11 @@
 """Auflösung von batteries[] und pv_systems[] in flache runtime_settings-Felder."""
 from __future__ import annotations
 
+from optimizer.battery_wear import (
+    battery_wear_cent_per_kwh_from_config,
+    validate_battery_wear_config,
+)
+
 
 def normalize_battery(raw: dict, index: int) -> dict:
     if not isinstance(raw, dict):
@@ -23,7 +28,29 @@ def normalize_battery(raw: dict, index: int) -> dict:
         "battery_min_soc": float(raw["battery_min_soc"]),
         "battery_max_soc": float(raw["battery_max_soc"]),
         "threshold_power": threshold,
+        "battery_wear": _normalize_battery_wear(raw.get("battery_wear"), battery_id, index),
     }
+
+
+def _normalize_battery_wear(raw: object, battery_id: str, index: int) -> dict | None:
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise ValueError(
+            f"batteries[{index}] ('{battery_id}'): battery_wear muss ein Objekt sein."
+        )
+    return validate_battery_wear_config(raw)
+
+
+def battery_wear_cent_per_kwh(battery: dict, capacity_kwh: float | None = None) -> float:
+    """Verschleiß ct/kWh aus batteries[]-Eintrag (kein globaler Fallback)."""
+    wear_raw = battery.get("battery_wear")
+    if wear_raw is None:
+        raise ValueError(
+            f"Batterie '{battery.get('id', '?')}': battery_wear fehlt in batteries[]."
+        )
+    cap = float(capacity_kwh if capacity_kwh is not None else battery["battery_capacity_kwh"])
+    return battery_wear_cent_per_kwh_from_config(wear_raw, cap)
 
 
 def normalize_pv_system(raw: dict, index: int) -> dict:
@@ -75,7 +102,12 @@ def pv_systems_by_id(raw_config: dict) -> dict[str, dict]:
     return result
 
 
-def resolve_battery_into_settings(settings: dict, batteries: dict[str, dict]) -> dict:
+def resolve_battery_into_settings(
+    settings: dict,
+    batteries: dict[str, dict],
+    *,
+    raw_config: dict | None = None,
+) -> dict:
     """Ersetzt battery_id durch flache Batterie-Felder (falls gesetzt)."""
     out = dict(settings)
     battery_id = out.pop("battery_id", None)
@@ -95,6 +127,10 @@ def resolve_battery_into_settings(settings: dict, batteries: dict[str, dict]) ->
             "threshold_power": bat["threshold_power"],
         }
     )
+    if bat.get("battery_wear") is not None:
+        out["_battery_wear"] = dict(bat["battery_wear"])
+    elif raw_config is not None and raw_config.get("battery_wear") is not None:
+        out["_battery_wear"] = validate_battery_wear_config(raw_config["battery_wear"])
     return out
 
 

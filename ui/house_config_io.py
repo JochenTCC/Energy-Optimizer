@@ -172,6 +172,20 @@ def upsert_battery(raw_spec: dict, *, stable_id: str = "") -> None:
         "battery_max_soc": float(raw_spec["battery_max_soc"]),
         "threshold_power": float(raw_spec.get("threshold_power", 0.05)),
     }
+    existing_wear = None
+    if stable_id:
+        for item in batteries:
+            if str(item.get("id", "")).strip() == entity_id:
+                existing_wear = item.get("battery_wear")
+                break
+    if raw_spec.get("battery_wear") is not None:
+        spec["battery_wear"] = raw_spec["battery_wear"]
+    elif existing_wear is not None:
+        spec["battery_wear"] = existing_wear
+    elif data.get("battery_wear") is not None:
+        spec["battery_wear"] = dict(data["battery_wear"])
+    else:
+        spec["battery_wear"] = {"enabled": False}
     normalize_battery(spec, 0)
     batteries = [item for item in batteries if item.get("id") != entity_id]
     batteries.append(spec)

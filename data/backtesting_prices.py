@@ -240,6 +240,18 @@ def matrix_prices_from_context(
     def _brutto_list(epex_values: list[float]) -> list[float]:
         if import_tariff_spec is None:
             return [epex_to_brutto_cent(float(p)) for p in epex_values]
+        tariff_type = str(import_tariff_spec.get("type", "")).strip().lower()
+        if tariff_type == "monthly_table":
+            return [
+                import_cent_kwh(
+                    float(p),
+                    import_tariff_spec,
+                    netzentgelt_override=netzentgelt_override,
+                    legacy_awattar=legacy_awattar,
+                    slot_datetime=slot,
+                )
+                for p, slot in zip(epex_values, slot_datetimes)
+            ]
         return [
             import_cent_kwh(
                 float(p),
