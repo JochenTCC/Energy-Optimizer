@@ -15,6 +15,30 @@ from runtime_store.persist_paths import (
     resolve_local_settings_json_path,
 )
 
+_RUNTIME_SETTINGS_FLAT_LEGACY_KEYS = frozenset({
+    "k_push_cent",
+    "feed_in_mode",
+    "pv_tilt",
+    "pv_azimuth",
+    "pv_kwp",
+    "battery_max_power_kw",
+    "battery_efficiency",
+    "battery_capacity_kwh",
+    "battery_min_soc",
+    "battery_max_soc",
+    "threshold_power",
+})
+
+_RUNTIME_SETTINGS_ID_ONLY_KEYS = frozenset({
+    "latitude",
+    "longitude",
+    "timezone_name",
+    "battery_id",
+    "pv_system_id",
+    "house_profile_id",
+    "import_tariff_id",
+    "export_tariff_id",
+})
 
 def _prepare_greenfield_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.chdir(tmp_path)
@@ -117,7 +141,29 @@ def test_greenfield_bootstrap_creates_expected_files(tmp_path, monkeypatch):
     for key in ("LOXONE_IP", "LOXONE_USER", "LOXONE_PASS"):
         monkeypatch.delenv(key, raising=False)
     load_app_dotenv(override=True)
-    assert dotenv_io.needs_loxone_setup() is True
+    assert dotenv_io.needs_loxone_setup() is False
+
+
+def test_config_minimal_runtime_settings_id_only():
+    """1.26.0 P0: Bootstrap-Vorlage ohne flache PV-/Batterie-/Tarif-Duplikate."""
+    repo_root = Path(__file__).resolve().parents[1]
+    minimal_path = repo_root / "config" / "config.minimal.json"
+    runtime = json.loads(minimal_path.read_text(encoding="utf-8"))["runtime_settings"]
+
+    assert not _RUNTIME_SETTINGS_FLAT_LEGACY_KEYS.intersection(runtime)
+    assert set(runtime).issubset(_RUNTIME_SETTINGS_ID_ONLY_KEYS)
+
+
+def test_greenfield_config_runtime_settings_id_only():
+    """1.26.0 P0: Greenfield-Referenzconfig ohne flache Duplikate."""
+    repo_root = Path(__file__).resolve().parents[1]
+    config_path = repo_root / "greenfield" / "config" / "config.json"
+    if not config_path.is_file():
+        pytest.skip("greenfield/config/config.json nicht vorhanden")
+
+    runtime = json.loads(config_path.read_text(encoding="utf-8"))["runtime_settings"]
+    assert not _RUNTIME_SETTINGS_FLAT_LEGACY_KEYS.intersection(runtime)
+    assert set(runtime).issubset(_RUNTIME_SETTINGS_ID_ONLY_KEYS)
 
 
 def test_greenfield_setup_completes_after_dotenv_save(tmp_path, monkeypatch):

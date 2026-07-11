@@ -31,7 +31,7 @@ def resolve_scenario_settings(
     out = dict(settings)
     batteries = batteries_by_id(raw_config)
     pv_systems = pv_systems_by_id(raw_config)
-    out = resolve_battery_into_settings(out, batteries)
+    out = resolve_battery_into_settings(out, batteries, raw_config=raw_config)
     out = resolve_pv_into_settings(out, pv_systems)
 
     tariffs_doc = load_tariffs_document(tariffs_path)
@@ -56,7 +56,7 @@ def resolve_scenario_settings(
     return out
 
 
-def resolve_runtime_settings_for_backtesting(
+def resolve_runtime_settings(
     raw_config: dict,
     *,
     tariffs_path: str,
@@ -64,8 +64,8 @@ def resolve_runtime_settings_for_backtesting(
     monthly_rates_holder: dict | None = None,
 ) -> dict:
     """
-    Löst runtime_settings für die Backtesting-Baseline auf (nur Offline-Simulation).
-    Live-Pfad (_load_dynamic_params) bleibt unverändert bis Backlog 1.26.0.
+    Löst runtime_settings für Live-Betrieb und Backtesting-Baseline auf.
+    ID-Referenzen haben Vorrang; flache Legacy-Felder bleiben als Fallback erhalten.
     """
     runtime = raw_config.get("runtime_settings", {})
     if not isinstance(runtime, dict):
@@ -88,6 +88,22 @@ def resolve_runtime_settings_for_backtesting(
     return resolve_scenario_settings(
         settings,
         raw_config=raw_config,
+        tariffs_path=tariffs_path,
+        house_profiles_path=house_profiles_path,
+        monthly_rates_holder=monthly_rates_holder,
+    )
+
+
+def resolve_runtime_settings_for_backtesting(
+    raw_config: dict,
+    *,
+    tariffs_path: str,
+    house_profiles_path: str,
+    monthly_rates_holder: dict | None = None,
+) -> dict:
+    """Alias für resolve_runtime_settings (Backtesting-Baseline)."""
+    return resolve_runtime_settings(
+        raw_config,
         tariffs_path=tariffs_path,
         house_profiles_path=house_profiles_path,
         monthly_rates_holder=monthly_rates_holder,

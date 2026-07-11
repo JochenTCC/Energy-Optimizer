@@ -2,6 +2,38 @@
 
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
+### Version 1.26.0 P0 — Greenfield onboarding deferrals (2026-07-11)
+
+- [x] **Deferred runtime params** — incomplete Greenfield planning no longer crashes `import config`; PV/battery/tariff params load after Szenarieneditor; `main.py` waits until planning complete (`config.py`, `main.py`, `ui/config_forms.py`, `tests/test_config_runtime_resolution.py`)
+- [x] **Deferred Loxone credentials** — `.env` entry no longer blocks UI/worker during planning; optional sidebar form + Merker test when going live (Silent-Modus) or verifying aliases (`runtime_store/dotenv_io.py`, `ui/setup_dotenv.py`, `ui/setup_progress.py`, `app.py`, `main.py`)
+- [x] **Tests** — `test_config_runtime_resolution.py`, `test_dotenv_io.py`, `test_greenfield_bootstrap.py`
+
+### Version 1.26.0 P2 — Central resolution in config.py (2026-07-11)
+
+- [x] **`resolve_runtime_settings()`** — unified live + backtesting baseline in `house_config/scenario_resolution.py`
+- [x] **`_load_dynamic_params()`** — loads PV/battery/tariff/geo from resolved dict (ID wins, legacy flat fallback)
+- [x] **`get_battery_wear_cent_per_kwh()`** — from `_battery_wear` on selected `batteries[]` entry; global fallback only without `battery_id`
+- [x] **`get_backtesting_scenarios()`** — baseline via same `_resolve_runtime_settings_dict()` path
+- [x] **Flex bridge** — `get_flexible_consumers()` merges `_planning_flex_consumers`; live baseload overlay via `fixed_generic_hourly_overlay` in `profile_manager.py`
+- [x] **`get_feed_in_settings()`** — uses resolved runtime incl. `_monthly_fixed_tariffs`
+- [x] **Tests** — `tests/test_config_runtime_resolution.py`
+
+### Version 1.26.0 P1 — Data model & schema (2026-07-11)
+
+- [x] **Schema** — `config.schema.json`: `battery_wear` on `battery_entity`, `house_profile_id` + deprecated flat `runtime_settings`; `tariffs.schema.json`: import `monthly_table`, per-tariff aWATTar surcharges
+- [x] **`battery_wear` on `batteries[]`** — normalized in `house_config/entity_resolution.py`; resolved as `_battery_wear` (P2 wires MILP)
+- [x] **Import `monthly_table`** — `tariffs_store.py`, `data/tariff_pricing.py`, `data/backtesting_prices.py`
+- [x] **aWATTar surcharges per tariff** — import `awattar` + export `dynamic_epex` fields in `tariffs.json` / examples; legacy `config.json` awattar block still fallback until P6
+- [x] **Example configs** — `config.example.json`, `tariffs.example.json`, greenfield battery/tariffs, backtesting fixture
+- [x] **Tests** — `test_tariff_pricing.py`, `test_house_config.py`
+
+### Version 1.26.0 P0 — Greenfield pilot (strict target config) (2026-07-11)
+
+- [x] **ID-only `runtime_settings`** — `greenfield/config/config.json` and `config/config.minimal.json` stripped of flat PV/battery/tariff duplicates; IDs + geo/timezone only
+- [x] **Sunset-2-Sunset on greenfield** — `ENERGY_OPTIMIZER_UI_MODES=sunset2sunset,backtesting` in `docker-compose-greenfield.yml` and VS Code Greenfield launch
+- [x] **Acceptance checklist** — Live-path smoke steps in [`docs/einrichtung/greenfield-dev-stack.md`](docs/einrichtung/greenfield-dev-stack.md) (execution blocked until **1.26.0 P2**)
+- [x] **Tests** — `tests/test_greenfield_bootstrap.py`: ID-only runtime_settings assertions for minimal template and greenfield config
+
 ### Bugfix EV absence vs. live control (2026-07-10)
 
 - [x] **EV unplugged: no charge setpoint to Loxone** — With `anticipated` + `plugged_in: false`, `_effective_consumer_power_kw` suppresses output; `booking_power_kw` books no fictitious energy (v1.24.3)

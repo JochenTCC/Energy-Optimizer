@@ -277,29 +277,29 @@
     },
     "runtime_settings": {
       "type": "object",
-      "description": "Laufzeitparameter (Echtzeit-Optimierung). Siehe auch docs/konfiguration/batterie-pv.md.",
+      "description": "Laufzeitparameter (Echtzeit-Optimierung). Ab 1.26.0: Entitäts-IDs + Geo/Zeitzone; flache PV-/Batterie-/Tarif-Felder deprecated (Prod-Fallback bis P5).",
       "properties": {
         "k_push_cent": {
           "type": "number",
-          "description": "Einspeisevergütung in Cent/kWh (Erlös bei Netzeinspeisung)."
+          "description": "Deprecated: Einspeisevergütung — nutze export_tariff_id."
         },
         "feed_in_mode": {
           "type": "string",
           "enum": ["fixed", "dynamic_epex"],
-          "description": "Einspeisevergütung: fix (k_push_cent) oder stündlich dynamisch aus EPEX (Awattar SUNNY Spot)."
+          "description": "Deprecated: nutze export_tariff_id."
         },
         "pv_tilt": {
           "type": "number",
-          "description": "PV-Dachneigung in Grad."
+          "description": "Deprecated: nutze pv_system_id."
         },
         "pv_azimuth": {
           "type": "number",
-          "description": "PV-Ausrichtung in Grad: 0=Süd, -90=Ost, 90=West."
+          "description": "Deprecated: nutze pv_system_id."
         },
         "pv_kwp": {
           "type": "number",
           "exclusiveMinimum": 0,
-          "description": "Installierte PV-Leistung in kWp."
+          "description": "Deprecated: nutze pv_system_id."
         },
         "latitude": {
           "type": "number",
@@ -312,36 +312,36 @@
         "battery_max_power_kw": {
           "type": "number",
           "exclusiveMinimum": 0,
-          "description": "Maximale Lade- und Entladeleistung des Speichers in kW."
+          "description": "Deprecated: nutze battery_id."
         },
         "battery_efficiency": {
           "type": "number",
           "exclusiveMinimum": 0,
           "maximum": 1,
-          "description": "Roundtrip-Wirkungsgrad Batterie (Laden/Entladen)."
+          "description": "Deprecated: nutze battery_id."
         },
         "battery_capacity_kwh": {
           "type": "number",
           "exclusiveMinimum": 0,
-          "description": "Nutzbare Speicherkapazität in kWh."
+          "description": "Deprecated: nutze battery_id."
         },
         "battery_min_soc": {
           "type": "number",
           "minimum": 0,
           "maximum": 100,
-          "description": "Untere SOC-Grenze in % (Schutz)."
+          "description": "Deprecated: nutze battery_id."
         },
         "battery_max_soc": {
           "type": "number",
           "minimum": 0,
           "maximum": 100,
-          "description": "Obere SOC-Grenze in %."
+          "description": "Deprecated: nutze battery_id."
         },
         "threshold_power": {
           "type": "number",
           "exclusiveMinimum": 0,
           "maximum": 1,
-          "description": "Relative Leistungsschwelle als Anteil von battery_max_power_kw (z. B. 0.02 = 2 %). Gilt für Modus-Erkennung und Zwangsentladen vs. Automatik."
+          "description": "Deprecated: nutze battery_id."
         },
         "timezone_name": {
           "type": "string",
@@ -349,11 +349,11 @@
         },
         "battery_id": {
           "type": "string",
-          "description": "Optional: Referenz auf batteries[].id (Backtesting/Szenarien)."
+          "description": "Referenz auf batteries[].id (Runtime/Baseline)."
         },
         "pv_system_id": {
           "type": "string",
-          "description": "Optional: Referenz auf pv_systems[].id (Backtesting/Szenarien)."
+          "description": "Referenz auf pv_systems[].id (Runtime/Baseline)."
         },
         "import_tariff_id": {
           "type": "string",
@@ -362,6 +362,10 @@
         "export_tariff_id": {
           "type": "string",
           "description": "Gewählter Einspeisetarif (tariffs.json export_tariffs[].id)."
+        },
+        "house_profile_id": {
+          "type": "string",
+          "description": "Hausprofil für modellierte Grundlast (house_profiles.json)."
         }
       }
     },
@@ -389,6 +393,10 @@
           "exclusiveMinimum": 0,
           "maximum": 1,
           "description": "Relativer Anteil von battery_max_power_kw (Standard 0.02)."
+        },
+        "battery_wear": {
+          "$ref": "#/definitions/battery_wear",
+          "description": "Verschleißmodell dieser Batterie (Pflicht wenn enabled; kein globaler Fallback ab 1.26.0 P1)."
         }
       }
     },

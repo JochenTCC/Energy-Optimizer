@@ -57,7 +57,17 @@ def test_resolve_battery_into_settings():
     batteries = batteries_by_id(config.CONFIG._raw_config)
     resolved = resolve_battery_into_settings({"battery_id": "test_battery"}, batteries)
     assert resolved["battery_capacity_kwh"] == 8.0
+    assert resolved["_battery_wear"]["enabled"] is True
     assert "battery_id" not in resolved
+
+
+def test_battery_wear_cent_per_kwh_from_entity():
+    from house_config.entity_resolution import battery_wear_cent_per_kwh
+
+    batteries = batteries_by_id(config.CONFIG._raw_config)
+    bat = batteries["test_battery"]
+    wear = battery_wear_cent_per_kwh(bat)
+    assert wear == pytest.approx(2.5, rel=1e-3)
 
 
 def test_resolve_pv_into_settings():
@@ -119,6 +129,38 @@ def test_dach_tariffs_catalog():
     assert len(doc["export_tariffs"]) == 12
     assert "awattar_at" in doc["import_tariffs"]
     assert "dynamic_epex" in doc["export_tariffs"]
+
+
+def test_import_monthly_table_tariff_normalization():
+    from house_config.tariffs_store import normalize_tariffs_document
+
+    doc = normalize_tariffs_document(
+        {
+            "import_tariffs": [
+                {
+                    "id": "monthly_import",
+                    "label": "Monatlich",
+                    "type": "monthly_table",
+                    "monthly_rates": [
+                        {"year": 2025, "month": 1, "tariff_cent_kwh": 20.0},
+                    ],
+                }
+            ],
+            "export_tariffs": [],
+        }
+    )
+    assert doc["import_tariffs"]["monthly_import"]["type"] == "monthly_table"
+    assert len(doc["import_tariffs"]["monthly_import"]["monthly_rates"]) == 1
+
+
+def test_awattar_tariff_spec_includes_surcharges():
+    root = Path(__file__).resolve().parents[1]
+    doc = load_tariffs_document(str(root / "config" / "tariffs.json"))
+    awattar = doc["import_tariffs"]["awattar_at"]
+    assert awattar["fix_aufschlag_cent"] == pytest.approx(1.5)
+    assert awattar["netzverlust_faktor"] == pytest.approx(1.03)
+    dynamic = doc["export_tariffs"]["dynamic_epex"]
+    assert dynamic["feed_in_fee_factor"] == pytest.approx(0.19)
 
 
 def test_export_tariff_id_alias_awattar_sunny_float():

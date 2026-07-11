@@ -39,11 +39,35 @@ def loxone_credentials_configured() -> bool:
     return True
 
 
-def needs_loxone_setup() -> bool:
-    """True wenn Live-Betrieb Loxone-Credentials braucht, diese aber fehlen."""
+def loxone_setup_deferred() -> bool:
+    """
+    True wenn Loxone-.env bewusst zurückgestellt ist (Greenfield-Planungsphase).
+
+    Zugangsdaten werden erst bei Live-/Silent-Betrieb oder Merker-Test benötigt.
+    """
     if os.getenv("ENERGY_OPTIMIZER_OFFLINE") == "1":
         return False
+    from ui.setup_readiness import needs_planning_onboarding
+
+    return needs_planning_onboarding()
+
+
+def needs_loxone_setup() -> bool:
+    """True wenn die App auf der Loxone-Setup-Seite blockieren soll."""
+    if os.getenv("ENERGY_OPTIMIZER_OFFLINE") == "1":
+        return False
+    if loxone_setup_deferred():
+        return False
     return not loxone_credentials_configured()
+
+
+def require_loxone_credentials_for_config() -> bool:
+    """Ob config.Config Loxone-Variablen zwingend laden soll."""
+    if os.getenv("ENERGY_OPTIMIZER_OFFLINE") == "1":
+        return False
+    if loxone_setup_deferred():
+        return False
+    return True
 
 
 def validate_loxone_ip(ip: str) -> str | None:

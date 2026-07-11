@@ -9,7 +9,14 @@ from data.feed_in_prices import validate_fixed_monthly_feed_in_rates
 from data.tariff_pricing import market_zone_for_land
 
 IMPORT_TYPES = frozenset(
-    {"awattar", "fixed_cent", "spot_hourly", "ex_post_spot", "monthly_market"}
+    {
+        "awattar",
+        "fixed_cent",
+        "spot_hourly",
+        "ex_post_spot",
+        "monthly_market",
+        "monthly_table",
+    }
 )
 EXPORT_TYPES = frozenset(
     {
@@ -27,6 +34,15 @@ VALID_CURRENCIES = frozenset({"EUR", "CHF"})
 _EXPORT_TARIFF_ID_ALIASES: dict[str, str] = {
     "awattar_sunny_float": "dynamic_epex",
 }
+_AWATTAR_IMPORT_KEYS = (
+    "fix_aufschlag_cent",
+    "netzverlust_faktor",
+    "mwst_austria_faktor",
+)
+_AWATTAR_EXPORT_KEYS = (
+    "feed_in_fee_factor",
+    "feed_in_fix_cent",
+)
 
 
 def resolve_export_tariff_id(tariff_id: str) -> str:
@@ -80,6 +96,18 @@ def _normalize_dach_fields(raw: dict, spec: dict) -> None:
         spec["notes"] = str(notes).strip()
 
 
+def _copy_awattar_import_fields(raw: dict, spec: dict) -> None:
+    for key in _AWATTAR_IMPORT_KEYS:
+        if key in raw and raw[key] is not None:
+            spec[key] = float(raw[key])
+
+
+def _copy_awattar_export_fields(raw: dict, spec: dict) -> None:
+    for key in _AWATTAR_EXPORT_KEYS:
+        if key in raw and raw[key] is not None:
+            spec[key] = float(raw[key])
+
+
 def _import_tariff_spec(raw: dict, index: int) -> dict:
     if not isinstance(raw, dict):
         raise ValueError(f"import_tariffs[{index}] muss ein Objekt sein.")
@@ -100,6 +128,15 @@ def _import_tariff_spec(raw: dict, index: int) -> dict:
                 f"import_tariffs[{index}] ('{tariff_id}'): fix_cent_kwh fehlt."
             )
         spec["fix_cent_kwh"] = float(raw["fix_cent_kwh"])
+    elif tariff_type == "monthly_table":
+        rates = raw.get("monthly_rates")
+        if not isinstance(rates, list):
+            raise ValueError(
+                f"import_tariffs[{index}] ('{tariff_id}'): monthly_rates fehlt."
+            )
+        spec["monthly_rates"] = validate_fixed_monthly_feed_in_rates(rates)
+    elif tariff_type == "awattar":
+        _copy_awattar_import_fields(raw, spec)
     elif tariff_type in {"spot_hourly", "ex_post_spot", "monthly_market"}:
         if "land" not in spec:
             raise ValueError(
@@ -141,6 +178,8 @@ def _export_tariff_spec(raw: dict, index: int) -> dict:
                 f"export_tariffs[{index}] ('{tariff_id}'): arbeitspreis_kwh_cent fehlt."
             )
         spec["arbeitspreis_kwh_cent"] = float(raw["arbeitspreis_kwh_cent"])
+    elif tariff_type == "dynamic_epex":
+        _copy_awattar_export_fields(raw, spec)
     elif tariff_type in {"spot_hourly", "ex_post_spot"}:
         if "land" not in spec:
             raise ValueError(
