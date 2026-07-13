@@ -1,12 +1,13 @@
 """Hausprofil-Auflösung und Synthese für cons_data_hourly.csv."""
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date, datetime, time
 
 import pandas as pd
 
 import config
-from data.consumption_profiles import build_modeled_hourly_kw_by_consumer
+from data.consumption_profiles import _consumer_id, modeled_consumer_kw_at_datetime
 from house_config.profiles_store import load_house_profiles_document
 from runtime_store.persist_paths import resolve_house_profiles_json_path
 
@@ -88,7 +89,7 @@ def build_synthetic_dataframe_from_house_profile(
     end: date,
     kwp: float,
     source: str,
-    pv_kw_for_hour,
+    pv_kw_at_datetime: Callable[[datetime], float],
 ) -> pd.DataFrame:
     """Stündliche cons_data aus modelliertem Hausprofil (Verbraucher + Basislast)."""
     start_dt = datetime.combine(start, time(0))
@@ -97,22 +98,26 @@ def build_synthetic_dataframe_from_house_profile(
     if hours <= 0:
         raise ValueError("Ungültiger Zeitraum für cons_data-Synthese.")
 
-    by_consumer = build_modeled_hourly_kw_by_consumer(profile, hours=hours)
-    baseload_series = by_consumer.pop("baseload")
-    consumer_ids = list(by_consumer.keys())
+    baseload_kwh = float(profile.get("baseload_kwh", 0.0) or 0.0)
+    baseload_kw = baseload_kwh / 8760.0
+    consumers = list(profile.get("consumers", []))
+    consumer_ids = [_consumer_id(consumer, index) for index, consumer in enumerate(consumers)]
     timestamps = pd.date_range(start_dt, periods=hours, freq="h")
 
     rows: list[dict] = []
-    for index, ts in enumerate(timestamps):
-        flex_vals = {cid: float(by_consumer[cid][index]) for cid in consumer_ids}
+    for ts in timestamps:
+        slot_dt = ts.to_pydatetime()
+        flex_vals = {
+            cid: modeled_consumer_kw_at_datetime(consumers[index], slot_dt)
+            for index, cid in enumerate(consumer_ids)
+        }
         flex_sum = sum(flex_vals.values())
-        base = float(baseload_series[index])
         rows.append(
             {
                 "timestamp": ts,
-                "total_kw": round(base + flex_sum, 3),
-                "baseload_kw": round(base, 3),
-                "pv_kw": pv_kw_for_hour(ts.hour, ts.month, kwp),
+                "total_kw": round(baseload_kw + flex_sum, 3),
+                "baseload_kw": round(baseload_kw, 3),
+                "pv_kw": pv_kw_at_datetime(slot_dt),
                 "source": source,
                 **{f"{cid}_kw": round(flex_vals[cid], 3) for cid in consumer_ids},
             }

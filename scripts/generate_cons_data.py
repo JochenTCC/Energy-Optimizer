@@ -23,6 +23,7 @@ from data.cons_data_house_profile import (
     build_synthetic_dataframe_from_house_profile,
     resolve_runtime_house_profile,
 )
+from data.open_meteo_solar_archive import build_open_meteo_pv_lookup
 from integrations import loxone_log_import
 
 SOURCE_LOXONE = cons_data_store.SOURCE_LOXONE
@@ -170,6 +171,7 @@ def build_synthetic(
         start = end - timedelta(days=days)
 
     kwp = float(config.get("PV_KWP", cast=float) or 6.0)
+    pv_lookup = build_open_meteo_pv_lookup(start, end, fallback=_synthetic_pv_kw)
     house_profile = resolve_runtime_house_profile()
     if house_profile and house_profile.get("consumers"):
         df = build_synthetic_dataframe_from_house_profile(
@@ -178,7 +180,7 @@ def build_synthetic(
             end=end,
             kwp=kwp,
             source=SOURCE_SYNTHETIC,
-            pv_kw_for_hour=_synthetic_pv_kw,
+            pv_kw_at_datetime=pv_lookup.kw_at,
         )
         df = cons_data_store._normalize_cons_dataframe(df)
         consumer_ids = [
@@ -220,7 +222,7 @@ def build_synthetic(
                     "timestamp": ts,
                     "total_kw": round(base + flex_sum, 3),
                     "baseload_kw": base,
-                    "pv_kw": _synthetic_pv_kw(hour, current.month, kwp),
+                    "pv_kw": pv_lookup.kw_at(datetime.combine(current, time(hour=hour))),
                     "source": SOURCE_SYNTHETIC,
                     **{f"{cid}_kw": round(flex_vals.get(cid, 0.0), 3) for cid in consumer_ids},
                 }
