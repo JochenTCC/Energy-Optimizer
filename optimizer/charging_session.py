@@ -112,8 +112,15 @@ def normalize_consumer_state(
     if raw.get("date") != today:
         delivered = {}
 
+    generic_flex_run = dict(raw.get("generic_flex_run") or {})
+    if not isinstance(generic_flex_run, dict):
+        generic_flex_run = {}
+    if raw.get("date") != today:
+        generic_flex_run = {}
+
     return {
         "date": today,
         "delivered": delivered,
         "charging_sessions": sessions,
+        "generic_flex_run": generic_flex_run,
     }

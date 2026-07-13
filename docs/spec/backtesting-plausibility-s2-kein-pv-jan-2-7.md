@@ -266,6 +266,94 @@ if cost_full - cost_partial <= threshold_euro → use profile schedule for all u
 
 ---
 
+## Phase 0 diag results (2025-01-02 07:00)
+
+**Command:**
+
+```text
+scripts/diag_single_window.py --greenfield --anchor "2025-01-02 07:00:00" \
+  --flex-diag --compare s2-kein-pv,live --initial-soc 50 \
+  --write-json greenfield/runtime/phase0_jan2_flex_diag.json
+```
+
+**Delivered flex (confirms spec signature):**
+
+| Consumer | Target | `s2-kein-pv` | `live` | Diff |
+| -------- | ------ | ------------ | ------ | ---- |
+| `ev` | 16.842 | 16.840 | 16.840 | 0 |
+| `standard` | 6.000 | **3.000** | 6.000 | −3 |
+| `waschmaschine` | 3.000 | **2.000** | 3.000 | −1 |
+| **Total flex** | 25.842 | **21.840** | 25.840 | −4 |
+
+PV in window: `s2-kein-pv` 0 kWh; `live` 30.83 kWh.
+
+### Root cause confirmed — rolling horizon + `generic_flex_window`
+
+At hour 0, both scenarios have full delivery capacity (`effective_target == remaining`, `gap=0`).
+
+**`s2-kein-pv` failure sequence:**
+
+| Hour | Time | Event |
+| ---- | ---- | ----- |
+| 13 | 01-01 20:00 | `standard` runs **1 h @ 3 kW** only (needs `min_on=2 h`); `Entladesperre aktiv` |
+| 14 | 01-01 21:00 | `waschmaschine` starts 1 h; `standard` still has 3 kWh remaining |
+| 17–23 | 01-02 00:00–06:00 | **`standard`: `eligible=0`, `effective_target=0`, `gap=3.0`** — no generic window slots left in rolling horizon after midnight |
+| 17–22 | overnight | `waschmaschine`: `rem=2`, `eligible=1` (06:00 only), `eff=1.0`, `gap=1.0` — cannot fit `min_on=3 h` block |
+| 23 | 01-02 06:00 | `waschmaschine` +1 h (total 2 h); EV finishes |
+
+**`live` success sequence:**
+
+| Hour | Time | Event |
+| ---- | ---- | ----- |
+| 5–7 | 01-01 12:00–14:00 | `standard` completes **2 h block** during PV surplus (`Automatikbetrieb`) |
+| 7–8 | 01-01 14:00–15:00 | `waschmaschine` completes **3 h block** during PV |
+| 11+ | 01-01 18:00+ | EV charges from battery/PV |
+
+### Conclusions for Phase 1 (MILP hardening)
+
+1. **Not an `effective_target` cap at hour 0** — caps only appear after partial delivery shrinks the rolling horizon.
+2. **Primary bug: partial `min_on` block** — `standard` starts at 20:00 but delivers 1 h instead of 2 h; remainder becomes undeliverable when `generic_flex_window` slots expire at midnight.
+3. **`waschmaschine` secondary gap** — 2 h delivered across non-contiguous evening slots + 1 h at 06:00; `min_on=3 h` not satisfied as a single block.
+4. **Cost-gated baseline fallback is wrong primary fix** — the issue is MILP scheduling infeasibility late in the window, not an economic trade-off under `fixed_25ct`.
+5. **Recommended Phase 1 changes:**
+   - Enforce contiguous `min_on` completion for generic consumers (do not start a block unless remaining horizon can finish it).
+   - Or: carry generic "on" state across hourly re-solves within the same calendar day.
+   - Review whether `generic_flex_window` should include early-morning slots on the window-end day for consumers with evening schedules.
+
+**Artifact:** `greenfield/runtime/phase0_jan2_flex_diag.json` (full per-hour `remaining_kwh`, `delivery_diag`, `flex_kw`).
+
+---
+
+## Phase 1 implementation (2026-07-13)
+
+**Approach:** Option A — MILP hardening via rolling `min_on` continuation (not cost-gated fallback).
+
+### Changes
+
+| Module | Change |
+| --- | --- |
+| `optimizer/generic_flex_run.py` | Tracks open `min_on` blocks across hourly re-solves |
+| `optimizer/milp_consumers.py` | `force_on_at_start` / `on_before_horizon` in `add_min_on_time_constraints`; `add_generic_block_start_guard` |
+| `optimizer/milp.py` / `milp_horizon.py` | `consumer_continue_on` parameter threaded through MILP build |
+| `optimizer/simulation.py` | `simulate_horizon` maintains and passes continuation state |
+| `optimizer/__init__.py` / `charging_session.py` | Live path: persist `generic_flex_run` in `flexible_consumers_state.json` |
+| `main.py` | Passes `get_generic_flex_continue_on()` into `milp_optimizer` |
+| `tests/test_generic_flex_run.py` | Unit tests for state, guards, rolling 2 h block |
+
+### Verification
+
+```text
+scripts/diag_single_window.py --greenfield --anchor "2025-01-02 07:00:00" --compare s2-kein-pv,live
+# s2-kein-pv: standard 6.0, waschmaschine 3.0, ev 16.84 (was 3.0 / 2.0 / 16.84)
+
+scripts/research_soc_reset_plausibility.py
+# s2-kein-pv Jan 2025: 31/31 OK (was 28/31; Jan 2, 7, 21 recovered)
+```
+
+Jan 21 also passes with independent 50% SOC windows (SOC carry-over class unchanged in mechanism; full flex now deliverable).
+
+---
+
 ## Key artifacts
 
 | Path | Role |

@@ -19,6 +19,7 @@ from .charging_context import (
     resolve_charging_contexts,
 )
 from . import battery as bat
+from .generic_flex_run import continue_on_from_state, update_generic_flex_run_state
 from .consumer_power import uses_pv_follow
 from .filter_context import adjust_targets_for_native_filter, resolve_filter_contexts
 from .milp import milp_optimizer
@@ -142,6 +143,7 @@ def _simulate_single_hour_optimizer(
     sunrise_soc_min_index: int | None,
     matrix_hour_index: int,
     flexible_consumers: list | None = None,
+    consumer_continue_on: dict[str, bool] | None = None,
 ) -> tuple[float, dict, int, float]:
     """Simuliert eine einzelne Stunde im optimierten Pfad (Huawei-Logik für die Batterie)."""
     h = row["hour"]
@@ -166,6 +168,7 @@ def _simulate_single_hour_optimizer(
         filter_contexts=filter_contexts,
         terminal_soc_percent=terminal_soc_percent,
         sunrise_soc_min_index=rel_sunrise,
+        consumer_continue_on=consumer_continue_on,
     )
     pv = row["expected_p_pv"]
     con = row["expected_p_act"]
@@ -410,6 +413,7 @@ def simulate_horizon(
         horizon_limits, consumers_cfg, optimization_matrix, filters
     )
     delivered_horizon: dict[str, float] = {c["id"]: 0.0 for c in consumers_cfg}
+    generic_flex_run: dict[str, dict] = {}
     terminal_soc_percent = None if sunrise_soc_min_index is not None else initial_soc
     own_cbc_collection = not cbc_event_collection_active()
     if own_cbc_collection:
@@ -427,6 +431,10 @@ def simulate_horizon(
                 for consumer in consumers_cfg
             }
             remaining_slice = optimization_matrix[i:]
+            continue_on = continue_on_from_state(
+                {"generic_flex_run": generic_flex_run},
+                consumers_cfg,
+            )
             sim_soc, chart_row, mode, target_power = _simulate_single_hour_optimizer(
                 remaining_slice,
                 row,
@@ -443,10 +451,16 @@ def simulate_horizon(
                 sunrise_soc_min_index=sunrise_soc_min_index,
                 matrix_hour_index=i,
                 flexible_consumers=consumers_cfg,
+                consumer_continue_on=continue_on,
             )
             _cap_flex_delivery(
                 chart_row, consumers_cfg, horizon_limits, delivered_horizon
             )
+            for consumer in consumers_cfg:
+                power = float(
+                    chart_row.get(consumer_column_name(consumer), 0.0) or 0.0
+                )
+                update_generic_flex_run_state(generic_flex_run, consumer, power)
             old_soc = float(chart_row["Simulierter SoC (%)"])
             sim_soc = finalize_chart_row_energy(
                 chart_row, mode, target_power, old_soc, battery_params

@@ -195,6 +195,9 @@ def main(run_trigger: str = TRIGGER_QUARTER_HOUR):
         charging_contexts=charging_contexts,
         filter_contexts=filter_contexts,
         sunrise_soc_min_index=sunrise_soc_min_index,
+        consumer_continue_on=optimizer.get_generic_flex_continue_on(
+            charging_contexts, live_consumers
+        ),
     )
     battery_params = config.get_battery_params()
     battery_plan_kw = optimizer.battery_plan_kw_from_control(

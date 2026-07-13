@@ -48,6 +48,7 @@ def _build_milp_model(
     fixed_flex_kw_t0: float,
     remaining_by_consumer: dict[str, float],
     eauto_milp_params: dict[str, float] | None,
+    consumer_continue_on: dict[str, bool] | None = None,
 ) -> MilpHorizonModel:
     min_soc = battery_params["min_soc"]
     max_soc = battery_params["max_soc"]
@@ -85,6 +86,7 @@ def _build_milp_model(
     consumer_p_fixed: dict[str, list] = {}
     consumer_pv_follow: dict[str, list] = {}
     consumer_milp_charge_kw: dict[str, float] = {}
+    continue_on = consumer_continue_on or {}
     for consumer in planned_consumers:
         cid = consumer["id"]
         rem = remaining_by_consumer.get(cid, 0.0)
@@ -102,6 +104,7 @@ def _build_milp_model(
             consumer_pv_follow,
             rem,
             eauto_milp_params,
+            continue_on=bool(continue_on.get(cid, False)),
         )
 
     for t in range(horizon):
