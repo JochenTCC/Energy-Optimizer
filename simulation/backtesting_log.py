@@ -43,13 +43,42 @@ def _compute_config_fingerprint(period: dict) -> str:
     return fingerprint_for_current_config(period=period)
 
 
+def consumption_totals_from_report(report: PlausibilityReport) -> dict:
+    """Summiert historischen und optimierten Verbrauch über alle 24h-Fenster."""
+    if not report.results:
+        return {}
+    historical = round(sum(r.historical_kwh for r in report.results), 1)
+    optimized = round(sum(r.optimized_kwh for r in report.results), 1)
+    payload: dict = {
+        "historical_kwh": historical,
+        "optimized_kwh": optimized,
+        "delta_kwh": round(optimized - historical, 1),
+    }
+    if report.results[0].historical_baseload_kwh is not None:
+        payload["historical_baseload_kwh"] = round(
+            sum(r.historical_baseload_kwh or 0.0 for r in report.results), 1
+        )
+        payload["optimized_baseload_kwh"] = round(
+            sum(r.optimized_baseload_kwh or 0.0 for r in report.results), 1
+        )
+        payload["historical_flex_kwh"] = round(
+            sum(r.historical_flex_kwh or 0.0 for r in report.results), 1
+        )
+        payload["optimized_flex_kwh"] = round(
+            sum(r.optimized_flex_kwh or 0.0 for r in report.results), 1
+        )
+    return payload
+
+
 def _serialize_plausibility(report: PlausibilityReport) -> dict:
+    totals = consumption_totals_from_report(report)
     return {
         "total_windows": len(report.results),
         "ok_count": len(report.results) - len(report.failed),
         "failed_count": len(report.failed),
         "tolerance_kwh": CONSUMPTION_TOLERANCE_KWH,
         "tolerance_rel": CONSUMPTION_TOLERANCE_REL,
+        **({"consumption_totals": totals} if totals else {}),
         "failures": [
             {
                 "window_end": r.window_end.isoformat(),

@@ -1,6 +1,15 @@
 """Auflösung von batteries[] und pv_systems[] in flache runtime_settings-Felder."""
 from __future__ import annotations
 
+ZERO_BATTERY_FLAT = {
+    "battery_capacity_kwh": 0.0,
+    "battery_max_power_kw": 0.0,
+    "battery_efficiency": 1.0,
+    "battery_min_soc": 0.0,
+    "battery_max_soc": 100.0,
+    "threshold_power": 0.02,
+}
+
 
 def normalize_battery(raw: dict, index: int) -> dict:
     if not isinstance(raw, dict):
@@ -109,6 +118,8 @@ def resolve_battery_into_settings(
     out = dict(settings)
     battery_id = out.pop("battery_id", None)
     if not battery_id:
+        if "battery_capacity_kwh" not in out:
+            out.update(ZERO_BATTERY_FLAT)
         return out
     battery_id = str(battery_id).strip()
     if battery_id not in batteries:

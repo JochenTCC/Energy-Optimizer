@@ -168,6 +168,25 @@ class HistoricalDataCache:
             return [0.0] * len(slot_datetimes)
         return self._pv_series.reindex(idx, fill_value=0.0).round(3).tolist()
 
+    def cons_data_consumer_ids_present(self) -> set[str]:
+        """Hausprofil-Verbraucher-IDs mit Spalte in cons_data (auch wenn 0 kWh im Fenster)."""
+        from data.cons_data_house_profile import (
+            consumer_labels_for_ids,
+            expected_cons_data_consumer_ids,
+        )
+
+        self.load()
+        consumer_ids = expected_cons_data_consumer_ids()
+        if not consumer_ids:
+            return set()
+        labels = consumer_labels_for_ids(consumer_ids)
+        present: set[str] = set()
+        for consumer_id in consumer_ids:
+            label = labels.get(consumer_id, consumer_id)
+            if label in self._consumption_df.columns:
+                present.add(consumer_id)
+        return present
+
 
 def _flexible_consumers_from_scenario(scenario_params: dict | None) -> list:
     from house_config.planning_flex_bridge import merge_flexible_consumers
@@ -295,6 +314,7 @@ def build_historical_matrix_for_slots(
             flex_consumer_ids=flex_consumer_ids,
         )
     )
+    _, all_consumer_totals, _, _ = cache.get_window_consumption(slot_datetimes)
     baseload_kw, historical_baseload_kwh = resolve_hourly_baseload_kw(
         total_load, hourly_flex
     )
@@ -302,7 +322,13 @@ def build_historical_matrix_for_slots(
         from house_config.planning_flex_bridge import house_profile_baseload_overlay
 
         profile = scenario_params["_house_profile"]
-        overlay = house_profile_baseload_overlay(profile, slot_datetimes)
+        cons_data_consumer_ids = cache.cons_data_consumer_ids_present()
+        overlay = house_profile_baseload_overlay(
+            profile,
+            slot_datetimes,
+            historical_totals=all_consumer_totals,
+            cons_data_consumer_ids=cons_data_consumer_ids,
+        )
         baseload_kw = [round(base + extra, 3) for base, extra in zip(baseload_kw, overlay)]
         historical_baseload_kwh = round(sum(baseload_kw), 3)
     stored_baseload_kwh = round(sum(baseload_stored), 3)

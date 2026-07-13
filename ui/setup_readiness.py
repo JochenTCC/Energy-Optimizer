@@ -30,7 +30,10 @@ def _read_json_document(path: str) -> dict:
 
 def needs_planning_onboarding_from_raw(raw: dict) -> bool:
     """True nach Minimal-Bootstrap (keine Live-Verbraucher in config.json)."""
-    return not raw.get("flexible_consumers")
+    flex = raw.get("flexible_consumers")
+    if isinstance(flex, list):
+        return len(flex) == 0
+    return not flex
 
 
 def needs_planning_onboarding() -> bool:
@@ -240,6 +243,11 @@ def is_runtime_scenario_ready() -> bool:
     if not needs_planning_onboarding():
         return True
     return not missing_runtime_scenario_items()
+
+
+def is_live_configuration_complete() -> bool:
+    """Live-Konfiguration gespeichert (Live-Szenario + Entitäts-Referenzen)."""
+    return is_runtime_scenario_ready()
 
 
 def is_planning_ready() -> bool:

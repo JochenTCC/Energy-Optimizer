@@ -32,7 +32,9 @@ COMPONENTS_JSON_PATH = resolve_components_json_path()
 
 
 def _default_require_loxone_credentials() -> bool:
-    if os.getenv("ENERGY_OPTIMIZER_OFFLINE") == "1":
+    from runtime_store.env_vars import is_effective_offline
+
+    if is_effective_offline():
         return False
     return loxone_credentials_configured()
 

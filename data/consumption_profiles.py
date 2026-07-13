@@ -1,7 +1,10 @@
 """Synthetische Verbrauchsprofile aus Hausprofilen für Backtesting."""
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+
+MODELED_PROFILE_REF_START = datetime(2023, 1, 1)
+MODELED_PROFILE_HOURS_PER_YEAR = 8760
 
 from data.heating_need import (
     heating_params_from_thermal,
@@ -36,6 +39,42 @@ def _consumer_id(consumer: dict, fallback_index: int) -> str:
     if cid:
         return str(cid)
     return f"consumer_{fallback_index}"
+
+
+def _modeled_hour_index(slot_dt: datetime) -> int:
+    naive = slot_dt.replace(tzinfo=None) if slot_dt.tzinfo else slot_dt
+    return (
+        int((naive - MODELED_PROFILE_REF_START).total_seconds() // 3600)
+        % MODELED_PROFILE_HOURS_PER_YEAR
+    )
+
+
+def modeled_consumer_kw_at_datetime(consumer: dict, slot_dt: datetime) -> float:
+    """kW für einen Verbraucher zum Kalenderzeitpunkt (wie Backtesting-Overlay)."""
+    if consumer.get("profile_csv"):
+        series = load_hourly_profile_csv(consumer["profile_csv"])
+        hour_index = _modeled_hour_index(slot_dt)
+        if hour_index < len(series):
+            return float(series[hour_index][1])
+        return 0.0
+    if consumer.get("type") == "ev":
+        naive = slot_dt.replace(tzinfo=None) if slot_dt.tzinfo else slot_dt
+        day_hourly = ev_hourly_kw_for_day(consumer, naive.date())
+        return float(day_hourly[naive.hour])
+    if consumer.get("type") == "thermal_annual":
+        profile = _modeled_consumer_hourly_kw(
+            consumer,
+            hours=MODELED_PROFILE_HOURS_PER_YEAR,
+        )
+        return float(profile[_modeled_hour_index(slot_dt)])
+    if consumer.get("type") == "generic" and consumer.get("schedule"):
+        from house_config.generic_schedule import generic_hourly_kw_for_day
+
+        naive = slot_dt.replace(tzinfo=None) if slot_dt.tzinfo else slot_dt
+        day_hourly = generic_hourly_kw_for_day(consumer, naive.date())
+        return float(day_hourly[naive.hour])
+    consumer_kwh = consumer_annual_kwh(consumer)
+    return consumer_kwh / MODELED_PROFILE_HOURS_PER_YEAR
 
 
 def _modeled_consumer_hourly_kw(consumer: dict, *, hours: int) -> list[float]:

@@ -67,9 +67,10 @@ def suggest_test_month() -> int | None:
 
 
 def _subprocess_env() -> dict[str, str]:
-    """Kindprozess-Env: PYTHONPATH + ohne Debugpy-Hooks (VS-Code-Launcher)."""
+    """Kindprozess-Env: PYTHONPATH + offline + ohne Debugpy-Hooks (VS-Code-Launcher)."""
     root = str(project_root())
     env = os.environ.copy()
+    env["ENERGY_OPTIMIZER_OFFLINE"] = "1"
     for key in list(env):
         if any(key.startswith(prefix) for prefix in _DEBUGPY_ENV_PREFIXES):
             del env[key]

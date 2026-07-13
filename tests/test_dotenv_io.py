@@ -40,15 +40,39 @@ def test_needs_loxone_setup_deferred_during_planning_onboarding(tmp_path, monkey
     config_dir.mkdir()
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("ENERGY_OPTIMIZER_CONFIG_PATH", str(config_dir / "config.json"))
+    monkeypatch.setenv(
+        "ENERGY_OPTIMIZER_BACKTESTING_SCENARIOS_PATH",
+        str(config_dir / "backtesting_scenarios.json"),
+    )
+    monkeypatch.setenv("ENERGY_OPTIMIZER_COMPONENTS_PATH", str(config_dir / "components.json"))
+    monkeypatch.setenv("ENERGY_OPTIMIZER_TARIFFS_PATH", str(config_dir / "tariffs.json"))
+    monkeypatch.setenv(
+        "ENERGY_OPTIMIZER_HOUSE_PROFILES_PATH",
+        str(config_dir / "house_profiles.json"),
+    )
     monkeypatch.delenv("ENERGY_OPTIMIZER_OFFLINE", raising=False)
+    monkeypatch.delenv("EARNIE_OFFLINE", raising=False)
     monkeypatch.delenv("LOXONE_IP", raising=False)
     monkeypatch.delenv("LOXONE_USER", raising=False)
     monkeypatch.delenv("LOXONE_PASS", raising=False)
     (config_dir / "config.json").write_text(
-        '{"flexible_consumers": [], "batteries": [], "pv_systems": []}',
+        '{"flexible_consumers": [], "live_scenario_id": "live"}',
+        encoding="utf-8",
+    )
+    (config_dir / "components.json").write_text('{"batteries": [], "pv_systems": []}', encoding="utf-8")
+    (config_dir / "tariffs.json").write_text(
+        '{"import_tariffs": [], "export_tariffs": []}',
+        encoding="utf-8",
+    )
+    (config_dir / "house_profiles.json").write_text('{"profiles": []}', encoding="utf-8")
+    (config_dir / "backtesting_scenarios.json").write_text(
+        '{"scenarios": [{"id": "live", "settings": {}}]}',
         encoding="utf-8",
     )
 
+    from runtime_store import env_vars
+
+    assert env_vars.is_effective_offline() is True
     assert dotenv_io.loxone_setup_deferred() is True
     assert dotenv_io.needs_loxone_setup() is False
     assert dotenv_io.require_loxone_credentials_for_config() is False

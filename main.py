@@ -397,6 +397,7 @@ if __name__ == "__main__":
         needs_loxone_setup,
     )
     from runtime_store.dotenv_loader import load_app_dotenv
+    from runtime_store.env_vars import is_planning_offline_gated
     from ui.setup_readiness import is_planning_ready, needs_planning_onboarding
 
     _SETUP_WAIT_SEC = 60
@@ -422,6 +423,19 @@ if __name__ == "__main__":
             logger.info(
                 "Loxone-Zugangsdaten noch nicht hinterlegt (optional bis Live-/Silent-Betrieb). "
                 "Planung/Backtesting in der UI (Port %s) möglich. "
+                "Erneuter Versuch in %s Sekunden.",
+                config.get_ui_streamlit_port(),
+                _SETUP_WAIT_SEC,
+            )
+            time.sleep(_SETUP_WAIT_SEC)
+            config.reinit_config()
+            continue
+
+        if is_planning_offline_gated():
+            logger.warning(
+                "Live-Konfiguration unvollständig (Planung offline). "
+                "Bitte in der Streamlit-UI (Port %s) Live-Konfiguration abschließen "
+                "(Live-Szenario + Entitäts-Referenzen speichern). "
                 "Erneuter Versuch in %s Sekunden.",
                 config.get_ui_streamlit_port(),
                 _SETUP_WAIT_SEC,

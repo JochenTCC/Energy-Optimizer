@@ -66,6 +66,8 @@ def apply_soc_change(
     min_soc_limit: float,
     max_soc_limit: float,
 ) -> tuple[float, float]:
+    if battery_capacity_kwh <= 0.0:
+        return old_soc, 0.0
     if batt_action >= 0:
         energy_change = batt_action * efficiency
     else:
@@ -93,6 +95,8 @@ def charge_kw_for_hourly_soc(
     max_soc: float,
 ) -> float:
     """Ladeleistung (kW) für geplanten SoC nach 1 h (konsistent zu apply_soc_change)."""
+    if battery_capacity_kwh <= 0.0:
+        return 0.0
     planned = max(min_soc, min(max_soc, planned_soc))
     delta_soc = planned - current_soc
     if delta_soc <= SOC_DELTA_THRESHOLD:
@@ -111,6 +115,8 @@ def discharge_kw_for_hourly_soc(
     max_soc: float,
 ) -> float:
     """Entladeleistung (kW, positiv) für geplanten SoC nach 1 h (konsistent zu apply_soc_change)."""
+    if battery_capacity_kwh <= 0.0:
+        return 0.0
     planned = max(min_soc, min(max_soc, planned_soc))
     delta_soc = current_soc - planned
     if delta_soc <= SOC_DELTA_THRESHOLD:
@@ -133,6 +139,9 @@ def _derive_control_from_milp(
     max_power = battery_params["max_power_kw"]
     battery_capacity = battery_params["battery_capacity_kwh"]
     efficiency = battery_params["efficiency"]
+
+    if battery_capacity <= 0.0:
+        return MODE_AUTOMATIK, 0.0, round(float(current_soc), 1)
 
     opt_charge = milp_plan["p_charge"]
     opt_discharge = milp_plan["p_discharge"]

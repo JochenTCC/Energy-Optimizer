@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 import re
 
-from runtime_store.env_vars import is_truthy
+from runtime_store.env_vars import is_effective_offline, is_explicit_offline
 from runtime_store.persist_paths import resolve_dotenv_path
 
 _IPV4_RE = re.compile(
@@ -46,26 +46,23 @@ def loxone_setup_deferred() -> bool:
 
     Zugangsdaten werden erst bei Live-/Silent-Betrieb oder Merker-Test benötigt.
     """
-    if is_truthy("OFFLINE"):
+    if is_explicit_offline():
         return False
     if loxone_credentials_configured():
         return False
     from ui.setup_readiness import (
         _loxone_markers_complete,
-        is_planning_ready,
         needs_planning_onboarding,
     )
 
     if needs_planning_onboarding():
         return True
-    if is_planning_ready() and not _loxone_markers_complete():
-        return True
-    return False
+    return not _loxone_markers_complete()
 
 
 def needs_loxone_setup() -> bool:
     """True wenn die App auf der Loxone-Setup-Seite blockieren soll."""
-    if is_truthy("OFFLINE"):
+    if is_effective_offline():
         return False
     if loxone_setup_deferred():
         return False
@@ -74,7 +71,7 @@ def needs_loxone_setup() -> bool:
 
 def require_loxone_credentials_for_config() -> bool:
     """Ob config.Config Loxone-Variablen zwingend laden soll."""
-    if is_truthy("OFFLINE"):
+    if is_effective_offline():
         return False
     if loxone_setup_deferred():
         return False

@@ -29,3 +29,48 @@ def test_is_truthy(monkeypatch):
     assert env_vars.is_truthy("OFFLINE") is True
     monkeypatch.setenv("EARNIE_OFFLINE", "0")
     assert env_vars.is_truthy("OFFLINE") is False
+
+
+def test_is_explicit_offline(monkeypatch):
+    monkeypatch.delenv("EARNIE_OFFLINE", raising=False)
+    monkeypatch.delenv("ENERGY_OPTIMIZER_OFFLINE", raising=False)
+    assert env_vars.is_explicit_offline() is False
+    monkeypatch.setenv("ENERGY_OPTIMIZER_OFFLINE", "1")
+    assert env_vars.is_explicit_offline() is True
+
+
+def test_is_effective_offline_greenfield_gate(tmp_path, monkeypatch):
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ENERGY_OPTIMIZER_CONFIG_PATH", str(config_dir / "config.json"))
+    monkeypatch.setenv(
+        "ENERGY_OPTIMIZER_BACKTESTING_SCENARIOS_PATH",
+        str(config_dir / "backtesting_scenarios.json"),
+    )
+    monkeypatch.setenv("ENERGY_OPTIMIZER_COMPONENTS_PATH", str(config_dir / "components.json"))
+    monkeypatch.setenv("ENERGY_OPTIMIZER_TARIFFS_PATH", str(config_dir / "tariffs.json"))
+    monkeypatch.setenv(
+        "ENERGY_OPTIMIZER_HOUSE_PROFILES_PATH",
+        str(config_dir / "house_profiles.json"),
+    )
+    monkeypatch.delenv("ENERGY_OPTIMIZER_OFFLINE", raising=False)
+    monkeypatch.delenv("EARNIE_OFFLINE", raising=False)
+
+    (config_dir / "config.json").write_text(
+        '{"flexible_consumers": [], "live_scenario_id": "live"}',
+        encoding="utf-8",
+    )
+    (config_dir / "components.json").write_text('{"batteries": [], "pv_systems": []}', encoding="utf-8")
+    (config_dir / "tariffs.json").write_text(
+        '{"import_tariffs": [], "export_tariffs": []}',
+        encoding="utf-8",
+    )
+    (config_dir / "house_profiles.json").write_text('{"profiles": []}', encoding="utf-8")
+    (config_dir / "backtesting_scenarios.json").write_text(
+        '{"scenarios": [{"id": "live", "settings": {}}]}',
+        encoding="utf-8",
+    )
+
+    assert env_vars.is_planning_offline_gated() is True
+    assert env_vars.is_effective_offline() is True

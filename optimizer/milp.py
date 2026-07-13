@@ -138,9 +138,11 @@ def milp_optimizer(
         remaining,
         eauto_milp_params,
     )
-    wear_cent_per_kwh = config.get_battery_wear_cent_per_kwh(
-        battery_params["battery_capacity_kwh"]
-    )
+    wear_cent_per_kwh = 0.0
+    if battery_params["battery_capacity_kwh"] > 0.0:
+        wear_cent_per_kwh = config.get_battery_wear_cent_per_kwh(
+            battery_params["battery_capacity_kwh"]
+        )
     _add_milp_objective(
         model,
         matrix,
