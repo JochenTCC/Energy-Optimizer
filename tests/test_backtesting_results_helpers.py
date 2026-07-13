@@ -274,7 +274,7 @@ def test_build_scenario_consumption_rows_timing_shift_note(monkeypatch):
     live_row = next(row for row in rows if row["Szenario"] == "Live")
     assert live_row["Δ kWh (Opt−Baseline)"] == "+0.0"
     assert live_row["Δ Flex (kWh)"] == "+0.0"
-    assert live_row["Hinweis"] == "Zeitverschiebung (Energie ≈ Spec)"
+    assert live_row["Hinweis"] == "Zeitliche Lastverschiebung (Energie ≈ Spec)"
 
 
 def test_scenario_consumption_subheader_test_run():

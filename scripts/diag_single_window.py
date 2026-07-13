@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import time
 from datetime import datetime
@@ -18,8 +19,11 @@ from optimizer.charging_context import resolve_charging_context
 from optimizer.milp import milp_optimizer
 from optimizer.simulation import simulate_horizon
 from scripts.run_backtesting import resolve_backtesting_window
+from house_config.planning_flex_bridge import resolve_consumption_source
+from optimizer.charging_context import resolve_charging_contexts
 from simulation.engine import (
     HistoricalDataCache,
+    _flexible_consumers_from_scenario,
     _scenario_to_battery_params,
     build_historical_window_matrix,
     list_simulation_anchors,
@@ -68,6 +72,11 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="Nur ersten MILP-Aufruf (Stunde 0) timen",
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="MILP-Warnungen (z. B. Best-Effort-Ziele) auf stderr",
+    )
     return parser.parse_args()
 
 
@@ -114,9 +123,19 @@ def _print_window_stats(anchor: datetime, cache: HistoricalDataCache) -> dict:
     return dict(totals)
 
 
+def _price_window_for_anchor(anchor: datetime, start_month: int, end_month: int) -> tuple[int, int]:
+    if start_month != 8 or end_month != 9:
+        return start_month, end_month
+    month = anchor.month
+    return month, min(12, month + 1)
+
+
 def main() -> None:
     args = _parse_args()
+    if args.verbose:
+        logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
     scenario_params = _scenario_params(args.scenario)
+    flex_consumers = _flexible_consumers_from_scenario(scenario_params)
 
     if args.anchor:
         anchor = pd.Timestamp(args.anchor).to_pydatetime()
@@ -134,9 +153,12 @@ def main() -> None:
         raise SystemExit("Bitte --hour-offset oder --anchor angeben.")
 
     sim_cfg = config.get_file_paths_battery_simulation()
+    price_start_month, price_end_month = _price_window_for_anchor(
+        anchor, args.start_month, args.end_month
+    )
     start, end = resolve_backtesting_window(
-        pd.Timestamp(2025, args.start_month, 1),
-        pd.Timestamp(2025, args.end_month, 1),
+        pd.Timestamp(2025, price_start_month, 1),
+        pd.Timestamp(2025, price_end_month, 1),
         sim_cfg.get("price_range", "last_12_months"),
         sim_cfg["path_consumption"],
         sim_cfg["path_production"],
@@ -156,22 +178,31 @@ def main() -> None:
 
     t0 = time.perf_counter()
     matrix, meta = build_historical_window_matrix(
-        anchor, cache, prices, feed_in_settings=feed_in
+        anchor,
+        cache,
+        prices,
+        feed_in_settings=feed_in,
+        scenario_params=scenario_params,
     )
     t_matrix = time.perf_counter() - t0
     print(f"build_historical_window_matrix: {t_matrix:.3f} s")
+    print(f"consumption_source: {resolve_consumption_source(scenario_params)}")
+    print(f"meta consumption_mode: {meta.get('consumption_source')}")
 
     targets = meta["consumer_daily_targets_kwh"]
     print(f"Targets: {targets}")
 
-    eauto = next(c for c in config.get_flexible_consumers(optimizer_only=True) if c["id"] == "eauto")
-    ctx = resolve_charging_context(
-        eauto,
+    charging_contexts = resolve_charging_contexts(
         matrix,
         targets,
-        logged_simulation=True,
+        consumers=flex_consumers,
     )
-    print(f"E-Auto charging_context: use_time_window={ctx.get('use_time_window')}")
+    for cid, ctx in charging_contexts.items():
+        print(
+            f"charging_context[{cid}]: active={ctx.get('active')}, "
+            f"use_time_window={ctx.get('use_time_window')}, "
+            f"target_kwh={ctx.get('target_kwh')}"
+        )
 
     if args.milp_only:
         battery = _scenario_to_battery_params(scenario_params)
@@ -182,10 +213,11 @@ def main() -> None:
             matrix[0]["hour"],
             args.initial_soc,
             battery_params=battery,
-            verbose=True,
+            verbose=args.verbose,
             consumer_remaining_kwh=remaining,
             flex_indices=list(range(len(matrix))),
-            charging_contexts={eauto["id"]: ctx},
+            charging_contexts=charging_contexts,
+            consumers=flex_consumers,
             terminal_soc_percent=args.initial_soc,
         )
         t_milp = time.perf_counter() - t1
@@ -198,12 +230,19 @@ def main() -> None:
         matrix,
         args.initial_soc,
         battery_params=battery,
-        verbose=False,
+        verbose=args.verbose,
         consumer_daily_targets_kwh=targets,
+        flexible_consumers=flex_consumers,
     )
     t_sim = time.perf_counter() - t1
     print(f"simulate_horizon (24h): {t_sim:.3f} s")
     print(f"End-SOC: {rows[-1]['Simulierter SoC (%)']:.1f} %")
+    from optimizer.simulation import delivered_flex_kwh_from_rows, total_consumption_kwh_from_rows
+
+    delivered = delivered_flex_kwh_from_rows(rows, flexible_consumers=flex_consumers)
+    print(f"Delivered flex: {delivered}")
+    print(f"Total consumption: {total_consumption_kwh_from_rows(rows):.3f} kWh")
+    print(f"Reference total: {meta.get('historical_total_kwh')} kWh")
 
 
 if __name__ == "__main__":

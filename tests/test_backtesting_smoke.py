@@ -195,7 +195,7 @@ def test_backtesting_log_roundtrip(tmp_path, smoke_anchor: pd.Timestamp):
     live_id = config.get_live_scenario_id()
     results = {HISTORICAL_REFERENCE_ID: sample, live_id: sample}
     labels = {
-        HISTORICAL_REFERENCE_ID: "Historisch (ohne Optimierung)",
+        HISTORICAL_REFERENCE_ID: "Historisch (ohne Optimierung, ohne PV/Batterie)",
         live_id: "Live",
     }
     plausibility = {

@@ -350,3 +350,43 @@ def test_build_per_scenario_reference_costs_adds_tariff_specific_ref(
     assert ref_id in extra
     assert ref_id in labels
     assert len(extra[ref_id]) == 24
+
+
+def test_build_per_scenario_reference_costs_pv_variant(
+    historical_cache: HistoricalDataCache,
+):
+    from simulation.engine import (
+        HISTORICAL_REFERENCE_ID,
+        build_per_scenario_reference_costs,
+        scenario_reference_id,
+    )
+
+    tariff_block = {
+        "_import_tariff_spec": {"id": "fixed_25ct", "type": "fixed_cent", "fix_cent_kwh": 25.0},
+        "_export_tariff_spec": {"id": "fixed_37ct", "type": "fixed", "k_push_cent": 37.0},
+        "feed_in_mode": "fixed",
+        "k_push_cent": 37.0,
+        "import_tariff_type": "fixed_cent",
+        "import_fixed_cent_kwh": 25.0,
+    }
+    scenarios = {
+        "live": {**tariff_block, "pv_kwp": 8.0},
+        "no_pv": {**tariff_block, "pv_kwp": 0.0},
+        "no_battery": {**tariff_block, "pv_kwp": 8.0},
+    }
+    anchor = window_anchor_for_date(date(2025, 6, 14))
+    prices_df = build_synthetic_prices_df(pd.Timestamp(anchor), pd.Timestamp(anchor))
+    extra, _labels, mapping = build_per_scenario_reference_costs(
+        pd.Timestamp(anchor.date()),
+        pd.Timestamp(anchor.date()),
+        prices_df,
+        historical_cache,
+        scenarios,
+        live_scenario_id="live",
+        scenario_labels={"no_pv": "No PV", "no_battery": "No Battery"},
+    )
+    assert mapping["no_pv"] == HISTORICAL_REFERENCE_ID
+    live_ref_id = scenario_reference_id("live")
+    assert mapping["live"] == live_ref_id
+    assert mapping["no_battery"] == live_ref_id
+    assert live_ref_id in extra

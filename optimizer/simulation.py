@@ -233,6 +233,87 @@ def _cap_flex_delivery(
     return flex_capped
 
 
+def horizon_end_soc_from_chart_rows(chart_rows: list[dict]) -> float | None:
+    """End-SOC nach Horizontlauf (gesetzt in simulate_horizon auf der letzten Zeile)."""
+    if not chart_rows:
+        return None
+    raw = chart_rows[-1].get("_horizon_end_soc")
+    if raw is None:
+        return None
+    return float(raw)
+
+
+def horizon_end_soc_percent(
+    chart_rows: list[dict],
+    initial_soc: float,
+    battery_params: dict,
+) -> float:
+    """SoC nach der letzten Horizontstunde (Kette über alle chart_rows)."""
+    soc = float(initial_soc)
+    for row in chart_rows:
+        displayed = float(row["Simulierter SoC (%)"])
+        soc = displayed
+        batt = float(row.get("Geplante Batterie-Aktion (kW)", 0.0) or 0.0)
+        soc, _ = bat.apply_soc_change(
+            soc,
+            batt,
+            battery_params["battery_capacity_kwh"],
+            battery_params["efficiency"],
+            battery_params["min_soc"],
+            battery_params["max_soc"],
+        )
+    return round(soc, 1)
+
+
+def _apply_forced_grid_recharge_at_horizon_end(
+    chart_rows: list[dict],
+    end_soc: float,
+    *,
+    battery_params: dict,
+    horizon_anchor_soc: float,
+) -> float:
+    """
+    Netz-Zwangsladen am Horizontende, wenn SoC auf SOC_min liegt und der
+    Terminal-Anker (Simulations-initial_soc) darüber liegt.
+    """
+    if not chart_rows or battery_params.get("battery_capacity_kwh", 0.0) <= 0.0:
+        return end_soc
+    min_soc = float(battery_params["min_soc"])
+    max_soc = float(battery_params["max_soc"])
+    if end_soc > min_soc + bat.SOC_DELTA_THRESHOLD:
+        return end_soc
+    target = min(max_soc, float(horizon_anchor_soc))
+    if target <= min_soc + bat.SOC_DELTA_THRESHOLD:
+        return end_soc
+    charge_kw = bat.charge_kw_for_hourly_soc(
+        end_soc,
+        target,
+        battery_params["battery_capacity_kwh"],
+        battery_params["efficiency"],
+        battery_params["max_power_kw"],
+        min_soc,
+        max_soc,
+    )
+    if charge_kw <= 0.0:
+        return end_soc
+
+    last = chart_rows[-1]
+    start_last = float(last["Simulierter SoC (%)"])
+    batt_old = float(last.get("Geplante Batterie-Aktion (kW)", 0.0) or 0.0)
+    new_end_soc, batt_new = bat.apply_soc_change(
+        start_last,
+        batt_old + charge_kw,
+        battery_params["battery_capacity_kwh"],
+        battery_params["efficiency"],
+        min_soc,
+        max_soc,
+    )
+    last["Geplante Batterie-Aktion (kW)"] = round(batt_new, 2)
+    last["Steuerbefehl"] = bat.steuerbefehl_for_mode(bat.MODE_ZWANGS_LADEN, charge_kw)
+    sync_chart_row_netzbezug(last)
+    return round(new_end_soc, 1)
+
+
 def finalize_chart_row_energy(
     chart_row: dict,
     mode: int,
@@ -379,7 +460,20 @@ def simulate_horizon(
             if summary:
                 logger.info(summary)
             clear_cbc_milp_context()
+    if sunrise_soc_min_index is None:
+        sim_soc = _apply_forced_grid_recharge_at_horizon_end(
+            chart_rows,
+            sim_soc,
+            battery_params=battery_params,
+            horizon_anchor_soc=initial_soc,
+        )
     _finalize_chart_rows_for_display(chart_rows, charging_contexts)
+    if chart_rows:
+        chart_rows[-1]["_horizon_end_soc"] = horizon_end_soc_percent(
+            chart_rows,
+            initial_soc,
+            battery_params,
+        )
     return chart_rows
 
 

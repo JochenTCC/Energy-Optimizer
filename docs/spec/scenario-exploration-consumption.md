@@ -42,6 +42,19 @@ Bridged EV entries mirror prod shape (`signal_type: power`, `daily_target_source
 
 Scenarios `live` and `s3-no-battery` in `greenfield/config/backtesting_scenarios.json` both reference `mein_haushalt`.
 
+## Reference € (backtesting)
+
+`historical_reference` is built from the live scenario with **no battery and no PV** (`strip_assets_for_reference` in `house_config/entity_resolution.py`): profile load at live tariffs, direct grid balance, no flex scheduling.
+
+Per-scenario mapping (`build_per_scenario_reference_costs`):
+
+| Scenario hardware | Reference column |
+| ----------------- | ---------------- |
+| No PV (e.g. `s2-kein-pv`) | `historical_reference` (shared) |
+| With PV (e.g. `live`, `s3-no-battery`) | `ref:<scenario_id>` with that scenario's PV |
+
+Battery is never part of reference economics; PV follows the resolved scenario, not always live's PV.
+
 ## Related modules
 
 - `house_config/planning_flex_bridge.py` — bridges, targets, consumption source

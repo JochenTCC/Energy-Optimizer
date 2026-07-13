@@ -411,7 +411,7 @@ def render_scenario_consumption_table(meta: dict, hourly_df: pd.DataFrame | None
     st.subheader(scenario_consumption_subheader(period))
     st.caption(
         "Summe der gelieferten kWh über alle 24h-Fenster im Lauf "
-        "(Grundlast + flexible Verbraucher). Δ ≈ 0 bei Zeitverschiebung mit gleicher Spec-Energie."
+        "(Grundlast + flexible Verbraucher). Δ ≈ 0 bei zeitlicher Lastverschiebung mit gleicher Spec-Energie."
     )
     ref_kwh = _reference_kwh_for_meta(meta)
     scenarios, scenario_error = try_get_backtesting_scenarios()

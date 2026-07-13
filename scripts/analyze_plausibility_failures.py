@@ -4,27 +4,19 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from datetime import datetime
 from pathlib import Path
+from types import ModuleType
 
 import pandas as pd
 
-os.environ.setdefault("ENERGY_OPTIMIZER_OFFLINE", "1")
-
-from runtime_store.config_load import load_config_or_exit
-
-config = load_config_or_exit()
-from data.data_loader import load_market_prices
-from optimizer.simulation import delivered_flex_kwh_from_rows, total_consumption_kwh_from_rows
-from scripts.run_backtesting import resolve_backtesting_window
-from simulation.backtesting_log import BACKTESTING_LOG_JSON, load_backtesting_log
-from simulation.engine import (
-    HistoricalDataCache,
-    _scenario_to_battery_params,
-    build_historical_window_matrix,
-    list_simulation_anchors,
-    simulate_horizon,
-    window_slot_datetimes,
+_BACKTESTING_LOG_JSON = "backtesting_log.json"
+_SIDECAR_ENV_MAP = (
+    ("COMPONENTS_PATH", "components.json"),
+    ("HOUSE_PROFILES_PATH", "house_profiles.json"),
+    ("TARIFFS_PATH", "tariffs.json"),
+    ("BACKTESTING_SCENARIOS_PATH", "backtesting_scenarios.json"),
 )
 
 
@@ -35,10 +27,56 @@ def _parse_window_end(value: str) -> datetime:
     return ts.to_pydatetime()
 
 
-def _load_failures(
+def _infer_stack_from_log(log_path: Path) -> tuple[Path | None, Path | None]:
+    """z. B. greenfield/runtime/backtesting_log.json → greenfield/config + runtime."""
+    runtime_dir = log_path.resolve().parent
+    config_dir = runtime_dir.parent / "config"
+    if (config_dir / "config.json").is_file():
+        return config_dir, runtime_dir
+    return None, None
+
+
+def _apply_stack_env(config_dir: Path, runtime_dir: Path | None) -> None:
+    config_dir = config_dir.resolve()
+    os.environ["EARNIE_CONFIG_PATH"] = str(config_dir / "config.json")
+    if runtime_dir is not None:
+        os.environ["EARNIE_RUNTIME_DIR"] = str(runtime_dir.resolve())
+    dotenv = config_dir / ".env"
+    if dotenv.is_file():
+        os.environ["EARNIE_DOTENV_PATH"] = str(dotenv)
+    for env_suffix, filename in _SIDECAR_ENV_MAP:
+        sidecar = config_dir / filename
+        if sidecar.is_file():
+            os.environ[f"EARNIE_{env_suffix}"] = str(sidecar)
+
+
+def _bootstrap_config(
+    *,
+    config_dir: Path | None,
+    runtime_dir: Path | None,
     log_path: Path,
-    scenario_id: str,
-) -> list[dict]:
+) -> ModuleType:
+    os.environ.setdefault("ENERGY_OPTIMIZER_OFFLINE", "1")
+    if config_dir is not None:
+        _apply_stack_env(config_dir, runtime_dir)
+    elif not os.environ.get("EARNIE_CONFIG_PATH") and not os.environ.get(
+        "ENERGY_OPTIMIZER_CONFIG_PATH"
+    ):
+        inferred_config, inferred_runtime = _infer_stack_from_log(log_path)
+        if inferred_config is not None:
+            _apply_stack_env(inferred_config, inferred_runtime or log_path.parent)
+            print(
+                f"Config-Stack aus Log-Pfad abgeleitet: {inferred_config}",
+                file=sys.stderr,
+            )
+    from runtime_store.config_load import load_config_or_exit
+
+    return load_config_or_exit()
+
+
+def _load_failures(log_path: Path, scenario_id: str) -> list[dict]:
+    from simulation.backtesting_log import load_backtesting_log
+
     if log_path.is_file():
         meta, _ = load_backtesting_log(str(log_path.parent))
         block = meta.get("plausibility", {}).get(scenario_id, {})
@@ -56,12 +94,26 @@ def _find_anchor(anchors: list[datetime], window_end: datetime) -> datetime | No
     return None
 
 
+def _scenario_params(config: ModuleType, scenario_id: str) -> dict:
+    scenarios = config.get_backtesting_scenarios()
+    if scenario_id not in scenarios:
+        known = ", ".join(sorted(scenarios))
+        raise SystemExit(
+            f"Szenario '{scenario_id}' nicht gefunden. "
+            f"Verfügbar: {known or '(keine)'}"
+        )
+    return dict(scenarios[scenario_id])
+
+
 def _flex_delta_table(
+    config: ModuleType,
     historical_totals: dict[str, float],
     delivered: dict[str, float],
+    flexible_consumers: list | None,
 ) -> list[tuple[str, float, float, float]]:
     rows: list[tuple[str, float, float, float]] = []
-    for consumer in config.get_flexible_consumers(optimizer_only=True):
+    consumers = flexible_consumers or config.get_flexible_consumers(optimizer_only=True)
+    for consumer in consumers:
         cid = consumer["id"]
         hist = float(historical_totals.get(cid, 0.0))
         opt = float(delivered.get(cid, 0.0))
@@ -70,12 +122,28 @@ def _flex_delta_table(
 
 
 def _simulate_failure_window(
+    config: ModuleType,
     anchor: datetime,
-    cache: HistoricalDataCache,
+    cache,
     prices_df: pd.DataFrame,
     scenario_params: dict,
 ) -> tuple[list[dict], dict]:
-    matrix, meta = build_historical_window_matrix(anchor, cache, prices_df)
+    from simulation.engine import (
+        _flexible_consumers_from_scenario,
+        _scenario_to_battery_params,
+        build_historical_window_matrix,
+        simulate_horizon,
+    )
+
+    feed_in = config.get_backtesting_feed_in_settings(runtime_override=scenario_params)
+    matrix, meta = build_historical_window_matrix(
+        anchor,
+        cache,
+        prices_df,
+        feed_in_settings=feed_in,
+        scenario_params=scenario_params,
+    )
+    flexible_consumers = _flexible_consumers_from_scenario(scenario_params)
     battery_params = _scenario_to_battery_params(scenario_params)
     chart_rows = simulate_horizon(
         matrix,
@@ -83,18 +151,25 @@ def _simulate_failure_window(
         battery_params=battery_params,
         verbose=False,
         consumer_daily_targets_kwh=meta["consumer_daily_targets_kwh"],
+        flexible_consumers=flexible_consumers,
     )
     return chart_rows, meta
 
 
 def analyze_failure(
+    config: ModuleType,
     failure: dict,
     *,
-    cache: HistoricalDataCache,
+    cache,
     anchors: list[datetime],
     prices_df: pd.DataFrame,
     scenario_params: dict,
 ) -> dict:
+    from optimizer.simulation import (
+        delivered_flex_kwh_from_rows,
+        total_consumption_kwh_from_rows,
+    )
+
     window_end = _parse_window_end(failure["window_end"])
     anchor = _find_anchor(anchors, window_end)
     if anchor is None:
@@ -104,7 +179,7 @@ def analyze_failure(
         }
 
     chart_rows, meta = _simulate_failure_window(
-        anchor, cache, prices_df, scenario_params
+        config, anchor, cache, prices_df, scenario_params
     )
     flex_consumers = meta.get("_flexible_consumers")
     delivered = delivered_flex_kwh_from_rows(
@@ -118,7 +193,12 @@ def analyze_failure(
     )
     hist_baseload = float(meta.get("baseload_kwh", 0.0))
     baseload_adj = float(meta.get("baseload_adjustment_kwh", 0.0))
-    flex_table = _flex_delta_table(meta["historical_totals"], delivered)
+    flex_table = _flex_delta_table(
+        config,
+        meta["historical_totals"],
+        delivered,
+        flex_consumers,
+    )
     return {
         "window_end": failure["window_end"],
         "historical_total_kwh": failure["historical_kwh"],
@@ -153,7 +233,11 @@ def _print_report(results: list[dict]) -> None:
             f"opt={item['optimized_total_kwh']:.2f} kWh, "
             f"Δ={item['optimized_total_kwh'] - item['historical_total_kwh']:+.2f} kWh"
         )
-        print(f"  Grundlast: {item['baseload_kwh']:.2f} kWh (hist {item['historical_baseload_kwh']:.2f}, Δ {item['baseload_delta_kwh']:+.2f})")
+        print(
+            f"  Grundlast: {item['baseload_kwh']:.2f} kWh "
+            f"(hist {item['historical_baseload_kwh']:.2f}, "
+            f"Δ {item['baseload_delta_kwh']:+.2f})"
+        )
         if abs(item.get("baseload_adjustment_kwh", 0.0)) > 0.01:
             print(
                 f"  CSV-Grundlast-Korrektur (stored−derived): "
@@ -171,20 +255,33 @@ def _print_report(results: list[dict]) -> None:
         print()
 
 
-def main() -> None:
+def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Plausibilitäts-Warnungen aus backtesting_log.json aufschlüsseln."
     )
     parser.add_argument(
         "--log",
         type=Path,
-        default=Path(BACKTESTING_LOG_JSON),
+        default=Path(_BACKTESTING_LOG_JSON),
         help="Pfad zu backtesting_log.json",
     )
     parser.add_argument(
+        "--config-dir",
+        type=Path,
+        default=None,
+        help="Config-Ordner (config.json + components.json + Sidecars); "
+        "sonst aus --log abgeleitet (z. B. greenfield/config)",
+    )
+    parser.add_argument(
+        "--runtime-dir",
+        type=Path,
+        default=None,
+        help="Runtime-Ordner (cons_data, backtesting_log); Standard: Parent von --log",
+    )
+    parser.add_argument(
         "--scenario",
-        default="battery_10kwh_dynamic",
-        help="Szenario-ID in meta.plausibility",
+        default="live",
+        help="Szenario-ID in meta.plausibility (aufgelöst via components.json)",
     )
     parser.add_argument(
         "--limit",
@@ -198,7 +295,25 @@ def main() -> None:
         default=None,
         help="Optional: Ergebnis als JSON speichern",
     )
-    args = parser.parse_args()
+    return parser
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = _build_arg_parser().parse_args(argv)
+    runtime_dir = args.runtime_dir
+    if runtime_dir is None and args.log.is_file():
+        runtime_dir = args.log.parent
+
+    config = _bootstrap_config(
+        config_dir=args.config_dir,
+        runtime_dir=runtime_dir,
+        log_path=args.log,
+    )
+
+    from data.data_loader import load_market_prices
+    from scripts.run_backtesting import resolve_backtesting_window
+    from simulation.backtesting_log import load_backtesting_log
+    from simulation.engine import HistoricalDataCache, list_simulation_anchors
 
     failures = _load_failures(args.log, args.scenario)
     if args.limit > 0:
@@ -230,11 +345,11 @@ def main() -> None:
         awattar_url=config.get("AWATTAR_URL"),
         timeout=config.get_global_timeout(default=30),
     )
-    live_id = config.get_live_scenario_id()
-    scenario_params = config.get_backtesting_scenarios()[live_id]
+    scenario_params = _scenario_params(config, args.scenario)
 
     results = [
         analyze_failure(
+            config,
             failure,
             cache=cache,
             anchors=anchors,

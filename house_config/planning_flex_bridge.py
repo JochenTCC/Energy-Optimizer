@@ -357,6 +357,21 @@ def tariff_reference_fingerprint(scenario_params: dict | None) -> tuple:
     )
 
 
+def hardware_reference_fingerprint(scenario_params: dict | None) -> tuple:
+    """Vergleichsschlüssel für Referenz-PV (Batterie spielt in Referenz-€ keine Rolle)."""
+    if not scenario_params:
+        return ()
+    return (float(scenario_params.get("pv_kwp", 0.0) or 0.0),)
+
+
+def reference_fingerprint(scenario_params: dict | None) -> tuple:
+    """Tarif + PV für Zuordnung der Referenz-Spalte je Szenario."""
+    return (
+        tariff_reference_fingerprint(scenario_params),
+        hardware_reference_fingerprint(scenario_params),
+    )
+
+
 def resolve_profile_spec_flex_targets(
     flex_consumers: list[dict],
     house_profile: dict,

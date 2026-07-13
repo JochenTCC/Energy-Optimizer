@@ -89,9 +89,35 @@ def test_resolve_pv_into_settings():
 
 
 def test_resolve_pv_into_settings_without_id():
+    from house_config.entity_resolution import ZERO_PV_FLAT
+
     resolved = resolve_pv_into_settings({"battery_id": "bat"}, {})
-    assert "pv_kwp" not in resolved
+    assert resolved["pv_kwp"] == ZERO_PV_FLAT["pv_kwp"]
     assert "pv_system_id" not in resolved
+
+
+def test_strip_assets_for_reference():
+    from house_config.entity_resolution import (
+        ZERO_BATTERY_FLAT,
+        ZERO_PV_FLAT,
+        strip_assets_for_reference,
+    )
+
+    live = {
+        "battery_id": "home",
+        "pv_system_id": "roof",
+        "battery_capacity_kwh": 10.0,
+        "pv_kwp": 8.0,
+        "import_tariff_id": "fixed_25ct",
+        "_battery_wear": {"enabled": True},
+    }
+    stripped = strip_assets_for_reference(live)
+    assert stripped["battery_capacity_kwh"] == ZERO_BATTERY_FLAT["battery_capacity_kwh"]
+    assert stripped["pv_kwp"] == ZERO_PV_FLAT["pv_kwp"]
+    assert "battery_id" not in stripped
+    assert "pv_system_id" not in stripped
+    assert "_battery_wear" not in stripped
+    assert stripped["import_tariff_id"] == "fixed_25ct"
 
 
 def test_house_profile_without_consumers():

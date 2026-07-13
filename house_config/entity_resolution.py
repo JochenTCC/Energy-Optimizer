@@ -10,6 +10,22 @@ ZERO_BATTERY_FLAT = {
     "threshold_power": 0.02,
 }
 
+ZERO_PV_FLAT = {
+    "pv_kwp": 0.0,
+    "pv_tilt": 0.0,
+    "pv_azimuth": 0.0,
+}
+
+
+def strip_assets_for_reference(params: dict) -> dict:
+    """Referenz-Gegenfactual: gleiches Profil/Tarif, keine Batterie, keine PV."""
+    out = dict(params)
+    out.update(ZERO_BATTERY_FLAT)
+    out.update(ZERO_PV_FLAT)
+    for key in ("battery_id", "pv_system_id", "_battery_wear"):
+        out.pop(key, None)
+    return out
+
 
 def normalize_battery(raw: dict, index: int) -> dict:
     if not isinstance(raw, dict):
@@ -145,6 +161,8 @@ def resolve_pv_into_settings(settings: dict, pv_systems: dict[str, dict]) -> dic
     out = dict(settings)
     pv_id = out.pop("pv_system_id", None)
     if not pv_id:
+        if "pv_kwp" not in out:
+            out.update(ZERO_PV_FLAT)
         return out
     pv_id = str(pv_id).strip()
     if pv_id not in pv_systems:
