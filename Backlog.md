@@ -110,27 +110,11 @@ Greenfield smoke **2026-07-12**; backtesting iteration **2026-07-13**. Completed
 
 Done in code → [Backlog-Erledigt.md](Backlog-Erledigt.md): SE consumption model (`profile_spec`), per-scenario reference tariffs (`reference_by_scenario`), window-aware flex targets at 07:00 anchors.
 
-Completed investigations → [Backlog-Erledigt.md](Backlog-Erledigt.md): fixed-tariff scenario matrix, bulk classify, structural flex under-delivery (`s2-kein-pv` Jan 2 & 7).
-
-**Variable tariff scenario**
-- [x] Check scenario results
-  - [ ] one deviation - to be checked
+Completed investigations → [Backlog-Erledigt.md](Backlog-Erledigt.md): fixed-tariff scenario matrix, bulk classify, structural flex under-delivery (`s2-kein-pv` Jan 2 & 7), variable tariff scenario (Oct 2025 deviation + Chart 1 flex UI gap).
 
 **Phase C — polish (may slip to 2.+1)**
 
-- [ ] **Speichern** always at eye level in Hauskonfigurator (sticky top bar or duplicate save on long tabs: Hausprofil / PV / Batterien) or shortkey (Ctrl-S)
-
-**Backtesting Tests**
-
-- [ ] Test mit Standard-Setting (inkl. Haus Wärme / PV / Batterie)
-  - Jan 2025: optimization **cheaper** than reference on dynamic tariffs (`live` 107 € vs ref 192 €) — fixed-tariff case still open (Phase B)
-  - Climate/PV/solar-collector → Phase A done ([Backlog-Erledigt.md](Backlog-Erledigt.md))
-- [ ] Test ohne Haus Wärme
-- [ ] Test ohne PV
-- [ ] Test ohne Batterie
-- [ ] Test ohne PV und Batterie
-
-- [ ] Use new Loxone signal "Ernie-SOC-Ist-EAuto" as comparison with inner SOC-Act calculation when EV is charging. When Loxone Signal states that SOC==100% - EV is charged completely and optimizer does not have to charge anymore.
+Done in code → [Backlog-Erledigt.md](Backlog-Erledigt.md): Live scenario default (Detaillierte Simulationsansicht), Hauskonfigurator sticky Speichern, Loxone `actual_soc_name` (Ernie-SOC-Ist-EAuto).
 
 - [ ] **Version 2.0 P7 — Documentation & evaluations**
   - Expand README with motivation / benefits — sensible order of use; less technical background than install/configuration hints
@@ -173,9 +157,33 @@ After 2.0 release: dead code, obsolete tests, and leftover patches from pre-1.26
 - [ ] **Thermals P1** — Isolated single-node models
   - **Follow-up (1.26.0 P0 smoke, decision #11):** legacy RC / `thermal_control` models (SwimSpa, freezer, etc.) from `flexible_consumers` — not in 1.26.0 P3b
   - **Migrate existing consumers** — move prod entries from `config.json` → `flexible_consumers[]` into `house_profiles.json` (`profiles[].consumers[]`) where they belong in the planning model; keep live Loxone/MILP bindings explicit (no duplicate Hausprofil clutter); migration script or one-time cutover doc alongside new thermal schema (follow-up to **2.0 P6a** silent migration test)
+  - **Chart/Sankey gate:** **Consumers P1** must pass before prod cutover — bridged house-profile MILP-flex must remain visible in Chart 1 and Sankey (parity with today's prod `flexible_consumers[]` entries)
   - Variable heat paths (against infinity); replaces single-path special case in `optimizer/thermal_model.py`
   - **Freezer** (former 0.+1 Prio2) — second isolated reference model; acceptance: calibration/backtest against historical Loxone CSV logs
   - Prerequisite for cost-shiftable house heating: **Thermals P1a** (below); RC SwimSpa path remains separate
+
+
+
+### Version 2.+1
+
+- [ ] **Consumers P1 — Unified flex discovery (planning model → Chart 1 / Sankey)**
+  - **Problem:** Planning/simulation already resolve MILP-flex from house profiles (`_planning_flex_consumers`, snapshot `meta._flexible_consumers`); Chart 1 / Sankey still discover flex via `config.get_flexible_consumers(optimizer_only=True)` → bridged generics (`daily_target_kwh: 0`, window-resolved targets) excluded; SE greenfield shows EV only (smoketest 2026-07-13)
+  - **Scope:** Not solved by moving definitions to `house_profiles.json` alone — fix discovery/registry so UI uses the **same resolved flex list** as MILP/backtesting
+  - **Blocks / pairs with:** **Thermals P1** prod migration cutover; prerequisite for **Thermals P1a** (Haus Wärme as own flex segment, not only Grundlast overlay)
+  - **Consumers P1a — Resolved flex registry**
+    - Shared helper for scenario-resolved MILP-flex (= `_flexible_consumers_from_scenario()` shape; backtesting: snapshot `meta._flexible_consumers`)
+    - Extend `consumer_has_daily_target()` (or chart-specific bypass): `generic_flex_window`, `daily_target_source: thermal_annual`, EV charging schedule — chart discovery must not depend on static `daily_target_kwh > 0` in bridged entries
+  - **Consumers P1b — Backtesting Chart 1**
+    - `build_backtesting_display_bundle` / `OptimizationDisplayBundle`: pass resolved flex consumers into chart path
+    - `ordered_active_consumers_for_stack` / flow-balance: use bundle list; fallback — any `{name} (kW)` column with horizon sum > 0
+    - Acceptance: greenfield `live` / `mein_haushalt` window → distinct **Standard**, **Waschmaschine**, **EV** down-segments; no fake PV-export for omitted flex
+  - **Consumers P1c — Live Cockpit + Sankey parity**
+    - Sunset-2-Sunset Chart 1 when `house_profile_id` set (same registry as backtesting)
+    - Sankey flex nodes (`ui/sankey.py`) use resolved list, not config-only filter
+  - **Consumers P1d — Tests & docs**
+    - Tests: `tests/test_chart_consumer_stack.py` (empty `flexible_consumers`, bridged generics); backtesting display bundle or flow-balance regression
+    - Docs: `docs/spec/scenario-exploration-consumption.md` — UI discovery vs MILP path; cross-link in **Thermals P1** migration checklist
+  - **Touches:** `ui/chart_consumer_stack.py`, `ui/charts.py`, `ui/backtesting_display_bundle.py`, `ui/simulation_results.py`, `settings/flexible_consumers.py`, `simulation/engine.py` (optional export of resolved-flex helper)
 
 
 
@@ -222,8 +230,9 @@ After 2.0 release: dead code, obsolete tests, and leftover patches from pre-1.26
     - Backtesting with **dynamic** import tariff: MILP shifts heating away from expensive hours vs fixed PWM reference (same daily kWh).
     - Backtesting with **fixed** import tariff: Δ€ from heating timing ≈ 0 (sanity, aligns with SE fixed-tariff investigation).
     - Plausibility: optimized total kWh within tolerance; no baseload+flex double count.
+    - **Chart 1:** with **Consumers P1** done — distinct **Haus Wärme** (or label) flex segment when `optimizer_flex: true`; not only Grundlast (`Verbrauch-Prognose`)
     - Regression: `tests/test_price_pipeline_p3.py`, new `tests/test_thermal_flex_bridge.py`.
-  - **Touches (estimate):** `planning_flex_bridge.py`, `scenario_resolution.py`, `consumer_targets.py`, `milp_consumers.py`, `thermal_flex_context.py` (new), `consumption_profiles.py` (overlay skip), `profile_manager.py`, `house_profiles.schema.json`, `ui/house_config_profile_form.py`, docs `flexible-verbraucher.md` (cross-link).
+  - **Touches (estimate):** `planning_flex_bridge.py`, `scenario_resolution.py`, `consumer_targets.py`, `milp_consumers.py`, `thermal_flex_context.py` (new), `consumption_profiles.py` (overlay skip), `profile_manager.py`, `house_profiles.schema.json`, `ui/house_config_profile_form.py`, docs `flexible-verbraucher.md` (cross-link); Chart 1 via **Consumers P1**
   - **Enables:** meaningful *Backtesting Tests — Test mit Standard-Setting (inkl. Haus Wärme)* (smoke follow-ups); replaces fixed P3b overlay path when `optimizer_flex: true`.
 
 

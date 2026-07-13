@@ -7,6 +7,10 @@ from typing import Any
 from .charge_immediate import charging_power_threshold_kw, fetch_charge_immediate_switch
 from .charging_context import suppresses_live_charging_output
 from .charging_session import is_charging_session_context
+from .ev_soc_tracking import (
+    compare_ev_soc_sources,
+    loxone_reports_charge_complete,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -54,11 +58,14 @@ def session_still_needs_charge(
     *,
     live_kw: float | None,
     charge_immediate_on: bool | None,
+    session: dict | None = None,
 ) -> bool:
     """True wenn trotz voller Buchung weiter geladen werden muss."""
     if ctx is None or not is_charging_session_context(consumer, ctx):
         return False
     if not ctx.get("plugged_in"):
+        return False
+    if loxone_reports_charge_complete(consumer):
         return False
     if ctx.get("immediate_charge"):
         return charge_immediate_on is True
@@ -87,10 +94,29 @@ def assess_session_delivery(
     *,
     live_kw: float | None,
     trigger_snapshot: dict[str, Any] | None,
+    session: dict | None = None,
 ) -> tuple[float, dict[str, Any] | None]:
     """Liefert wirksam gebuchte kWh und optional einen Plausibilitäts-Hinweis."""
     if ctx is None or not is_charging_session_context(consumer, ctx):
         return float(delivered_kwh), None
+
+    if loxone_reports_charge_complete(consumer):
+        compare_note = compare_ev_soc_sources(
+            consumer,
+            session,
+            delivered_kwh,
+            live_kw=live_kw,
+        )
+        target_kwh = float(ctx.get("target_kwh") or 0.0)
+        effective = max(float(delivered_kwh), target_kwh) if target_kwh > 0 else float(delivered_kwh)
+        note = {
+            "role": "loxone_soc_complete",
+            "booked_delivered_kwh": round(float(delivered_kwh), 3),
+            "effective_delivered_kwh": round(effective, 3),
+        }
+        if compare_note:
+            note.update(compare_note)
+        return effective, note
 
     target_kwh = float(ctx.get("target_kwh") or 0.0)
     remaining_before = max(0.0, target_kwh - float(delivered_kwh))
@@ -106,8 +132,17 @@ def assess_session_delivery(
         ctx,
         live_kw=live_kw,
         charge_immediate_on=immediate,
+        session=session,
     )
     if not still_needs:
+        compare_note = compare_ev_soc_sources(
+            consumer,
+            session,
+            delivered_kwh,
+            live_kw=live_kw,
+        )
+        if compare_note:
+            return float(delivered_kwh), compare_note
         return float(delivered_kwh), None
 
     effective = effective_session_delivered_kwh(

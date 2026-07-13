@@ -179,6 +179,7 @@ def collect_read_checks() -> list[tuple[str, str, dict]]:
         for key, label in (
             ("plugged_in_name", f"Verbraucher {cid} angeschlossen"),
             ("soc_at_plug_in_name", f"Verbraucher {cid} Rest-SoC"),
+            ("actual_soc_name", f"Verbraucher {cid} Ist-SoC"),
             ("nominal_power_kw_name", f"Verbraucher {cid} Nennleistung"),
             ("battery_capacity_kwh_name", f"Verbraucher {cid} Akkukapazität"),
             ("charge_immediate_name", f"Verbraucher {cid} Sofort laden"),

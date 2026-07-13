@@ -13,6 +13,7 @@ from ui.house_config_io import (
     load_house_profiles,
     upsert_pv_system,
 )
+from ui.house_config_sticky_save import sticky_save_bar
 
 _SESSION_SYNC_KEY = "planning_pv_sync_id"
 _SESSION_FILE_STAMP_KEY = "planning_pv_file_stamp"
@@ -221,6 +222,7 @@ def render_pv_planning_tab() -> None:
         key=_scoped_key(session_scope, "planning_pv_azimuth"),
     )
 
+    sticky_save_bar()
     if st.button("PV-Anlage speichern", type="primary", key="planning_pv_save"):
         taken = {sid for sid in system_ids if sid != stable_id}
         entity_id = stable_id.strip() or slug_id(label or "pv_anlage", existing=taken)

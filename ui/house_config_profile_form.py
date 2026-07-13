@@ -24,6 +24,7 @@ from ui.house_config_io import (
     save_profile_consumption_csv,
     upsert_house_profile,
 )
+from ui.house_config_sticky_save import sticky_save_bar
 
 CONSUMER_TYPE_OPTIONS = ["generic", "thermal_annual", "ev"]
 _SESSION_SYNC_KEY = "house_profile_sync_id"
@@ -720,6 +721,82 @@ def _render_consumption_csv_section(
         st.error(f"CSV konnte nicht ausgewertet werden: {exc}")
 
 
+def _perform_house_profile_save(
+    *,
+    is_new: bool,
+    stable_profile_id: str,
+    label: str,
+    profile_ids: list[str],
+    annual_kwh: float,
+    location: dict,
+    resolved: list[dict],
+    existing: dict,
+    preview_id: str,
+) -> None:
+    profile_id = _resolve_profile_id(
+        is_new=is_new,
+        existing_id=stable_profile_id,
+        label=label,
+        profile_ids=set(profile_ids),
+    )
+    upsert_house_profile(
+        {
+            "id": profile_id,
+            "label": label.strip() or profile_id,
+            "annual_kwh": float(annual_kwh),
+            "latitude": location["latitude"],
+            "longitude": location["longitude"],
+            "default_pv_tilt": location["default_pv_tilt"],
+            "default_pv_azimuth": location["default_pv_azimuth"],
+            "consumers": resolved,
+            "total_profile_csv": st.session_state.get(
+                f"house_profile_csv_path_{preview_id}",
+                existing.get("total_profile_csv", ""),
+            ),
+        }
+    )
+    saved_profile = load_house_profiles().get("profiles", {}).get(profile_id, {})
+    st.session_state[_SESSION_SELECT_PENDING_KEY] = profile_id
+    st.session_state[_SESSION_FILE_STAMP_KEY] = _house_profiles_file_stamp()
+    st.session_state[_SESSION_SYNC_KEY] = None
+    st.session_state[_SESSION_CONSUMERS_KEY] = _consumers_from_existing(saved_profile)
+    st.success(f"Profil '{profile_id}' gespeichert.")
+    st.rerun()
+
+
+def _render_house_profile_save(
+    *,
+    session_scope: str,
+    key_suffix: str,
+    is_new: bool,
+    stable_profile_id: str,
+    label: str,
+    profile_ids: list[str],
+    annual_kwh: float,
+    location: dict,
+    resolved: list[dict],
+    existing: dict,
+    preview_id: str,
+) -> None:
+    sticky_save_bar()
+    if st.button(
+        "Profil speichern",
+        type="primary",
+        key=_scoped_key(session_scope, f"house_profile_save{key_suffix}"),
+    ):
+        _perform_house_profile_save(
+            is_new=is_new,
+            stable_profile_id=stable_profile_id,
+            label=label,
+            profile_ids=profile_ids,
+            annual_kwh=annual_kwh,
+            location=location,
+            resolved=resolved,
+            existing=existing,
+            preview_id=preview_id,
+        )
+
+
 def render_house_profile_tab() -> None:
     _apply_pending_profile_select()
     profiles_doc = load_house_profiles()
@@ -804,6 +881,20 @@ def render_house_profile_tab() -> None:
         f"Untergrenze 5 % = {preview['baseload_min_kwh']:.0f} kWh/a"
     )
 
+    _render_house_profile_save(
+        session_scope=session_scope,
+        key_suffix="",
+        is_new=is_new,
+        stable_profile_id=stable_profile_id,
+        label=label,
+        profile_ids=profile_ids,
+        annual_kwh=float(annual_kwh),
+        location=location,
+        resolved=resolved,
+        existing=existing,
+        preview_id=preview_id,
+    )
+
     _render_modeled_consumption_section(
         preview_id=preview_id,
         annual_kwh=float(annual_kwh),
@@ -819,33 +910,16 @@ def render_house_profile_tab() -> None:
         preview=preview,
     )
 
-    if st.button("Profil speichern", type="primary", key=_scoped_key(session_scope, "house_profile_save")):
-        profile_id = _resolve_profile_id(
-            is_new=is_new,
-            existing_id=stable_profile_id,
-            label=label,
-            profile_ids=set(profile_ids),
-        )
-        upsert_house_profile(
-            {
-                "id": profile_id,
-                "label": label.strip() or profile_id,
-                "annual_kwh": float(annual_kwh),
-                "latitude": location["latitude"],
-                "longitude": location["longitude"],
-                "default_pv_tilt": location["default_pv_tilt"],
-                "default_pv_azimuth": location["default_pv_azimuth"],
-                "consumers": resolved,
-                "total_profile_csv": st.session_state.get(
-                    f"house_profile_csv_path_{preview_id}",
-                    existing.get("total_profile_csv", ""),
-                ),
-            }
-        )
-        saved_profile = load_house_profiles().get("profiles", {}).get(profile_id, {})
-        st.session_state[_SESSION_SELECT_PENDING_KEY] = profile_id
-        st.session_state[_SESSION_FILE_STAMP_KEY] = _house_profiles_file_stamp()
-        st.session_state[_SESSION_SYNC_KEY] = None
-        st.session_state[_SESSION_CONSUMERS_KEY] = _consumers_from_existing(saved_profile)
-        st.success(f"Profil '{profile_id}' gespeichert.")
-        st.rerun()
+    _render_house_profile_save(
+        session_scope=session_scope,
+        key_suffix="_bottom",
+        is_new=is_new,
+        stable_profile_id=stable_profile_id,
+        label=label,
+        profile_ids=profile_ids,
+        annual_kwh=float(annual_kwh),
+        location=location,
+        resolved=resolved,
+        existing=existing,
+        preview_id=preview_id,
+    )
