@@ -1,14 +1,11 @@
 """Tests für Backtesting-Abweichungsliste (1.25.d)."""
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 from simulation.engine import HISTORICAL_REFERENCE_ID
+from ui.backtesting_deviation_calendar import deviation_marker_for_case
 from ui.backtesting_deviation_list import (
-    KIND_LABELS,
+    _default_active_scenario,
     _resolve_chart_view,
-    _selected_deviation_index,
-    build_deviation_table_rows,
     case_to_plausibility_failure,
     deviation_cases_for_display,
     format_deviation_delta_kwh,
@@ -92,25 +89,6 @@ def test_format_deviation_delta_kwh():
     assert format_deviation_delta_kwh(cbc) == "—"
 
 
-def test_build_deviation_table_rows_columns():
-    meta = _sample_meta()
-    cases = deviation_cases_for_display(meta)
-    rows = build_deviation_table_rows(cases, meta["labels"], meta)
-    assert len(rows) == 2
-    assert set(rows[0].keys()) == {
-        "Fenster",
-        "Szenario",
-        "Art",
-        "Δ kWh (Soll/Ist)",
-    }
-    tolerance_row = next(r for r in rows if r["Art"] == KIND_LABELS["consumption_tolerance"])
-    cbc_row = next(r for r in rows if r["Art"] == KIND_LABELS["strict_slow"])
-    assert tolerance_row["Δ kWh (Soll/Ist)"] == "+2.00"
-    assert cbc_row["Δ kWh (Soll/Ist)"] == "—"
-    assert tolerance_row["Szenario"] == "Live"
-    assert "2025-08-01 07:00" in tolerance_row["Fenster"]
-
-
 def test_kind_label_known_and_unknown():
     assert kind_label("strict_fallback") == "CBC Fallback"
     assert kind_label("custom_event") == "custom_event"
@@ -128,18 +106,19 @@ def test_case_to_plausibility_failure_maps_window_anchor():
     assert failure["diff_kwh"] == 2.0
 
 
-def test_selected_deviation_index_uses_table_selection():
-    table_state = SimpleNamespace(selection=SimpleNamespace(rows=[1]))
-    assert _selected_deviation_index(table_state, 3) == 1
-
-
-def test_selected_deviation_index_defaults_without_selection():
-    assert _selected_deviation_index(object(), 3) == 0
-
-
 def test_resolve_chart_view_from_deviation_list():
     sunrise_meta = {"period": {"horizon_mode": SUNRISE_WINDOW}}
     assert _resolve_chart_view(
         sunrise_meta,
         segment_toggle="SA₀→SA₁",
     ) == (VIEW_MODE_SUNRISE, 0)
+
+
+def test_default_active_scenario_prefers_deviation():
+    cases = {"live": {"kind": "strict_slow"}}
+    assert _default_active_scenario(["s2-kein-pv", "live"], cases) == "live"
+
+
+def test_deviation_marker_for_case():
+    assert deviation_marker_for_case(None) == ""
+    assert deviation_marker_for_case({"kind": "strict_slow"}) == "🔴"
