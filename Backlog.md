@@ -113,12 +113,11 @@ Done in code → [Backlog-Erledigt.md](Backlog-Erledigt.md): SE consumption mode
 Completed investigations → [Backlog-Erledigt.md](Backlog-Erledigt.md): fixed-tariff scenario matrix, bulk classify, structural flex under-delivery (`s2-kein-pv` Jan 2 & 7).
 
 **Variable tariff scenario**
-- [ ] Check scenario results
+- [x] Check scenario results
+  - [ ] one deviation - to be checked
 
 **Phase C — polish (may slip to 2.+1)**
 
-- [ ] **Optional UX** — expose `diag_single_window` from SE deviation detail (CLI exists)
-- [ ] Add Referenz and Ohne Optimierung to table of Gesamtkosten
 - [ ] **Speichern** always at eye level in Hauskonfigurator (sticky top bar or duplicate save on long tabs: Hausprofil / PV / Batterien) or shortkey (Ctrl-S)
 
 **Backtesting Tests**

@@ -70,6 +70,15 @@ Greenfield matrix: `greenfield/config/backtesting_scenarios.json` — `live`, `s
 - [x] **Structural flex under-delivery (`s2-kein-pv` Jan 2 & 7)** — Phase 1 done: rolling `min_on` continuation in MILP. Spec: [`docs/spec/backtesting-plausibility-s2-kein-pv-jan-2-7.md`](docs/spec/backtesting-plausibility-s2-kein-pv-jan-2-7.md#phase-1-implementation-2026-07-13)
 
 
+### Smoketest Phase C — SE layout polish (2026-07-13)
+
+- [x] Remove Referenz-Jahresverbrauch (nicht optimiert) charts from SE
+- [x] Remove Optimierter Verbrauch vs. Profil-Baseline charts from SE
+- [x] Move Monatlicher Kostenvergleich directly below Gesamtkosten
+- [x] Move Abweichungsliste to the bottom of SE
+- [x] Add Referenz and Ohne Optimierung to Gesamtkosten table
+
+
 ### Smoketest Phase A — Open-Meteo solar (2026-07-13)
 
 Manual acceptance on greenfield venv (:8511); implementation in *Unified Open-Meteo solar* above.
@@ -370,6 +379,16 @@ Completes entity-catalog split from 1.26.0 / 2.0 P2: `batteries[]` and `pv_syste
 - [x] **Hauskonfigurator:** modeled consumption chart without Jahres-Verbrauchs-CSV (`ConsumptionDisplayMode.MODELED_PROFILE`; scenario-editor pattern in `ui/house_config_profile_form.py`)
 - [x] **ISO week jump:** week number only — year inferred from data range (`ui/consumption_display/navigation.py`: `parse_iso_week_number_only`, `resolve_iso_week_jump_target`)
 - [x] **New PV-Anlage / Solarkollektor:** inherit profile `default_pv_tilt` / `default_pv_azimuth` (18°/0° fallback; PV profile picker updates tilt/azimuth via `on_change`)
+
+
+
+### SE Abweichungs-Kalender — polish (2026-07-13)
+
+- [x] **Calendar navigator:** single-month view with Zurück/Vor; color-coded deviation days; on-demand Chart1/2 (`ui/backtesting_deviation_calendar.py`, `ui/backtesting_deviation_list.py`)
+- [x] **Snapshot cache:** on-demand windows appended to `backtesting_window_snapshots.jsonl` (`append_window_snapshot`)
+- [x] **diag_single_window:** CLI command + optional run from detail expander (`ui/backtesting_diag_single_window.py`)
+- [x] **Scenario picker:** radio list with deviation markers; single scenario detail/charts
+- [x] **Spec:** `docs/spec/backtesting-deviation-calendar.md`
 
 
 

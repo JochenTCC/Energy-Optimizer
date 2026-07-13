@@ -9,6 +9,7 @@ import pytest
 
 from simulation.backtesting_snapshots import (
     BACKTESTING_WINDOW_SNAPSHOTS_JSONL,
+    append_window_snapshot,
     build_window_snapshot,
     load_window_snapshot,
     normalize_window_anchor_key,
@@ -147,6 +148,26 @@ def test_write_and_load_window_snapshot_roundtrip(tmp_path):
     assert loaded is not None
     assert loaded["scenario_id"] == "live"
     assert json.loads(json.dumps(loaded))["window_anchor"] == snapshot["window_anchor"]
+
+
+def test_append_window_snapshot_appends_once(tmp_path):
+    chart_rows, matrix = _sample_rows()
+    snapshot = build_window_snapshot(
+        window_anchor=datetime(2026, 6, 23, 7, 0),
+        scenario_id="live",
+        horizon_mode=FIXED_24H,
+        kind="on_demand",
+        initial_soc=50.0,
+        meta={"window_end": datetime(2026, 6, 23, 7, 0), "historical_total_kwh": 10.0},
+        chart_rows_24h=chart_rows,
+        matrix_24h=matrix,
+    )
+    log_dir = str(tmp_path)
+    assert append_window_snapshot(log_dir, snapshot) is True
+    assert append_window_snapshot(log_dir, snapshot) is False
+    loaded = load_window_snapshot(log_dir, snapshot["window_anchor"], "live")
+    assert loaded is not None
+    assert loaded["kind"] == "on_demand"
 
 
 def test_remove_window_snapshots_jsonl_deletes_stale_file(tmp_path):

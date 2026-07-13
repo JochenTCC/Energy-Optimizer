@@ -1,28 +1,32 @@
-"""Abweichungsliste für Backtesting-Ergebnisse (1.25.d / Chart1/2 1.25.f)."""
+"""Abweichungsliste für Backtesting-Ergebnisse (Kalender-Navigator + Chart1/2)."""
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 import pandas as pd
 import streamlit as st
 
 import config
 
-from simulation.backtesting_log import (
-    dedupe_critical_cases_by_window,
-    extract_critical_cases,
-    summarize_critical_cases,
+from simulation.backtesting_log import extract_critical_cases, summarize_critical_cases
+from simulation.engine import HISTORICAL_REFERENCE_ID, HistoricalDataCache, list_simulation_anchors
+from ui.backtesting_deviation_calendar import (
+    build_deviation_calendar_index,
+    cases_for_date_and_scenario,
+    default_calendar_date,
+    deviation_marker_for_case,
+    render_deviation_calendar,
 )
-from simulation.engine import HISTORICAL_REFERENCE_ID
-from simulation.horizon_mode import FIXED_24H
+from ui.backtesting_diag_single_window import render_diag_single_window_panel
 from ui.backtesting_display_bundle import (
     VIEW_MODE_24H,
     VIEW_MODE_SUNRISE,
     format_backtesting_window_range,
-    load_backtesting_display_bundle,
     log_supports_sunrise_chart_view,
+    resolve_backtesting_display_bundle,
 )
+from ui.backtesting_results_helpers import nav_bounds_from_period
 from ui.simulation_results import (
     render_optimization_chart1,
     render_optimization_chart2,
@@ -68,6 +72,8 @@ def _format_deviation_window(case: dict, meta: dict) -> str:
 
 def deviation_cases_for_display(meta: dict) -> list[dict]:
     """Kritische Fälle ohne Referenz-Szenario, dedupliziert pro Fenster."""
+    from simulation.backtesting_log import dedupe_critical_cases_by_window
+
     ref_id = meta.get("reference_id", HISTORICAL_REFERENCE_ID)
     cases = extract_critical_cases(meta)
     filtered = [case for case in cases if case.get("scenario_id") != ref_id]
@@ -83,25 +89,6 @@ def format_deviation_delta_kwh(case: dict) -> str:
     return f"{float(diff):+.2f}"
 
 
-def build_deviation_table_rows(
-    cases: list[dict],
-    labels_map: dict[str, str],
-    meta: dict,
-) -> list[dict]:
-    rows: list[dict] = []
-    for case in cases:
-        scenario_id = str(case.get("scenario_id", "?"))
-        rows.append(
-            {
-                "Fenster": _format_deviation_window(case, meta),
-                "Szenario": labels_map.get(scenario_id, scenario_id),
-                "Art": kind_label(str(case.get("kind", "?"))),
-                "Δ kWh (Soll/Ist)": format_deviation_delta_kwh(case),
-            }
-        )
-    return rows
-
-
 def case_to_plausibility_failure(case: dict) -> dict:
     return {
         "window_end": case.get("window_anchor"),
@@ -111,8 +98,7 @@ def case_to_plausibility_failure(case: dict) -> dict:
     }
 
 
-def _scenario_label(case: dict, labels_map: dict[str, str]) -> str:
-    scenario_id = str(case.get("scenario_id", "?"))
+def _scenario_label(scenario_id: str, labels_map: dict[str, str]) -> str:
     return labels_map.get(scenario_id, scenario_id)
 
 
@@ -175,48 +161,51 @@ def _resolve_chart_view(
     return VIEW_MODE_SUNRISE, segment_index
 
 
+def _render_sa_segment_toggle(meta: dict) -> str:
+    if not log_supports_sunrise_chart_view(meta):
+        return "SA₀→SA₁"
+    return st.radio(
+        "SA-Segment",
+        options=["SA₀→SA₁", "SA₁→SA₂"],
+        horizontal=True,
+        key="backtesting_deviation_sa_segment",
+    )
+
+
 def _render_deviation_charts(
-    case: dict,
+    window_anchor: str,
+    scenario_id: str,
     meta: dict,
     log_dir: str,
+    hourly_df: pd.DataFrame,
+    *,
+    segment_toggle: str,
 ) -> None:
-    segment_toggle = "SA₀→SA₁"
-    if log_supports_sunrise_chart_view(meta):
-        segment_toggle = st.radio(
-            "SA-Segment",
-            options=["SA₀→SA₁", "SA₁→SA₂"],
-            horizontal=True,
-            key="backtesting_deviation_sa_segment",
-        )
-
     view_mode, segment_index = _resolve_chart_view(
         meta,
         segment_toggle=segment_toggle,
     )
 
-    log_horizon = meta.get("period", {}).get("horizon_mode", FIXED_24H)
-    window_anchor = str(case.get("window_anchor", ""))
-    scenario_id = str(case.get("scenario_id", ""))
     try:
-        bundle = load_backtesting_display_bundle(
+        bundle = resolve_backtesting_display_bundle(
             log_dir,
             window_anchor,
             scenario_id,
+            meta,
+            hourly_df,
             view_mode=view_mode,
             segment_index=segment_index,
-            log_horizon_mode=log_horizon,
         )
     except ValueError as exc:
         st.error(str(exc))
         return
     if bundle is None:
         st.info(
-            "Kein Fenster-Snapshot für diesen Horizont — nur bei Abweichungen gespeichert. "
-            "Backtesting mit kritischem Fenster erneut ausführen oder Horizont wechseln."
+            "Chart-Daten für dieses Fenster konnten nicht geladen werden."
         )
         return
 
-    chart_suffix = f"{view_mode}_{segment_index}"
+    chart_suffix = f"{view_mode}_{segment_index}_{scenario_id}"
     render_optimization_chart1(
         bundle,
         chart_key=f"backtesting_power_soc_{chart_suffix}",
@@ -227,33 +216,114 @@ def _render_deviation_charts(
     )
 
 
+def _optimized_scenario_ids(meta: dict) -> list[str]:
+    ref_id = meta.get("reference_id", HISTORICAL_REFERENCE_ID)
+    return [
+        str(scenario_id)
+        for scenario_id in meta.get("scenario_ids", [])
+        if scenario_id != ref_id
+    ]
+
+
+def _run_anchors_for_meta(meta: dict) -> list[datetime]:
+    bounds = nav_bounds_from_period(meta.get("period") or {})
+    if bounds is None:
+        return []
+    start, end = bounds
+    cache = HistoricalDataCache()
+    return list_simulation_anchors(pd.Timestamp(start), pd.Timestamp(end), cache)
+
+
+
+def _default_active_scenario(
+    scenario_options: list[str],
+    cases_by_scenario: dict[str, dict],
+) -> str:
+    for scenario_id in scenario_options:
+        if scenario_id in cases_by_scenario:
+            return scenario_id
+    return scenario_options[0]
+
+
+def _scenario_option_label(
+    scenario_id: str,
+    labels_map: dict[str, str],
+    case: dict | None,
+) -> str:
+    marker = deviation_marker_for_case(case)
+    label = _scenario_label(scenario_id, labels_map)
+    if marker:
+        return f"{marker} {label}"
+    return label
+
+
+def _select_scenario_from_radio(
+    selected_date: date,
+    scenario_options: list[str],
+    cases_by_scenario: dict[str, dict],
+    labels_map: dict[str, str],
+) -> str | None:
+    """Einzel-Auswahl per Radio-Liste; Abweichungen am Label markiert."""
+    if not scenario_options:
+        return None
+    default = _default_active_scenario(scenario_options, cases_by_scenario)
+    default_index = scenario_options.index(default)
+    st.caption("Markierung = Abweichung an diesem Tag")
+    return st.radio(
+        "Szenario",
+        options=scenario_options,
+        index=default_index,
+        format_func=lambda sid: _scenario_option_label(
+            sid,
+            labels_map,
+            cases_by_scenario.get(sid),
+        ),
+        horizontal=True,
+        key=f"backtesting_cal_scenario_{selected_date.isoformat()}",
+    )
+
+
 def render_deviation_detail(
-    case: dict,
+    case: dict | None,
     labels_map: dict[str, str],
     *,
     meta: dict,
     log_dir: str,
+    hourly_df: pd.DataFrame,
+    window_anchor: str,
+    scenario_id: str,
+    segment_toggle: str,
 ) -> None:
-    window = _format_deviation_window(case, meta)
-    scenario = _scenario_label(case, labels_map)
-    art = kind_label(str(case.get("kind", "?")))
-    st.markdown(f"**Fenster:** {window} · **Szenario:** {scenario} · **Art:** {art}")
-    _render_consumption_caption(case)
-    if case.get("kind") != "consumption_tolerance":
-        _render_cbc_facts_caption(case)
-    _render_deviation_charts(case, meta, log_dir)
-
-
-def _selected_deviation_index(table_state, row_count: int) -> int:
-    if row_count <= 0:
-        return 0
-    selection = getattr(table_state, "selection", None)
-    rows = getattr(selection, "rows", None) if selection is not None else None
-    if rows:
-        index = int(rows[0])
-        if 0 <= index < row_count:
-            return index
-    return 0
+    window = _format_deviation_window({"window_anchor": window_anchor}, meta)
+    scenario = _scenario_label(scenario_id, labels_map)
+    if case is None:
+        st.markdown(
+            f"**Fenster:** {window} · **Szenario:** {scenario} · **Keine Abweichung**"
+        )
+    else:
+        art = kind_label(str(case.get("kind", "?")))
+        delta = format_deviation_delta_kwh(case)
+        st.markdown(
+            f"**Fenster:** {window} · **Szenario:** {scenario} · **Art:** {art} · "
+            f"**Δ kWh (Soll/Ist):** {delta}"
+        )
+        _render_consumption_caption(case)
+        if case.get("kind") != "consumption_tolerance":
+            _render_cbc_facts_caption(case)
+    render_diag_single_window_panel(
+        window_anchor,
+        scenario_id,
+        meta,
+        hourly_df,
+    )
+    _render_deviation_charts(
+        window_anchor,
+        scenario_id,
+        meta,
+        log_dir,
+        hourly_df,
+        segment_toggle=segment_toggle,
+    )
 
 
 def render_deviation_list(
@@ -261,32 +331,62 @@ def render_deviation_list(
     labels_map: dict[str, str],
     *,
     log_dir: str,
+    hourly_df: pd.DataFrame,
 ) -> None:
-    st.subheader("Abweichungsliste")
+    st.subheader("Detaillierte Simulationsansicht (Erfordert einmalige Neuberechnung)")
 
-    cases = deviation_cases_for_display(meta)
-    if not cases:
-        st.info("Keine auffälligen Abweichungen im Backtesting-Lauf.")
+    run_anchors = _run_anchors_for_meta(meta)
+    if not run_anchors:
+        st.info("Keine Simulationsfenster im Backtesting-Zeitraum.")
         return
 
-    summary = summarize_critical_cases(cases)
-    st.caption(
-        f"{summary['total']} Einträge in {summary['distinct_windows']} Fenstern"
-    )
-    rows = build_deviation_table_rows(cases, labels_map, meta)
+    cases = deviation_cases_for_display(meta)
+    index = build_deviation_calendar_index(meta, cases, run_anchors=run_anchors)
 
-    table_state = st.dataframe(
-        pd.DataFrame(rows),
-        width="stretch",
-        hide_index=True,
-        on_select="rerun",
-        selection_mode="single-row",
-        key="backtesting_deviation_table",
+    if cases:
+        summary = summarize_critical_cases(cases)
+        st.caption(
+            f"{summary['total']} Abweichungen in {summary['distinct_windows']} Fenstern"
+        )
+    else:
+        st.caption("Keine auffälligen Abweichungen — alle in-run Tage sind dennoch wählbar.")
+
+    selected_date = render_deviation_calendar(index, meta)
+    if selected_date is None:
+        selected_date = default_calendar_date(index)
+    if selected_date is None:
+        return
+
+    fallback_ids = _optimized_scenario_ids(meta)
+    if not fallback_ids:
+        st.info("Kein optimiertes Szenario für den gewählten Tag.")
+        return
+
+    cell = index[selected_date]
+    cases_by_scenario = cell.cases_by_scenario
+    with_deviation = [sid for sid in fallback_ids if sid in cases_by_scenario]
+    without_deviation = [sid for sid in fallback_ids if sid not in cases_by_scenario]
+    scenario_options = with_deviation + without_deviation
+
+    scenario_id = _select_scenario_from_radio(
+        selected_date,
+        scenario_options,
+        cases_by_scenario,
+        labels_map,
     )
-    selected_index = _selected_deviation_index(table_state, len(cases))
+    if not scenario_id:
+        return
+
+    window_anchor = cell.anchor_iso or ""
+    segment_toggle = _render_sa_segment_toggle(meta)
+    case = cases_for_date_and_scenario(index, selected_date, scenario_id)
     render_deviation_detail(
-        cases[selected_index],
+        case,
         labels_map,
         meta=meta,
         log_dir=log_dir,
+        hourly_df=hourly_df,
+        window_anchor=window_anchor,
+        scenario_id=scenario_id,
+        segment_toggle=segment_toggle,
     )

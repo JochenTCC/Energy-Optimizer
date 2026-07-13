@@ -129,6 +129,25 @@ def load_window_snapshot(
     return None
 
 
+def append_window_snapshot(log_dir: str, snapshot: dict) -> bool:
+    """
+    Hängt einen Snapshot an die JSONL an, wenn (Anker, Szenario) noch fehlt.
+
+    Returns True wenn geschrieben, False wenn bereits vorhanden.
+    """
+    window_anchor = str(snapshot.get("window_anchor", ""))
+    scenario_id = str(snapshot.get("scenario_id", ""))
+    if not window_anchor or not scenario_id:
+        return False
+    if load_window_snapshot(log_dir, window_anchor, scenario_id) is not None:
+        return False
+    path = os.path.join(log_dir, BACKTESTING_WINDOW_SNAPSHOTS_JSONL)
+    os.makedirs(log_dir, exist_ok=True)
+    with open(path, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps(snapshot, ensure_ascii=False) + "\n")
+    return True
+
+
 def snapshot_supports_sunrise_view(snapshot: dict) -> bool:
     return (
         snapshot.get("horizon_mode") == SUNRISE_WINDOW

@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 import pandas as pd
+import streamlit as st
 
 import config
 from optimizer.charge_immediate import prepare_optimization_matrix
@@ -36,7 +37,7 @@ from simulation.backtesting_snapshots import (
     snapshot_supports_sunrise_view,
 )
 from simulation.engine import _scenario_to_battery_params
-from simulation.horizon_mode import BACKTESTING_STEP_HOURS, SUNRISE_WINDOW
+from simulation.horizon_mode import BACKTESTING_STEP_HOURS, FIXED_24H, SUNRISE_WINDOW
 from ui.chart_context import LiveChartContext
 from ui.history_navigation import s2_zone_help_text
 from ui.simulation_results import (
@@ -557,3 +558,70 @@ def load_backtesting_display_bundle(
 
 def log_supports_sunrise_chart_view(meta: dict) -> bool:
     return meta.get("period", {}).get("horizon_mode") == SUNRISE_WINDOW
+
+
+_ON_DEMAND_CACHE_KEY = "backtesting_on_demand_snapshots"
+
+
+def _on_demand_snapshot_cache() -> dict[tuple[str, str, str], dict]:
+    cache = st.session_state.get(_ON_DEMAND_CACHE_KEY)
+    if not isinstance(cache, dict):
+        cache = {}
+        st.session_state[_ON_DEMAND_CACHE_KEY] = cache
+    return cache
+
+
+def resolve_backtesting_display_bundle(
+    log_dir: str,
+    window_anchor: str,
+    scenario_id: str,
+    meta: dict,
+    hourly_df: pd.DataFrame,
+    *,
+    view_mode: str = VIEW_MODE_24H,
+    segment_index: int = 0,
+) -> OptimizationDisplayBundle | None:
+    """
+    Snapshot aus JSONL, sonst on-demand Einzelfenster-Simulation (Session-Cache).
+    """
+    log_horizon = meta.get("period", {}).get("horizon_mode", FIXED_24H)
+    bundle = load_backtesting_display_bundle(
+        log_dir,
+        window_anchor,
+        scenario_id,
+        view_mode=view_mode,
+        segment_index=segment_index,
+        log_horizon_mode=log_horizon,
+    )
+    if bundle is not None:
+        return bundle
+
+    from simulation.backtesting_single_window import (
+        cache_key_for_window,
+        initial_soc_for_anchor,
+        simulate_window_snapshot,
+    )
+
+    cache_key = cache_key_for_window(window_anchor, scenario_id, log_horizon)
+    snapshot_cache = _on_demand_snapshot_cache()
+    snapshot = snapshot_cache.get(cache_key)
+    if snapshot is None:
+        anchor_dt = pd.Timestamp(window_anchor).to_pydatetime()
+        initial_soc = initial_soc_for_anchor(anchor_dt, scenario_id, hourly_df)
+        with st.spinner("Fenster wird berechnet…"):
+            snapshot = simulate_window_snapshot(
+                anchor_dt,
+                scenario_id,
+                meta,
+                initial_soc=initial_soc,
+                horizon_mode=log_horizon,
+            )
+        snapshot_cache[cache_key] = snapshot
+        from simulation.backtesting_snapshots import append_window_snapshot
+
+        append_window_snapshot(log_dir, snapshot)
+    return build_backtesting_display_bundle(
+        snapshot,
+        view_mode=view_mode,
+        segment_index=segment_index,
+    )
