@@ -15,6 +15,51 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 
 
 
+## Reminder für Greenfield Reset
+
+It depends which local Greenfield setup you mean — the project distinguishes venv (:8511) and Docker (:8502).
+
+Local venv Greenfield (port 8511)
+Stop any running main.py / Streamlit first, then from the repo root:
+
+Remove-Item -Recurse -Force greenfield\config, greenfield\runtime
+mkdir greenfield\config, greenfield\runtime
+Then restart via VS Code „main.py + Streamlit (Greenfield :8511)“ (or the individual Greenfield launch configs). Bootstrap runs automatically on startup and recreates the default files.
+
+Docker Greenfield (port 8502)
+Manual reset (from docs/einrichtung/greenfield-dev-stack.md):
+
+docker compose -f docker-compose-greenfield.yml down
+Remove-Item -Recurse -Force greenfield\config, greenfield\runtime
+mkdir greenfield\config, greenfield\runtime
+docker compose -f docker-compose-greenfield.yml up -d --build
+One-liner (reset + start + smoke checks):
+
+.venv\Scripts\python.exe -m scripts.smoke_greenfield_docker --reset
+Use --no-build if you don’t want to rebuild the image:
+
+.venv\Scripts\python.exe -m scripts.smoke_greenfield_docker --reset --no-build
+Note: All of these wipe everything under greenfield/config/ and greenfield/runtime/; your normal ./config and ./runtime dev stack is untouched.
+
+Command für boots
+
+For bootstrap (scripts.bootstrap_runtime):
+
+Default dev stack (config/ + runtime/)
+.venv\Scripts\python.exe -m scripts.bootstrap_runtime
+Creates only missing files; existing ones are not overwritten.
+
+Greenfield (venv, port 8511)
+After wiping greenfield\config and greenfield\runtime, either restart via VS Code (main.py + Streamlit Greenfield :8511) — bootstrap runs automatically — or run it manually with Greenfield env vars:
+
+$env:EARNIE_CONFIG_PATH = "greenfield/config/config.json"
+$env:EARNIE_RUNTIME_DIR = "greenfield/runtime"
+$env:EARNIE_DOTENV_PATH = "greenfield/config/.env"
+$env:EARNIE_HOUSE_PROFILES_PATH = "greenfield/config/house_profiles.json"
+$env:EARNIE_TARIFFS_PATH = "greenfield/config/tariffs.json"
+$env:EARNIE_BACKTESTING_SCENARIOS_PATH = "greenfield/config/backtesting_scenarios.json"
+.venv\Scripts\python.exe -m scripts.bootstrap_runtime
+
 ## Feature Backlog
 
 
@@ -23,11 +68,11 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 
 Branding (Earnie rename) → [Backlog-Erledigt.md](Backlog-Erledigt.md).
 
-**Status (2026-07-12):** P1–P5, **P6a**, and **Components** done (see [Backlog-Erledigt.md](Backlog-Erledigt.md)). Open under 2.0: **P7** + EV nominal voltage + remaining smoke follow-ups. One greenfield smoke bug still open (Loxone sidebar — see [Backlog-Bugfixes.md](Backlog-Bugfixes.md)); cons_data ID fix pending verification there.
+**Status (2026-07-12):** P1–P5, **P6a**, and **Components** done (see [Backlog-Erledigt.md](Backlog-Erledigt.md)). Open under 2.0: **P7** + EV nominal voltage + remaining smoke follow-ups. Loxone sidebar bugfix → [Backlog-Erledigt.md](Backlog-Erledigt.md); cons_data ID fix pending verification in [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 Recommended order (2.0): smoke-test **next actions** (below) → **P7** README / evaluations → propose `version.py` → `2.0.0` (user approval). **P6b** live cutover → **2.+1** (first item after 2.0 release).
 
-Critical path: **Loxone sidebar bugfix** + **fixed-tariff SE investigation**, then **P7**. Open bugs → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
+Critical path: **fixed-tariff SE investigation**, then **P7**. Open bugs → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 **Decisions (2026-07-11):**
 
@@ -54,35 +99,64 @@ Components (`components.json` sidecar) → [Backlog-Erledigt.md](Backlog-Erledig
 - [ ] **EV nominal voltage for power calculation** — configurable per EV consumer (house profile + `flexible_consumers`); replace hardcoded 230 V in A→kW conversion (`integrations/loxone_client.py`); shared helper for live and planning paths; default 230 V / 1 phase when unset
 
 
+
 #### Smoketest Findings — next actions (2026-07-12)
 
 Ordered work plan after greenfield smoke. **Bugfix** items → [Backlog-Bugfixes.md](Backlog-Bugfixes.md); **UX/copy** here; **investigation** ties to *Backtesting Tests* below.
 
-**Phase A — 2.0 gate (bugs + quick wins)**
-
-1. [ ] **Greenfield: Loxone credential sidebar disappears before credentials saved** — **re-open** ([Backlog-Bugfixes.md](Backlog-Bugfixes.md)); prior fix (`loxone_setup_deferred()`, `ui/setup_progress.py`) **failed verification** (2026-07-12)
-   - Reproduce on greenfield stack **before** `config/.env` save: complete planning setup → unlock Scenario-Exploration → navigate **Hauskonfigurator ↔ Scenario-Exploration** (and other pages) → sidebar expander **"Loxone-Zugang (Live / Silent-Modus)"** must stay visible until credentials saved
-   - Trace: `loxone_setup_deferred()` in `runtime_store/dotenv_io.py` (when it returns `False` while credentials still missing); `render_setup_progress_notice()` in `ui/setup_progress.py`; `needs_planning_onboarding()` / `is_planning_ready()` in `ui/setup_readiness.py`; env `OFFLINE` / placeholder values in `.env`
-   - Likely failure modes: `loxone_setup_deferred()` flips to `False` after planning unlock; expander not rendered on all pages; session/rerun hides sidebar block
-   - Deliver: root-cause fix + regression test (extend `tests/test_dotenv_io.py` or navigation/setup test); move to *Bugfix Verifications Pending* only after greenfield re-test passes
-2. [ ] **Scenario-Exploration: cons_data ID mismatch after regenerate** — verify fix in [Backlog-Bugfixes.md](Backlog-Bugfixes.md) (greenfield: generate cons_data → no ID warning)
-3. [ ] Remove button **"Auflösung testen"** (`ui/pages/page_scenario_editor.py`, `ui/scenario_runtime_form.py`) — resolution stays on save / existing tests
-4. [ ] **Bezeichnung** empty when switching Scenario-Exploration → Hauskonfigurator — Streamlit session sync in `ui/house_config_profile_form.py` (`_sync_profile_session`); add regression test in `tests/test_planning_editors.py`
-5. [ ] Rename user-visible **"Backtesting"** strings on Scenario-Exploration pages → **"Scenario-Exploration"** (`ui/pages/page_backtesting.py`, `ui/backtesting.py`); keep file/script names unchanged
-
 **Phase B — Scenario-Exploration credibility (fixed tariffs)**
 
-6. [ ] **SE higher cost after optimization with `fixed_24h` + fixed-price tariffs** — deviations note *extra consumption*; greenfield scenario uses `fixed_25ct` / `fixed_37ct`
-   - Reproduce: scenario **without EV** and **with EV** (see *Backtesting Tests* below)
-   - Per bad window: `scripts/diag_single_window.py --anchor …`; check plausibility / deviation list vs reference (`historical_reference`)
-   - Answer: is there optimization potential with flat import prices? (expect mainly PV self-consumption / export spread, not import timing)
-   - If plausibility fails → bugfix + regression; if consumption matches but cost higher → battery wear / terminal SOC / export math
-   - **Dump for single days:** CLI exists (`diag_single_window.py`); optional follow-up: expose from SE deviation detail (not a new dump format)
-   - **Multiple scenarios for testing:** already supported in Szenarieneditor + `backtesting_scenarios.json`; document adding comparison entries (greenfield currently only `live`)
+1. [ ] **SE higher cost after optimization with** `fixed_24h` **+ fixed-price tariffs** — deviations note *extra consumption*; greenfield scenario uses `fixed_25ct` / `fixed_37ct`
+  - Reproduce: scenario **without EV** and **with EV** (see *Backtesting Tests* below)
+  - Per bad window: `scripts/diag_single_window.py --anchor …`; check plausibility / deviation list vs reference (`historical_reference`)
+  - Answer: is there optimization potential with flat import prices? (expect mainly PV self-consumption / export spread, not import timing)
+  - If plausibility fails → bugfix + regression; if consumption matches but cost higher → battery wear / terminal SOC / export math
+  - **Dump for single days:** CLI exists (`diag_single_window.py`); optional follow-up: expose from SE deviation detail (not a new dump format)
+  - **Multiple scenarios for testing:** already supported in Szenarieneditor + `backtesting_scenarios.json`; document adding comparison entries (greenfield currently only `live`)
+
+
+
+##### Plan of Attack
+
+1. [ ] **SE higher cost after optimization with** `fixed_24h` **+ fixed-price tariffs** — deviations note *extra consumption*; greenfield scenario uses `fixed_25ct` / `fixed_37ct`
+  **Goal:** (1) Is simulation plausible (kWh within tolerance)? (2) If plausible, why is € worse — bug, reference mismatch, or expected economics on flat import?
+   **Phase 0 — Test matrix** (`greenfield/config/backtesting_scenarios.json`; pattern in `config/backtesting_scenarios.example.json`):
+  - [x] `fixed_full` — `fixed_25ct` / `fixed_37ct`, full house (heat + PV + battery + EV)
+  - [x] `fixed_no_pv` — `pv_system_id` unset
+  - [x] `fixed_no_battery` — `battery_id` unset
+  - [x] `fixed_no_pv_no_battery` — no battery, no EV
+  - All runs: `--horizon-mode fixed_24h` (not `sunrise_window`)
+   **Phase 1 — Bulk reproduce & classify**
+  - [ ] Run per scenario: `scripts/run_backtesting.py --horizon-mode fixed_24h --start-month 1 --end-month 12`
+  - [ ] Record: total € vs `historical_reference`, plausibility ok/total, deviation kinds (`consumption_tolerance` vs CBC)
+  - [ ] Many consumption deviations → Phase 3A; plausibility clean but € worse → Phase 3B; use `scripts/analyze_plausibility_failures.py` if needed
+    **Phase 2 — Reference fairness (do first — high leverage)**
+  - [ ] `compute_historical_reference_costs` in `scripts/run_backtesting.py` is called **without** scenario tariff context → reference uses default/live import pricing while optimized scenario uses `fixed_25ct` / `fixed_37ct`
+  - [ ] Recompute one window: reference cost **with** scenario tariffs vs optimized; if Δ€ collapses → fix is per-scenario reference tariffs (design), not MILP
+    **Phase 3A — Plausibility failures (*extra consumption*)**
+  - [ ] Per bad window: `scripts/diag_single_window.py --anchor … --scenario …`
+  - [ ] Compare historical vs optimized kWh (tolerance: 0.5 kWh or 5% — `CONSUMPTION_TOLERANCE_*` in `simulation/engine.py`); split baseload vs flex (EV + `ready_by_hour` under `fixed_24h` is regression-sensitive — cf. 1.25.d)
+  - [ ] Confirmed bug → [Backlog-Bugfixes.md](Backlog-Bugfixes.md) + pytest regression
+    **Phase 3B — Plausible but more expensive**
+  - [ ] Per 24h window decompose: consumer kWh, grid import/export kWh, import €, export €, end SOC vs start (`terminal_soc_percent` under `fixed_24h`)
+  - [ ] Expected ceiling with flat import: savings only from PV self-consumption vs export spread (~12 ct/kWh at 25/37 ct), minus battery round-trip losses — **no import-timing arbitrage**
+  - [ ] Tools: `diag_single_window.py`, window snapshots (`backtesting_window_snapshots.jsonl`), optional `scripts/analyze_benchmark_window.py`
+    **Phase 4 — Sanity table (one month)**
+  - [ ] `fixed_no_pv` / `fixed_no_battery` / `fixed_baseload_only` → Δ€ ≈ 0 expected
+  - [ ] Document answer: optimization potential with flat import = small, bounded; negative Δ€ with matched kWh may be legitimate
+    **Phase 5 — Outcomes**
+  - Consumption mismatch → bugfix + regression
+  - Reference tariff mismatch → pass resolved scenario tariffs into reference (or per-scenario reference field)
+  - Matched kWh, small negative Δ€ → close as expected; SE caption / user doc
+  - Matched kWh, large negative Δ€ → export / SOC / cost-row deep dive
+  - Optional UX: expose `diag_single_window` from SE deviation detail (no new dump format)
+   **Existing bullets (unchanged scope):**
+  - Reproduce: scenario **without EV** and **with EV** (see *Backtesting Tests* below)
+  - **Multiple scenarios:** Szenarieneditor + `backtesting_scenarios.json` (greenfield currently only `live`)
 
 **Phase C — polish (may slip to 2.+1)**
 
-7. [ ] **Speichern** always at eye level in Hauskonfigurator (sticky top bar or duplicate save on long tabs: Hausprofil / PV / Batterien)
+1. [ ] **Speichern** always at eye level in Hauskonfigurator (sticky top bar or duplicate save on long tabs: Hausprofil / PV / Batterien) or shortkey (Ctrl-S)
 
 **Open findings (unchanged scope, tracked above)**
 
@@ -90,6 +164,9 @@ Ordered work plan after greenfield smoke. **Bugfix** items → [Backlog-Bugfixes
   - [ ] Test mit Standard-Setting (inkl. Haus Wärme / PV / Batterie)
     - Optimization delivers higher costs than baseline
   - [ ] Test ohne Haus Wärme
+  - [ ] Test ohne PV
+  - [ ] Test ohne Batterie
+  - [ ] Test ohne PV und Batterie
 
 - [ ] **Version 2.0 P7 — Documentation & evaluations**
   - Expand README with motivation / benefits — sensible order of use; less technical background than install/configuration hints

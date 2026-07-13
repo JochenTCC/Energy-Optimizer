@@ -1,8 +1,9 @@
 # scripts/run_backtesting.py
 import os
 
-# Backtesting braucht keine Loxone-Zugangsdaten aus der .env
-os.environ["ENERGY_OPTIMIZER_OFFLINE"] = "1"
+if __name__ == "__main__":
+    # Nur im Backtesting-Prozess — nicht beim Import aus der Streamlit-UI setzen.
+    os.environ["ENERGY_OPTIMIZER_OFFLINE"] = "1"
 
 import argparse
 import json

@@ -62,6 +62,15 @@ def test_resolve_battery_into_settings():
     assert "battery_id" not in resolved
 
 
+def test_resolve_battery_into_settings_without_id():
+    from house_config.entity_resolution import ZERO_BATTERY_FLAT
+
+    resolved = resolve_battery_into_settings({}, {})
+    assert resolved["battery_capacity_kwh"] == ZERO_BATTERY_FLAT["battery_capacity_kwh"]
+    assert resolved["battery_max_power_kw"] == 0.0
+    assert "battery_id" not in resolved
+
+
 def test_battery_wear_cent_per_kwh_from_entity():
     from house_config.entity_resolution import battery_wear_cent_per_kwh
 

@@ -94,6 +94,75 @@ def reference_kwh_for_period(cons_df: pd.DataFrame, period: dict) -> float | Non
     return round(sum(monthly.values()), 1)
 
 
+def scenario_consumption_subheader(period: dict) -> str:
+    if is_single_month_test_run(period):
+        month = int(period["start_month"])
+        year = int(period.get("backtesting_year") or BACKTESTING_YEAR)
+        return f"Verbrauchsvergleich (Debug, Testmonat {month:02d}/{year})"
+    return "Verbrauchsvergleich (Debug)"
+
+
+def _format_kwh(value: float | None) -> str:
+    if value is None:
+        return _DASH
+    return f"{value:.1f}"
+
+
+def _format_delta_kwh(value: float | None) -> str:
+    if value is None:
+        return _DASH
+    return f"{value:+.1f}"
+
+
+def _format_plausibility_cell(block: dict | None) -> str:
+    if not block:
+        return _DASH
+    ok = block.get("ok_count")
+    total = block.get("total_windows")
+    if ok is None or total is None:
+        return _DASH
+    return f"{ok}/{total} OK"
+
+
+def build_scenario_consumption_rows(meta: dict, ref_kwh: float | None) -> list[dict]:
+    """Vergleich historischer vs. optimierter kWh je Szenario (Debug-Tabelle)."""
+    labels = meta.get("labels", {})
+    ref_id = meta.get("reference_id", HISTORICAL_REFERENCE_ID)
+    plausibility = meta.get("plausibility", {})
+    scenario_ids = list(meta.get("scenario_ids", []))
+    if ref_id not in scenario_ids:
+        scenario_ids.insert(0, ref_id)
+
+    rows: list[dict] = []
+    for scenario_id in scenario_ids:
+        label = labels.get(scenario_id, scenario_id)
+        is_ref = scenario_id == ref_id
+        block = plausibility.get(scenario_id)
+        totals = (block or {}).get("consumption_totals") or {}
+
+        if is_ref:
+            historical = ref_kwh
+            optimized = ref_kwh
+            delta = 0.0 if ref_kwh is not None else None
+            plaus_cell = _DASH
+        else:
+            historical = totals.get("historical_kwh")
+            optimized = totals.get("optimized_kwh")
+            delta = totals.get("delta_kwh")
+            plaus_cell = _format_plausibility_cell(block)
+
+        rows.append(
+            {
+                "Szenario": label,
+                "Historisch (kWh)": _format_kwh(historical),
+                "Optimiert (kWh)": _format_kwh(optimized),
+                "Δ kWh (Opt−Hist)": _format_delta_kwh(delta),
+                "Plausibilität": plaus_cell,
+            }
+        )
+    return rows
+
+
 def build_annual_cost_rows(meta: dict, ref_kwh: float | None) -> list[dict]:
     summary = meta.get("summary", {})
     totals = summary.get("total_eur", {})

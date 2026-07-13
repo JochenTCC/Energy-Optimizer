@@ -12,10 +12,12 @@ from data.heating_need import specific_heating_kwh_m2
 from ui import setup_readiness
 from ui.house_config_io import (
     get_planning_tariff_selection,
+    load_backtesting_scenarios_raw,
     save_planning_tariff_selection,
     upsert_battery,
     upsert_house_profile,
     upsert_pv_system,
+    upsert_scenario,
 )
 from tests.config_fixtures import default_live_settings, minimal_config_payload
 from ui.house_config_profile_form import (
@@ -25,6 +27,7 @@ from ui.house_config_profile_form import (
     _flatten_consumer_for_edit,
     _profile_session_scope,
     _seed_profile_widget_state,
+    _sync_profile_session,
 )
 
 
@@ -129,6 +132,50 @@ def test_upsert_pv_and_battery_persist(tmp_path, monkeypatch):
     components_payload = json.loads(config_dir.joinpath("components.json").read_text(encoding="utf-8"))
     assert components_payload["pv_systems"][0]["id"] == "dach_sued"
     assert components_payload["batteries"][0]["battery_capacity_kwh"] == 5.0
+
+
+def test_upsert_scenario_appends_new_entry(tmp_path, monkeypatch):
+    config_dir = _bind_paths(tmp_path, monkeypatch)
+    monkeypatch.setattr("ui.house_config_io.config.reinit_config", lambda **kwargs: None)
+    config_dir.joinpath("backtesting_scenarios.json").write_text(
+        json.dumps(
+            {
+                "scenarios": [
+                    {
+                        "id": "live",
+                        "label": "Live",
+                        "settings": {
+                            "battery_id": "bat1",
+                            "house_profile_id": "home",
+                            "import_tariff_id": "imp",
+                            "export_tariff_id": "exp",
+                        },
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    upsert_scenario(
+        {
+            "id": "ohne_pv",
+            "label": "Ohne PV",
+            "settings": {
+                "battery_id": "bat1",
+                "house_profile_id": "home",
+                "import_tariff_id": "imp",
+                "export_tariff_id": "exp",
+            },
+        }
+    )
+
+    saved = load_backtesting_scenarios_raw()
+    scenario_ids = {item["id"] for item in saved["scenarios"]}
+    assert scenario_ids == {"live", "ohne_pv"}
+    ohne_pv = next(item for item in saved["scenarios"] if item["id"] == "ohne_pv")
+    assert ohne_pv["label"] == "Ohne PV"
+    assert ohne_pv["settings"]["battery_id"] == "bat1"
 
 
 def test_save_planning_tariff_selection(tmp_path, monkeypatch):
@@ -382,6 +429,31 @@ def test_seed_profile_widget_state_uses_existing_annual_kwh():
 
     assert session["schuetzenstrasse_7c__house_annual_kwh"] == 11500.0
     assert session["schuetzenstrasse_7c__house_profile_label"] == "EFH"
+
+
+def test_sync_profile_session_reseeds_when_widget_keys_missing():
+    class _Session(dict):
+        pass
+
+    session = _Session(
+        {
+            "house_profile_sync_id": "mein_haushalt",
+            "house_profile_file_stamp": "path:123",
+            "house_profile_consumers": [],
+        }
+    )
+    existing = {"label": "EFH", "annual_kwh": 4500.0}
+    import ui.house_config_profile_form as form
+
+    original = form.st.session_state
+    form.st.session_state = session
+    try:
+        form._sync_profile_session("mein_haushalt", existing, file_stamp="path:123")
+    finally:
+        form.st.session_state = original
+
+    assert session["mein_haushalt__house_profile_label"] == "EFH"
+    assert session["mein_haushalt__house_annual_kwh"] == 4500.0
 
 
 def test_seed_pv_widget_state_uses_profile_defaults_for_new_system():

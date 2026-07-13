@@ -66,9 +66,38 @@ def _house_thermal_consumers(house_profile: dict) -> list[dict]:
     ]
 
 
+def _house_profile_consumer_ids(house_profile: dict) -> set[str]:
+    return {
+        str(consumer.get("id") or "")
+        for consumer in house_profile.get("consumers", [])
+        if consumer.get("id")
+    }
+
+
+def _consumer_ids_with_cons_data(
+    house_profile: dict,
+    historical_totals: dict[str, float] | None = None,
+    *,
+    cons_data_consumer_ids: set[str] | None = None,
+) -> set[str]:
+    """Verbraucher-IDs, deren kWh bereits aus cons_data-Spalten stammen."""
+    house_ids = _house_profile_consumer_ids(house_profile)
+    if cons_data_consumer_ids is not None:
+        return house_ids & cons_data_consumer_ids
+
+    present: set[str] = set()
+    totals = historical_totals or {}
+    for cid in house_ids:
+        if float(totals.get(cid, 0.0) or 0.0) > 0.0:
+            present.add(cid)
+    return present
+
+
 def thermal_hourly_overlay(
     house_profile: dict,
     slot_datetimes: list[datetime],
+    *,
+    skip_consumer_ids: set[str] | None = None,
 ) -> list[float]:
     """Summiert kW thermischer Verbraucher (on/off bei nominal_power_kw) je Slot."""
     thermal = _house_thermal_consumers(house_profile)
@@ -76,10 +105,14 @@ def thermal_hourly_overlay(
         return [0.0] * len(slot_datetimes)
     from data.consumption_profiles import _modeled_consumer_hourly_kw
 
+    skip = skip_consumer_ids or set()
     profiles = [
         _modeled_consumer_hourly_kw(consumer, hours=8760)
         for consumer in thermal
+        if str(consumer.get("id") or "") not in skip
     ]
+    if not profiles:
+        return [0.0] * len(slot_datetimes)
     ref_start = datetime(2023, 1, 1)
     overlay: list[float] = []
     for slot_dt in slot_datetimes:
@@ -93,26 +126,44 @@ def thermal_hourly_overlay(
 def house_profile_baseload_overlay(
     house_profile: dict,
     slot_datetimes: list[datetime],
+    *,
+    historical_totals: dict[str, float] | None = None,
+    cons_data_consumer_ids: set[str] | None = None,
 ) -> list[float]:
     """Fixe generic- und thermische Verbraucher aus Hausprofil je Slot."""
-    generic = fixed_generic_hourly_overlay(house_profile, slot_datetimes)
-    thermal = thermal_hourly_overlay(house_profile, slot_datetimes)
+    skip_ids = _consumer_ids_with_cons_data(
+        house_profile,
+        historical_totals,
+        cons_data_consumer_ids=cons_data_consumer_ids,
+    )
+    generic = fixed_generic_hourly_overlay(house_profile, slot_datetimes, skip_ids=skip_ids)
+    thermal = thermal_hourly_overlay(
+        house_profile,
+        slot_datetimes,
+        skip_consumer_ids=skip_ids,
+    )
     return [round(g + t, 6) for g, t in zip(generic, thermal)]
 
 
 def fixed_generic_hourly_overlay(
     house_profile: dict,
     slot_datetimes: list[datetime],
+    *,
+    skip_ids: set[str] | None = None,
 ) -> list[float]:
     """Summiert kW fixer generic-Verbraucher je Slot."""
     fixed, _flex = split_planning_generic_consumers(house_profile)
     if not fixed:
         return [0.0] * len(slot_datetimes)
+    skip = skip_ids or set()
     overlay = [0.0] * len(slot_datetimes)
     for slot_index, slot_dt in enumerate(slot_datetimes):
         day = slot_dt.date()
         hour = slot_dt.hour
         for consumer in fixed:
+            cid = str(consumer.get("id") or "")
+            if cid in skip:
+                continue
             day_hourly = generic_hourly_kw_for_day(consumer, day)
             overlay[slot_index] += day_hourly[hour]
     return overlay

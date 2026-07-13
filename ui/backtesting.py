@@ -15,10 +15,12 @@ from ui.backtesting_cons_data import render_cons_data_section
 from ui.backtesting_deviation_list import render_deviation_list
 from ui.backtesting_results_helpers import (
     build_annual_cost_rows,
+    build_scenario_consumption_rows,
     cons_data_has_flex_energy,
     nav_bounds_from_period,
     reference_consumption_subheader,
     reference_kwh_for_period,
+    scenario_consumption_subheader,
     slice_cons_data_for_period,
     format_test_run_caption,
 )
@@ -32,11 +34,11 @@ from scripts.run_backtesting import BACKTESTING_YEAR
 from ui.consumption_display import ConsumptionDisplayMode, render_consumption_display
 
 _LEGACY_STALE_WARNING = (
-    "Älterer Backtesting-Lauf ohne Konfigurations-Fingerabdruck — "
+    "Älterer Szenarien-Explorer-Lauf ohne Konfigurations-Fingerabdruck — "
     "bitte einmal neu berechnen."
 )
 _MISMATCH_STALE_WARNING = (
-    "Gespeicherter Backtesting-Lauf passt nicht zur aktuellen Konfiguration. "
+    "Gespeicherter Szenarien-Explorer-Lauf passt nicht zur aktuellen Konfiguration. "
     "Bitte neu berechnen."
 )
 _STALE_CAPTION = (
@@ -44,7 +46,7 @@ _STALE_CAPTION = (
     "Ergebnisse unten sind veraltet."
 )
 _HORIZON_STALE_WARNING = (
-    "Der gewählte Planungshorizont weicht vom gespeicherten Backtesting-Lauf ab. "
+    "Der gewählte Planungshorizont weicht vom gespeicherten Szenarien-Explorer-Lauf ab. "
     "Die Ergebnisse unten sind ungültig — bitte neu berechnen oder die "
     "ursprüngliche Horizont-Auswahl wiederherstellen."
 )
@@ -56,7 +58,7 @@ _HORIZON_RESULTS_HIDDEN_INFO = (
 _BACKTESTING_LOG_ANCHOR_KEY = "_backtesting_log_anchor"
 
 
-@st.cache_data(ttl=60, show_spinner="Lade Backtesting-Log...")
+@st.cache_data(ttl=60, show_spinner="Lade Szenarien-Explorer-Log...")
 def load_backtesting_data():
     return backtesting_log.load_backtesting_log()
 
@@ -130,7 +132,7 @@ def _format_config_error(message: str) -> str:
 def _format_backtesting_run_error(output: str) -> str | None:
     if "cons_data_hourly.csv" in output:
         return (
-            "Backtesting benötigt Verbrauchsdaten in `cons_data_hourly.csv` "
+            "Szenarien-Explorer benötigt Verbrauchsdaten in `cons_data_hourly.csv` "
             f"unter `{resolve_backtesting_log_dir()}` (bzw. dem in der Config "
             "konfigurierten `path_cons_data`). "
             "Für Greenfield: Daten per `scripts/generate_cons_data.py` erzeugen "
@@ -138,7 +140,7 @@ def _format_backtesting_run_error(output: str) -> str | None:
         )
     if "No module named scripts" in output:
         return (
-            "Backtesting-Subprocess konnte das Skript nicht starten. "
+            "Szenarien-Explorer-Subprocess konnte das Skript nicht starten. "
             "Streamlit neu starten; unter VS Code `subProcess: false` in launch.json "
             "verwenden (bereits für Greenfield-Launch gesetzt)."
         )
@@ -213,7 +215,7 @@ def _execute_backtesting_run(
             elif total > 0:
                 progress_caption.caption(f"{scenario}: {current}/{total} h")
             else:
-                progress_caption.caption(scenario or "Backtesting läuft…")
+                progress_caption.caption(scenario or "Szenarien-Explorer läuft…")
 
         exit_code, output = run_backtesting_subprocess(
             start_month=start_month,
@@ -224,11 +226,11 @@ def _execute_backtesting_run(
         )
         if exit_code == 0:
             progress_bar.progress(1.0)
-            status.update(label="Backtesting abgeschlossen", state="complete")
+            status.update(label="Szenarien-Explorer abgeschlossen", state="complete")
             load_backtesting_data.clear()
             st.rerun()
         else:
-            status.update(label="Backtesting fehlgeschlagen", state="error")
+            status.update(label="Szenarien-Explorer fehlgeschlagen", state="error")
             hint = _format_backtesting_run_error(output)
             if hint:
                 st.error(hint)
@@ -247,7 +249,7 @@ def render_backtesting_run_controls(
     meta: dict | None = None,
 ) -> bool:
     """Rendert Start-Steuerung. True wenn Horizont-Auswahl vom Log abweicht."""
-    label = "Backtesting neu berechnen" if log_exists else "Backtesting starten"
+    label = "Szenarien-Explorer neu berechnen" if log_exists else "Szenarien-Explorer starten"
     log_period = meta.get("period") if meta else None
     render_time_range_help(key="backtesting_time_ranges_run", log_period=log_period)
     test_month = suggest_test_month()
@@ -282,34 +284,34 @@ def render_backtesting_run_controls(
         disabled=not cons_data_ready,
     ):
         _execute_backtesting_run(
-            status_label="Backtesting läuft…",
+            status_label="Szenarien-Explorer läuft…",
             horizon_mode=horizon_mode,
         )
 
     test_disabled = not cons_data_ready or test_month is None
     if col_test.button(
-        "Backtesting-Berechnung testen",
+        "Szenarien-Explorer-Berechnung testen",
         type="secondary",
         key="backtesting_test_run_btn",
         disabled=test_disabled,
     ):
         st.warning(
-            "Testlauf (1 Monat) überschreibt das bestehende Backtesting-Log."
+            "Testlauf (1 Monat) überschreibt das bestehende Szenarien-Explorer-Log."
         )
         _execute_backtesting_run(
             start_month=test_month,
             end_month=test_month,
-            status_label=f"Backtesting-Testlauf (Monat {test_month}/{BACKTESTING_YEAR})…",
+            status_label=f"Szenarien-Explorer-Testlauf (Monat {test_month}/{BACKTESTING_YEAR})…",
             horizon_mode=horizon_mode,
         )
     if not cons_data_ready:
         st.caption(
-            "Backtesting ist deaktiviert, bis gültige Verbrauchsdaten in "
+            "Szenarien-Explorer ist deaktiviert, bis gültige Verbrauchsdaten in "
             "`cons_data_hourly.csv` vorhanden sind (siehe Abschnitt oben)."
         )
     elif test_month is None:
         st.caption(
-            "Testlauf deaktiviert: keine cons_data-Daten im Backtesting-Basisjahr."
+            "Testlauf deaktiviert: keine cons_data-Daten im Szenarien-Explorer-Basisjahr."
         )
     if log_stale:
         st.caption(_STALE_CAPTION)
@@ -317,7 +319,7 @@ def render_backtesting_run_controls(
 
 
 def render_backtesting_log_caption(meta: dict) -> None:
-    st.subheader("Backtesting-Log")
+    st.subheader("Szenarien-Explorer-Log")
     st.caption(f"Ergebnisdatei: `{backtesting_log.backtesting_log_json_path()}`")
     created = meta.get("created_at", "")[:19].replace("T", " ")
     period = meta.get("period", {})
@@ -333,17 +335,46 @@ def render_backtesting_log_caption(meta: dict) -> None:
         st.warning(caption)
 
 
+def _reference_kwh_for_meta(meta: dict) -> float | None:
+    period = meta.get("period", {})
+    if not cons_data_store.is_cons_data_populated():
+        return None
+    cons_df = cons_data_store.load_cons_data()
+    return reference_kwh_for_period(cons_df, period)
+
+
 def render_annual_cost_table(meta: dict) -> None:
     st.subheader("Gesamtkosten")
-    period = meta.get("period", {})
-    ref_kwh: float | None = None
-    if cons_data_store.is_cons_data_populated():
-        cons_df = cons_data_store.load_cons_data()
-        ref_kwh = reference_kwh_for_period(cons_df, period)
+    ref_kwh = _reference_kwh_for_meta(meta)
     rows = build_annual_cost_rows(meta, ref_kwh)
     if not rows:
         st.info("Keine Gesamtkosten im Log.")
         return
+    st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
+
+
+def render_scenario_consumption_table(meta: dict) -> None:
+    period = meta.get("period", {})
+    st.subheader(scenario_consumption_subheader(period))
+    st.caption(
+        "Summe der gelieferten kWh über alle 24h-Fenster im Lauf "
+        "(Grundlast + flexible Verbraucher). Positive Δ = mehr Verbrauch als historisch."
+    )
+    ref_kwh = _reference_kwh_for_meta(meta)
+    rows = build_scenario_consumption_rows(meta, ref_kwh)
+    if not rows:
+        st.info("Keine Szenarien im Log.")
+        return
+    has_totals = any(
+        row["Optimiert (kWh)"] != "—"
+        for row in rows
+        if row["Plausibilität"] != "—"
+    )
+    if not has_totals:
+        st.info(
+            "Verbrauchssummen fehlen in diesem Log (älterer Lauf). "
+            "Bitte Szenarien-Explorer neu berechnen."
+        )
     st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
 
 
@@ -356,7 +387,7 @@ def render_reference_consumption_ui(meta: dict) -> None:
     cons_df = cons_data_store.load_cons_data()
     sliced = slice_cons_data_for_period(cons_df, period)
     if sliced.empty:
-        st.info("Keine Verbrauchsdaten im Zeitraum des Backtesting-Logs.")
+        st.info("Keine Verbrauchsdaten im Zeitraum des Szenarien-Explorer-Logs.")
         return
     if not cons_data_has_flex_energy(sliced):
         st.warning(
@@ -406,6 +437,7 @@ def _deviation_labels_map(meta: dict) -> dict[str, str]:
 def _render_backtesting_results(meta: dict) -> None:
     render_backtesting_log_caption(meta)
     render_annual_cost_table(meta)
+    render_scenario_consumption_table(meta)
     render_deviation_list(
         meta,
         _deviation_labels_map(meta),
@@ -427,7 +459,7 @@ def render_backtesting_block() -> None:
             stale_reason = log_stale_reason(meta)
             log_stale = stale_reason is not None
         except Exception as exc:
-            st.error(f"Backtesting-Log konnte nicht geladen werden: {exc}")
+            st.error(f"Szenarien-Explorer-Log konnte nicht geladen werden: {exc}")
             log_exists = False
 
     cons_ready = render_cons_data_section()
@@ -451,7 +483,7 @@ def render_backtesting_block() -> None:
     if not log_exists or meta is None:
         if not log_exists:
             st.info(
-                "Noch kein Backtesting-Lauf vorhanden. "
+                "Noch kein Szenarien-Explorer-Lauf vorhanden. "
                 "Starte die Berechnung mit dem Button oben."
             )
         return

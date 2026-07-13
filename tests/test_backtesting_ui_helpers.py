@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import date
 
-from scripts.run_backtesting import _write_progress_file
+from scripts.run_backtesting import BACKTESTING_YEAR, _write_progress_file
 from simulation.horizon_mode import FIXED_24H, SUNRISE_WINDOW
 from ui.backtesting import (
     horizon_selection_stale,
@@ -141,3 +142,17 @@ def test_write_progress_file_falls_back_on_windows_replace_error(monkeypatch, tm
     assert replace_calls["count"] == 3
     loaded = read_progress_file(path)
     assert loaded == payload
+
+
+def test_run_backtesting_module_import_does_not_force_offline(monkeypatch):
+    """Streamlit UI imports BACKTESTING_YEAR — must not pollute process env."""
+    import importlib
+
+    import scripts.run_backtesting as rb
+
+    monkeypatch.delenv("ENERGY_OPTIMIZER_OFFLINE", raising=False)
+    monkeypatch.delenv("EARNIE_OFFLINE", raising=False)
+    importlib.reload(rb)
+    assert os.environ.get("ENERGY_OPTIMIZER_OFFLINE") is None
+    assert os.environ.get("EARNIE_OFFLINE") is None
+    assert BACKTESTING_YEAR == 2025

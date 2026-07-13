@@ -17,8 +17,8 @@ from ui.setup_readiness import (
 )
 
 
-def _render_deferred_loxone_section() -> None:
-    """Loxone-.env optional bis Live-/Silent-Betrieb oder Merker-Test."""
+def render_deferred_loxone_sidebar() -> None:
+    """Sidebar-Expander für Loxone-.env (unabhängig von Planungs-Hinweisen)."""
     if not loxone_setup_deferred():
         return
 
@@ -37,7 +37,6 @@ def _render_deferred_loxone_section() -> None:
 
 def render_setup_progress_notice() -> None:
     """Zeigt fehlende Einrichtungsschritte, solange Navigation eingeschränkt ist."""
-    _render_deferred_loxone_section()
     if not needs_planning_onboarding():
         return
     if is_planning_ready():

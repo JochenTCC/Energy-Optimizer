@@ -370,6 +370,58 @@ def test_config_loads_zero_pv_without_pv_system(tmp_path, monkeypatch):
     cfg.require_runtime_params_loaded()
 
 
+def test_backtesting_scenario_without_battery_resolves_zero_flat(tmp_path, monkeypatch):
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    monkeypatch.chdir(tmp_path)
+    _write_id_only_config(config_dir, battery_wear_enabled=False)
+    scenarios_doc = {
+        "cbc_gap_rel": 0.1,
+        "scenarios": [
+            {
+                "id": DEFAULT_LIVE_SCENARIO_ID,
+                "label": "Live",
+                "settings": {
+                    "battery_id": "home_5kwh",
+                    "pv_system_id": "roof",
+                    "import_tariff_id": "fixed_imp",
+                    "export_tariff_id": "monthly_exp",
+                    "house_profile_id": "efh",
+                },
+            },
+            {
+                "id": "no_battery",
+                "label": "No Battery",
+                "settings": {
+                    "import_tariff_id": "fixed_imp",
+                    "export_tariff_id": "monthly_exp",
+                    "house_profile_id": "efh",
+                },
+            },
+        ],
+    }
+    (config_dir / "backtesting_scenarios.json").write_text(
+        json.dumps(scenarios_doc),
+        encoding="utf-8",
+    )
+
+    cfg = Config(
+        config_path=str(config_dir / "config.json"),
+        backtesting_scenarios_path=str(config_dir / "backtesting_scenarios.json"),
+        tariffs_path=str(config_dir / "tariffs.json"),
+        house_profiles_path=str(config_dir / "house_profiles.json"),
+        components_path=str(config_dir / "components.json"),
+        require_loxone_credentials=False,
+    )
+
+    from simulation.engine import _scenario_to_battery_params
+
+    scenario = cfg.get_backtesting_scenarios()["no_battery"]
+    battery = _scenario_to_battery_params(scenario)
+    assert battery["battery_capacity_kwh"] == pytest.approx(0.0)
+    assert battery["max_power_kw"] == pytest.approx(0.0)
+
+
 def test_update_live_scenario_settings_accepts_id_refs_only(tmp_path, monkeypatch):
     config_dir = tmp_path / "config"
     config_dir.mkdir()

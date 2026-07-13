@@ -136,6 +136,9 @@ def test_greenfield_bootstrap_creates_expected_files(tmp_path, monkeypatch):
     for key in ("LOXONE_IP", "LOXONE_USER", "LOXONE_PASS"):
         monkeypatch.delenv(key, raising=False)
     load_app_dotenv(override=True)
+    from runtime_store import env_vars
+
+    assert env_vars.is_effective_offline() is True
     assert dotenv_io.needs_loxone_setup() is False
 
 
