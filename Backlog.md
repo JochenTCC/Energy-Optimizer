@@ -119,7 +119,7 @@ Done in code → [Backlog-Erledigt.md](Backlog-Erledigt.md): SE consumption mode
   - Notice: "Zeitverschiebung (Energie ≈ Spec)" - what does that mean? --> More precise wording
 2. [ ] **Optional UX** — expose `diag_single_window` from SE deviation detail (CLI exists)
 3. [ ] **Bulk classify** — per scenario: plausibility ok/total, Δ€ vs matched reference, deviation kinds; tool: `scripts/analyze_plausibility_failures.py`
-4. [ ] **Structural flex under-delivery (`s2-kein-pv` Jan 2 & 7)** — MILP hardening first, then post-MILP top-up; cost-gated baseline fallback last (fixed tariff only). Decision flow: [`docs/spec/backtesting-plausibility-s2-kein-pv-jan-2-7.md`](docs/spec/backtesting-plausibility-s2-kein-pv-jan-2-7.md#fix-strategy--decision-flow)
+4. [x] **Structural flex under-delivery (`s2-kein-pv` Jan 2 & 7)** — Phase 1 done: rolling `min_on` continuation in MILP. Spec: [`docs/spec/backtesting-plausibility-s2-kein-pv-jan-2-7.md`](docs/spec/backtesting-plausibility-s2-kein-pv-jan-2-7.md#phase-1-implementation-2026-07-13)
 
 Greenfield matrix (Phase B): `greenfield/config/backtesting_scenarios.json` — `live`, `s2-kein-pv`, `s3-no-battery`, `s1-kein-pv-keine-battery`.
 

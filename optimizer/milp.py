@@ -16,6 +16,7 @@ from .milp_consumers import (
     _consumer_powers_now,
     _consumer_pv_follow_now_all,
     _log_urgent_rule_observability,
+    add_generic_flex_rolling_constraints,
     add_min_on_time_constraints,
     filter_feasible_consumers,
 )
@@ -82,6 +83,7 @@ def milp_optimizer(
     filter_contexts: dict[str, dict] | None = None,
     terminal_soc_percent: float | None = None,
     sunrise_soc_min_index: int | None = None,
+    consumer_continue_on: dict[str, bool] | None = None,
 ) -> tuple[int, float, float, dict[str, float], dict[str, int], dict[str, float], dict[str, dict]]:
     """
     Berechnet den optimalen Betriebsmodus und die Ziel-Leistung für den Loxone Miniserver.
@@ -137,6 +139,7 @@ def milp_optimizer(
         fixed_flex_kw_t0,
         remaining,
         eauto_milp_params,
+        consumer_continue_on=consumer_continue_on,
     )
     wear_cent_per_kwh = 0.0
     if battery_params["battery_capacity_kwh"] > 0.0:
@@ -157,6 +160,14 @@ def milp_optimizer(
         schedule_indices,
         contexts,
         verbose,
+        filter_contexts=filters,
+    )
+    add_generic_flex_rolling_constraints(
+        model,
+        matrix,
+        schedule_indices,
+        contexts,
+        consumer_continue_on,
         filter_contexts=filters,
     )
     if sunrise_soc_min_index is not None:

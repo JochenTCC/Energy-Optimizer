@@ -183,7 +183,7 @@ def _load_consumer_state(
     consumers_by_id = _consumers_by_id(consumers)
     if not os.path.exists(CONSUMER_STATE_FILE):
         return normalize_consumer_state(
-            {"date": today, "delivered": {}, "charging_sessions": {}},
+            {"date": today, "delivered": {}, "charging_sessions": {}, "generic_flex_run": {}},
             today,
             charging_contexts,
             consumers_by_id,
@@ -203,7 +203,7 @@ def _load_consumer_state(
         return normalize_consumer_state(state, today, charging_contexts, consumers_by_id)
     except (json.JSONDecodeError, OSError, TypeError, ValueError):
         return normalize_consumer_state(
-            {"date": today, "delivered": {}, "charging_sessions": {}},
+            {"date": today, "delivered": {}, "charging_sessions": {}, "generic_flex_run": {}},
             today,
             charging_contexts,
             consumers_by_id,
@@ -279,6 +279,18 @@ def get_consumer_remaining_kwh(
     return remaining
 
 
+def get_generic_flex_continue_on(
+    charging_contexts: dict[str, dict] | None = None,
+    consumers: list | None = None,
+) -> dict[str, bool]:
+    """Offene generic-min_on-Blöcke für den nächsten MILP-Schritt (Live-Pfad)."""
+    from .generic_flex_run import continue_on_from_state
+
+    active = _active_consumers(consumers)
+    state = _load_consumer_state(charging_contexts, active)
+    return continue_on_from_state(state, active)
+
+
 def _optimization_interval_hours() -> float:
     """Dauer eines Live-Optimierungszyklus in Stunden (Viertelstunde)."""
     return schedule.optimization_interval_hours()
@@ -294,12 +306,15 @@ def register_consumer_delivery(
     book_planned: bool = True,
 ) -> dict[str, dict]:
     """Bucht gelieferte Energie und liefert Soll-Ist-Kennzahlen je Verbraucher."""
+    from .generic_flex_run import update_generic_flex_run_state
+
     interval_h = _optimization_interval_hours()
     active = _active_consumers(consumers)
     consumers_by_id = _consumers_by_id(active)
     state = _load_consumer_state(charging_contexts, active)
     delivered = dict(state.get("delivered", {}))
     sessions = dict(state.get("charging_sessions", {}))
+    generic_flex_run = dict(state.get("generic_flex_run") or {})
     compliance: dict[str, dict] = {}
 
     for consumer in active:
@@ -324,15 +339,18 @@ def register_consumer_delivery(
             booked_kw=power_kw,
         )
         if power_kw <= 0:
+            update_generic_flex_run_state(generic_flex_run, consumer, 0.0)
             continue
         delta_kwh = power_kw * interval_h
         if is_charging_session_context(consumer, ctx):
             add_session_delivery(sessions, cid, delta_kwh)
         else:
             delivered[cid] = round(float(delivered.get(cid, 0.0)) + delta_kwh, 3)
+        update_generic_flex_run_state(generic_flex_run, consumer, power_kw)
 
     state["delivered"] = delivered
     state["charging_sessions"] = sessions
+    state["generic_flex_run"] = generic_flex_run
     _save_consumer_state(state)
     return compliance
 

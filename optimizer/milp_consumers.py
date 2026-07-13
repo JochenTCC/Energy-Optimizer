@@ -40,20 +40,185 @@ def add_min_on_time_constraints(
     on_vars: list,
     min_on_quarterhours: int,
     prefix: str,
+    *,
+    on_before_horizon: bool = False,
+    force_on_at_start: bool = False,
 ) -> None:
     """Erzwingt Mindest-Einschaltdauer; MILP arbeitet stündlich (4 Viertelstunden = 1 Slot)."""
     min_hours = max(1, (int(min_on_quarterhours) + 3) // 4)
+    if force_on_at_start and on_vars:
+        prob += on_vars[0] == 1
     if min_hours <= 1:
         return
     horizon = len(on_vars)
+    prev_at_start = 1 if on_before_horizon else 0
     for t in range(horizon - min_hours + 1):
-        prev = 0 if t == 0 else on_vars[t - 1]
+        if t == 0:
+            if on_before_horizon:
+                continue
+            prev: pulp.LpAffineExpression | int = prev_at_start
+        else:
+            prev = on_vars[t - 1]
         prob += pulp.lpSum(on_vars[t:t + min_hours]) >= min_hours * (on_vars[t] - prev)
+
+
+def add_generic_block_start_guard(
+    prob: pulp.LpProblem,
+    on_vars: list,
+    eligible_indices: list[int],
+    min_hours: int,
+    *,
+    continuing: bool,
+) -> None:
+    """Verhindert neuen Block-Start an t=0 ohne min_on zusammenhängende eligible Slots."""
+    if continuing or min_hours <= 1 or not on_vars:
+        return
+    eligible_set = set(eligible_indices)
+    if 0 not in eligible_set:
+        prob += on_vars[0] == 0
+        return
+    if not all(slot in eligible_set for slot in range(min_hours)):
+        prob += on_vars[0] == 0
 
 
 def _max_deliverable_kwh(consumer: dict, eligible_indices: list[int]) -> float:
     _, max_kw = power_limits_kw(consumer)
     return len(eligible_indices) * max_kw
+
+
+def _min_on_hours(consumer: dict) -> int:
+    min_on_qh = int(consumer.get("min_on_quarterhours", 4) or 4)
+    return max(1, (min_on_qh + 3) // 4)
+
+
+def _eligible_slot_labels(matrix: list, eligible_indices: list[int]) -> list[str]:
+    from .charging_context import matrix_slot_datetime
+
+    labels: list[str] = []
+    for index in eligible_indices:
+        if 0 <= index < len(matrix):
+            labels.append(matrix_slot_datetime(matrix, index).strftime("%m-%d %H:%M"))
+    return labels
+
+
+def delivery_constraint_diagnostics(
+    matrix: list,
+    remaining: dict[str, float],
+    schedule_indices: list[int],
+    charging_contexts: dict[str, dict],
+    consumers: list,
+    filter_contexts: dict[str, dict] | None = None,
+    verbose: bool = False,
+) -> dict[str, dict]:
+    """Liefer-Nebenbedingungen je Verbraucher (ohne MILP-Lösung)."""
+    filters = filter_contexts or {}
+    horizon = len(matrix)
+    planned = filter_feasible_consumers(
+        consumers,
+        remaining,
+        matrix[:horizon],
+        schedule_indices,
+        verbose,
+        charging_contexts,
+        filters,
+    )
+    planned_ids = {consumer["id"] for consumer in planned}
+    result: dict[str, dict] = {}
+
+    for consumer in consumers:
+        cid = consumer["id"]
+        target = float(remaining.get(cid, 0.0) or 0.0)
+        entry: dict = {
+            "planned": cid in planned_ids,
+            "remaining_kwh": round(target, 3),
+            "min_on_hours": _min_on_hours(consumer),
+            "generic_flex": generic_flex_window(consumer) is not None,
+        }
+        if target <= 0 or cid not in planned_ids:
+            result[cid] = entry
+            continue
+
+        ctx = charging_contexts.get(cid)
+        consumer_indices = schedule_indices_for_consumer(
+            matrix, horizon, schedule_indices, consumer, ctx
+        )
+        eligible = consumer_flex_eligible_indices(
+            matrix[:horizon],
+            consumer,
+            consumer_indices,
+            ctx,
+            filters.get(cid),
+        )
+        if generic_flex_window(consumer):
+            generic_eligible = set(
+                consumer_generic_eligible_indices(
+                    matrix[:horizon],
+                    consumer,
+                    consumer_indices,
+                )
+            )
+            eligible = [index for index in eligible if index in generic_eligible]
+        _, max_kw = power_limits_kw(consumer)
+        max_deliverable = _max_deliverable_kwh(consumer, eligible)
+        effective_target = min(target, max_deliverable)
+        entry.update(
+            {
+                "eligible_count": len(eligible),
+                "eligible_slots": _eligible_slot_labels(matrix, eligible),
+                "max_kw": round(float(max_kw), 3),
+                "max_deliverable_kwh": round(max_deliverable, 3),
+                "effective_target_kwh": round(effective_target, 3),
+                "target_gap_kwh": round(target - effective_target, 3),
+            }
+        )
+        result[cid] = entry
+    return result
+
+
+def add_generic_flex_rolling_constraints(
+    model: MilpHorizonModel,
+    matrix: list[dict[str, Any]],
+    schedule_indices: list[int],
+    charging_contexts: dict[str, dict],
+    consumer_continue_on: dict[str, bool] | None,
+    *,
+    filter_contexts: dict[str, dict] | None = None,
+) -> None:
+    """Rolling-Horizont: min_on-Fortsetzung und Start-Sperre für generic-Flex."""
+    filters = filter_contexts or {}
+    continue_on = consumer_continue_on or {}
+    for consumer in model.planned_consumers:
+        if not generic_flex_window(consumer):
+            continue
+        cid = consumer["id"]
+        continuing = bool(continue_on.get(cid, False))
+        min_hours = _min_on_hours(consumer)
+        ctx = charging_contexts.get(cid)
+        consumer_indices = schedule_indices_for_consumer(
+            matrix, model.horizon, schedule_indices, consumer, ctx
+        )
+        eligible = consumer_flex_eligible_indices(
+            matrix[: model.horizon],
+            consumer,
+            consumer_indices,
+            ctx,
+            filters.get(cid),
+        )
+        generic_eligible = set(
+            consumer_generic_eligible_indices(
+                matrix[: model.horizon],
+                consumer,
+                consumer_indices,
+            )
+        )
+        eligible = [index for index in eligible if index in generic_eligible]
+        add_generic_block_start_guard(
+            model.prob,
+            model.consumer_on[cid],
+            eligible,
+            min_hours,
+            continuing=continuing,
+        )
 
 
 def _delivery_energy_expr(
@@ -197,17 +362,22 @@ def _add_consumer_power_variables(
     consumer_pv_follow: dict[str, list],
     remaining_kwh: float,
     eauto_milp_params: dict[str, float] | None,
+    *,
+    continue_on: bool = False,
 ) -> None:
     cid = consumer["id"]
     consumer_on[cid] = [
         pulp.LpVariable(f"{cid}_on_{t}", cat=pulp.LpBinary)
         for t in range(horizon)
     ]
+    generic_continuing = continue_on and generic_flex_window(consumer) is not None
     add_min_on_time_constraints(
         prob,
         consumer_on[cid],
         consumer["min_on_quarterhours"],
         cid,
+        on_before_horizon=generic_continuing,
+        force_on_at_start=generic_continuing,
     )
     if not milp_uses_power_setpoint(
         consumer, matrix, remaining_kwh, eauto_milp_params
