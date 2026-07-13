@@ -134,7 +134,7 @@ def test_expected_ids_match_house_profile_synthesis(tmp_path, monkeypatch):
         end=date(2024, 1, 2),
         kwp=6.0,
         source="synthetic",
-        pv_kw_for_hour=lambda _hour, _month, _kwp: 0.0,
+        pv_kw_at_datetime=lambda _slot: 0.0,
     )
     path = tmp_path / "cons_data_hourly.csv"
     cons_data_store.save_cons_data(df, str(path), apply_retention=False)

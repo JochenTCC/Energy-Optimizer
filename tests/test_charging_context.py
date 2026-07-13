@@ -71,7 +71,7 @@ class TestAbsentAvailability:
 
   def test_resolve_absent_overnight_window_still_returns_horizon(self):
       consumer = _eauto_consumer()
-      horizon = datetime(2026, 6, 23, 8, 0)  # Dienstag, Fenster von Montag noch offen
+      horizon = datetime(2026, 6, 23, 6, 0)  # Dienstag vor ready_by_hour, Fenster von Montag noch offen
       assert cc.resolve_absent_availability(horizon, consumer) == horizon
 
   def test_resolve_absent_with_timezone_aware_horizon(self):
@@ -79,7 +79,7 @@ class TestAbsentAvailability:
 
       consumer = _eauto_consumer()
       tz = ZoneInfo("Europe/Vienna")
-      horizon = datetime(2026, 6, 23, 8, 0, tzinfo=tz)
+      horizon = datetime(2026, 6, 23, 6, 0, tzinfo=tz)
       result = cc.resolve_absent_availability(horizon, consumer)
       assert result == horizon
       assert result.tzinfo == tz

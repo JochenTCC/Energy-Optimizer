@@ -40,7 +40,7 @@ def test_build_synthetic_dataframe_from_house_profile_has_consumer_columns():
         end=date(2025, 3, 2),
         kwp=5.0,
         source="synthetic",
-        pv_kw_for_hour=lambda hour, month, kwp: 0.0,
+        pv_kw_at_datetime=lambda _slot: 0.0,
     )
     assert "swimspa_kw" in df.columns
     assert float(df["swimspa_kw"].sum()) > 0.0
