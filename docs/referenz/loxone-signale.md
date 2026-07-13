@@ -51,6 +51,7 @@ Zusätzlich Pflichtfeld **`min_power_kw`** am Verbraucher (untere Grenze für de
 |------------------|----------|----------|------|
 | `plugged_in_name` | Lesen | `EAuto_Angeschlossen` | `1` = angeschlossen |
 | `soc_at_plug_in_name` | Lesen | `EAuto_SOC_bei_Anschluss` | Rest-SOC, % |
+| `actual_soc_name` | Lesen | `Ernie-SOC-Ist-EAuto` | Aktueller SOC, % — bei 100 % gilt Ladung als abgeschlossen |
 | `ready_by_time_name` | Lesen | `EAuto_FertigUm` | Text, z. B. Fertig-Uhrzeit |
 | `nominal_power_kw_name` | Lesen | `EAuto_MaxLeistung` | Max. Ladeleistung, kW (oder A → wird umgerechnet) |
 | `battery_capacity_kwh_name` | Lesen | `Batteriekapazität_E-Auto` | Akkukapazität, kWh (einzige Quelle für SOC→kWh) |

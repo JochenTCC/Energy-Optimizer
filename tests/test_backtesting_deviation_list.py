@@ -119,6 +119,22 @@ def test_default_active_scenario_prefers_deviation():
     assert _default_active_scenario(["s2-kein-pv", "live"], cases) == "live"
 
 
+def test_default_active_scenario_prefers_live_without_deviation():
+    assert _default_active_scenario(
+        ["s2-kein-pv", "live"],
+        {},
+        live_scenario_id="live",
+    ) == "live"
+
+
+def test_default_active_scenario_falls_back_when_live_missing():
+    assert _default_active_scenario(
+        ["s2-kein-pv", "s3-no-battery"],
+        {},
+        live_scenario_id="live",
+    ) == "s2-kein-pv"
+
+
 def test_deviation_marker_for_case():
     assert deviation_marker_for_case(None) == ""
     assert deviation_marker_for_case({"kind": "strict_slow"}) == "🔴"

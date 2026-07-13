@@ -238,10 +238,14 @@ def _run_anchors_for_meta(meta: dict) -> list[datetime]:
 def _default_active_scenario(
     scenario_options: list[str],
     cases_by_scenario: dict[str, dict],
+    *,
+    live_scenario_id: str | None = None,
 ) -> str:
     for scenario_id in scenario_options:
         if scenario_id in cases_by_scenario:
             return scenario_id
+    if live_scenario_id and live_scenario_id in scenario_options:
+        return live_scenario_id
     return scenario_options[0]
 
 
@@ -266,7 +270,11 @@ def _select_scenario_from_radio(
     """Einzel-Auswahl per Radio-Liste; Abweichungen am Label markiert."""
     if not scenario_options:
         return None
-    default = _default_active_scenario(scenario_options, cases_by_scenario)
+    default = _default_active_scenario(
+        scenario_options,
+        cases_by_scenario,
+        live_scenario_id=config.get_live_scenario_id(),
+    )
     default_index = scenario_options.index(default)
     st.caption("Markierung = Abweichung an diesem Tag")
     return st.radio(

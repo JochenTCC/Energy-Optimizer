@@ -714,6 +714,10 @@
               "type": "string",
               "description": "SOC in % beim Anschließen → Restenergiebedarf in kWh."
             },
+            "actual_soc_name": {
+              "type": "string",
+              "description": "Aktueller Fahrzeug-SOC in % (Loxone-Istwert, z. B. Ernie-SOC-Ist-EAuto)."
+            },
             "nominal_power_kw_name": {
               "type": "string",
               "description": "Max. Ladeleistung in kW (live gelesen für die Optimierung; Fallback: nominal_power_kw in config)."

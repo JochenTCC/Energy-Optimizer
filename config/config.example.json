@@ -182,6 +182,7 @@
                     "plugged_in_name": "Ernie_EAuto_Da",
                     "ready_by_time_name": "Ernie_EAuto_FertigUm",
                     "soc_at_plug_in_name": "Rest-SOC",
+                    "actual_soc_name": "Ernie-SOC-Ist-EAuto",
                     "charge_immediate_name": "E-Auto_SOFORT_LADEN",
                     "charge_immediate_remaining_name": "Ernie_Restzeit_Sofortladen",
                     "battery_capacity_kwh_name": "Batteriekapazität_E-Auto",

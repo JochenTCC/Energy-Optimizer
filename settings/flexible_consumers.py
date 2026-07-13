@@ -149,6 +149,7 @@ def normalize_charging_schedule(raw: dict | None) -> dict | None:
             "plugged_in_name",
             "ready_by_time_name",
             "soc_at_plug_in_name",
+            "actual_soc_name",
             "nominal_power_kw_name",
             "battery_capacity_kwh_name",
             "charge_immediate_remaining_name",

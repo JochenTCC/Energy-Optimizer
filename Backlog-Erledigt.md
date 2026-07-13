@@ -70,6 +70,26 @@ Greenfield matrix: `greenfield/config/backtesting_scenarios.json` — `live`, `s
 - [x] **Structural flex under-delivery (`s2-kein-pv` Jan 2 & 7)** — Phase 1 done: rolling `min_on` continuation in MILP. Spec: [`docs/spec/backtesting-plausibility-s2-kein-pv-jan-2-7.md`](docs/spec/backtesting-plausibility-s2-kein-pv-jan-2-7.md#phase-1-implementation-2026-07-13)
 
 
+### Smoketest Phase B — Variable tariff scenario (2026-07-13)
+
+- [x] **Check scenario results**
+  - [x] one deviation - to be checked (5.10.25)
+    - Fenster: 2025-10-04 07:00 – 2025-10-05 07:00 · Szenario: S2-kein-PV · Art: CBC strict (langsam) · Δ kWh (Soll/Ist): —
+    - Fenster: 2025-10-04 07:00 – 2025-10-05 07:00 · Szenario: Live · Art: CBC strict (langsam) · Δ kWh (Soll/Ist): —
+    - Issues arise from very flat and low price line
+  - [x] Chart 1 — house-profile flex consumers not shown separately (**investigated 2026-07-13**)
+    - **Calculation OK** — snapshot/matrix columns (`Standard (kW)`, `Waschmaschine (kW)`, `EV (kW)`) and plausibility targets correct; `meta._flexible_consumers` populated
+    - **UI gap** — Chart 1 uses `get_flexible_consumers(optimizer_only=True)`; bridged generics fail `consumer_has_daily_target()` → only EV rendered; hidden flex misattributed in flow-balance down-stack (thermal `haus` correctly in Grundlast)
+    - **Fix** — **2.+1 Consumers P1** (with **Thermals P1** migration); not automatic after storage consolidation alone
+
+
+### Smoketest Phase C — polish follow-ups (2026-07-13)
+
+- [x] **Live scenario default** — `Detaillierte Simulationsansicht` wählt `live_scenario_id`, wenn am Tag keine Abweichung markiert ist (`ui/backtesting_deviation_list.py`)
+- [x] **Hauskonfigurator Speichern** — sticky Speichern-Leiste + doppeltes Speichern vor Vorschau-Charts (Hausprofil); sticky auf PV/Batterien (`ui/house_config_sticky_save.py`)
+- [x] **Loxone Ist-SOC E-Auto** — optionales `charging_schedule.loxone.actual_soc_name` (z. B. `Ernie-SOC-Ist-EAuto`); Vergleich mit berechnetem Session-SOC; bei Ziel-SOC keine weitere Ladung (`optimizer/ev_soc_tracking.py`, `optimizer/delivery_tracking.py`)
+
+
 ### Smoketest Phase C — SE layout polish (2026-07-13)
 
 - [x] Remove Referenz-Jahresverbrauch (nicht optimiert) charts from SE

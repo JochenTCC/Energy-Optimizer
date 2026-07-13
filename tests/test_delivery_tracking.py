@@ -117,6 +117,22 @@ class TestSessionPlausibility:
         assert note is None
         assert effective == pytest.approx(8.0)
 
+    def test_loxone_full_soc_stops_reopen_even_when_immediate(self, monkeypatch):
+        monkeypatch.setattr(dt, "loxone_reports_charge_complete", lambda _c: True)
+        consumer = _eauto_consumer()
+        ctx = _session_ctx()
+        effective, note = dt.assess_session_delivery(
+            consumer,
+            ctx,
+            7.0,
+            live_kw=3.5,
+            trigger_snapshot={"eauto_charge_immediate": True},
+            session={"plug_in_rest_soc_percent": 20.0},
+        )
+        assert note is not None
+        assert note["role"] == "loxone_soc_complete"
+        assert effective == pytest.approx(8.0)
+
 
 class TestRegisterConsumerDelivery:
     def test_session_books_live_energy(self, tmp_path, monkeypatch):

@@ -8,6 +8,7 @@ import streamlit as st
 from house_config.id_slug import slug_id
 from runtime_store.persist_paths import resolve_config_json_path
 from ui.house_config_io import get_runtime_scenario_refs, list_batteries, upsert_battery
+from ui.house_config_sticky_save import sticky_save_bar
 
 _SESSION_SYNC_KEY = "planning_battery_sync_id"
 _SESSION_FILE_STAMP_KEY = "planning_battery_file_stamp"
@@ -162,6 +163,7 @@ def render_battery_planning_tab() -> None:
         key=_scoped_key(session_scope, "planning_battery_threshold"),
     )
 
+    sticky_save_bar()
     if st.button("Batterie speichern", type="primary", key="planning_battery_save"):
         taken = {bid for bid in battery_ids if bid != stable_id}
         entity_id = stable_id.strip() or slug_id(label or "batterie", existing=taken)

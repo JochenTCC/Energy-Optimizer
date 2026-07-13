@@ -260,12 +260,14 @@ def get_consumer_remaining_kwh(
         elif is_charging_session_context(consumer, ctx):
             booked = session_delivered_kwh(sessions, cid)
             live_kw = (live_flex_kw or {}).get(cid)
+            session = sessions.get(cid)
             already, note = assess_session_delivery(
                 consumer,
                 ctx,
                 booked,
                 live_kw=live_kw,
                 trigger_snapshot=trigger_snapshot,
+                session=session,
             )
             if note is not None:
                 plausibility[cid] = note
