@@ -11,7 +11,7 @@ from simulation.engine import HISTORICAL_REFERENCE_ID
 from ui.consumption_validation_charts import cons_data_monthly_kwh
 
 _DASH = "—"
-_TIMING_SHIFT_NOTE = "Zeitverschiebung (Energie ≈ Spec)"
+_TIMING_SHIFT_NOTE = "Zeitliche Lastverschiebung (Energie ≈ Spec)"
 
 
 def is_single_month_test_run(period: dict) -> bool:

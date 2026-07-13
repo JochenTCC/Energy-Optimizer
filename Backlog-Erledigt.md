@@ -32,7 +32,7 @@ PV (`pv_kw`) and Solar-Kollektor (Haus Wärme) share the **same Open-Meteo archi
 - [x] **Step 3 — Hauskonfigurator preview + cache** — `thermal_annual_kwh_from_archive()`; JSON cache under `data/cache/open_meteo/`; WP metric caption with reference year
 - [x] **Tests** — [`tests/test_open_meteo_solar_archive.py`](tests/test_open_meteo_solar_archive.py), [`tests/test_modeled_climate.py`](tests/test_modeled_climate.py), [`tests/test_heating_need_solar.py`](tests/test_heating_need_solar.py), [`tests/test_cons_data_calendar_alignment.py`](tests/test_cons_data_calendar_alignment.py); offline mock [`tests/fixtures/open_meteo_mock.py`](tests/fixtures/open_meteo_mock.py)
 
-**Smoke verification (manual, remaining):** *Backlog.md* → smoke-test **Phase A** (July 2024 spot-check, solar collector, fail-hard).
+**Smoke verification (manual):** Phase A complete → *Smoketest Phase A — Open-Meteo solar* below.
 
 **Deferred to other chapters:** **Thermals P1a** (MILP pulse timing) · **P6b** (live `main.py` Loxone `cons_data` append cutover)
 
@@ -55,6 +55,18 @@ Baseline vs optimized load separation for SE / greenfield backtesting. Spec: [`d
 
 - [x] **Jan 2025 `fixed_24h` run** — `live` + `s3-no-battery`, 31 windows; `reference_by_scenario` populated; optimization < reference € on `awattar_at` import
 - [x] **cons_data + Open-Meteo cache** — greenfield synthesis regenerated; cache entry under `data/cache/open_meteo/`
+
+
+### Smoketest Phase A — Open-Meteo solar (2026-07-13)
+
+Manual acceptance on greenfield venv (:8511); implementation in *Unified Open-Meteo solar* above.
+
+- [x] **Regenerate `cons_data` + Open-Meteo cache** — `data/cache/open_meteo/` populated (greenfield 2026-07-13)
+- [x] **Backtesting smoke** — Jan 2025 `fixed_24h`, scenarios `live` + `s3-no-battery` (31 windows; optimization cheaper than reference on `awattar_at`)
+- [x] **July 2024 calendar alignment** — spot-check `cons_data_hourly.csv`: `pv_kw` / `haus_kw` peaks on 2024-07 hours (no modulo drift)
+- [x] **Solar-Kollektor** — `solar_thermal_area_m2` > 0 lowers summer midday `haus_kw` vs 0 m²
+- [x] **Hauskonfigurator WP preview** — caption shows Open-Meteo archive year; collector area reduces estimated kWh/a
+- [x] **Fail-hard (offline)** — internet disabled before `cons_data` generation: `requests.ConnectionError` on `archive-api.open-meteo.com` (DNS `getaddrinfo failed`); no fallback to `heating_climate_default.json`; surfaces at config reload via `thermal_annual_kwh_from_archive()` during profile normalization
 
 
 ### cons_data PV via Open-Meteo Solar Archive (2026-07-13, superseded)

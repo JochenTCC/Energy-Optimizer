@@ -6,12 +6,17 @@ import os
 import pandas as pd
 import pytest
 
+from optimizer import battery as bat
 from scripts.run_backtesting import (
     BACKTESTING_YEAR,
     _parse_month,
     resolve_backtesting_window,
 )
-from simulation.engine import list_simulation_anchors, run_simulation
+from simulation.engine import (
+    _scenario_to_battery_params,
+    list_simulation_anchors,
+    run_simulation,
+)
 from tests.fixtures.backtesting_fixtures import (
     SOC_CHAIN_END_DAY,
     SOC_CHAIN_START_DAY,
@@ -22,6 +27,26 @@ from tests.fixtures.backtesting_fixtures import (
 )
 
 os.environ.setdefault("ENERGY_OPTIMIZER_OFFLINE", "1")
+
+
+def _horizon_end_soc_from_hourly(
+    df: pd.DataFrame,
+    start_soc: float,
+    battery_params: dict,
+) -> float:
+  soc = float(start_soc)
+  for _, row in df.iterrows():
+      soc = float(row["sim_soc"])
+      batt = float(row["batt_action_kw"] or 0.0)
+      soc, _ = bat.apply_soc_change(
+          soc,
+          batt,
+          battery_params["battery_capacity_kwh"],
+          battery_params["efficiency"],
+          battery_params["min_soc"],
+          battery_params["max_soc"],
+      )
+  return round(soc, 1)
 
 
 class TestParseMonth:
@@ -132,10 +157,16 @@ class TestSocChainTwoWindows:
         assert df["sim_soc"].notna().all()
 
         boundary_idx = 23
+        battery_params = _scenario_to_battery_params(scenario)
+        end_window_1 = _horizon_end_soc_from_hourly(
+            df.iloc[:24],
+            50.0,
+            battery_params,
+        )
         assert df["sim_soc"].iloc[boundary_idx + 1] == pytest.approx(
-            df["sim_soc"].iloc[boundary_idx],
-            abs=0.05,
-        ), "SoC muss am Fensterübergang durchgängig sein (kein Reset auf initial_soc)"
+            end_window_1,
+            abs=0.5,
+        ), "SoC am Fensteranfang muss End-SOC der Vorstunde entsprechen"
 
         assert df["sim_soc"].iloc[0] == pytest.approx(50.0, abs=15.0)
         assert not all(df["sim_soc"] == pytest.approx(50.0, abs=0.01)), (

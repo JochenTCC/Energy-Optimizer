@@ -13,6 +13,7 @@ from data.planning_window import normalize_hour_slot
 from data.market_prices import epex_prices_for_slots
 from optimizer import (
     simulate_horizon,
+    horizon_end_soc_from_chart_rows,
     _calculate_step_cost_euro_from_row,
     _delivered_flex_kwh_from_rows,
     _total_consumption_kwh_from_rows,
@@ -643,7 +644,12 @@ def _simulate_anchor_step(
     chart_rows, matrix = _apply_backtesting_step(
         chart_rows, matrix, meta, horizon_mode=horizon_mode
     )
-    new_soc = float(chart_rows[-1]["Simulierter SoC (%)"])
+    end_soc = horizon_end_soc_from_chart_rows(chart_rows)
+    new_soc = (
+        end_soc
+        if end_soc is not None
+        else float(chart_rows[-1]["Simulierter SoC (%)"])
+    )
     return (
         chart_rows,
         matrix,
@@ -720,8 +726,8 @@ def compute_historical_reference_costs(
     scenario_params: dict | None = None,
 ) -> pd.DataFrame:
     """
-    Referenzkosten: Referenz-Verbrauch + PV, verrechnet mit Szenario-Tarifen,
-    ohne Batterie- oder Flex-Optimierung.
+    Referenzkosten: Referenz-Verbrauch + Szenario-PV, verrechnet mit Szenario-Tarifen,
+    ohne Batterie- oder Flex-Optimierung (PV aus scenario_params, ggf. 0).
     """
     cache = cache or HistoricalDataCache()
     cache.load()
@@ -785,28 +791,40 @@ def build_per_scenario_reference_costs(
     scenario_labels: dict[str, str] | None = None,
 ) -> tuple[dict[str, pd.DataFrame], dict[str, str], dict[str, str]]:
     """
-    Referenzkosten je Szenario-Tarifprofil.
+    Referenzkosten je Szenario (Tarif + PV).
+
+    ``historical_reference`` = Live-Profil/Tarif ohne Batterie und ohne PV.
+    Szenarien mit PV erhalten eine eigene Referenz-Spalte.
 
     Returns: (zusätzliche Referenz-DataFrames, Labels, scenario_id → reference_id)
     """
-    from house_config.planning_flex_bridge import tariff_reference_fingerprint
+    from house_config.entity_resolution import strip_assets_for_reference
+    from house_config.planning_flex_bridge import reference_fingerprint
 
     labels = scenario_labels or {}
     live_params = scenarios.get(live_scenario_id)
     if live_params is None and scenarios:
         live_params = next(iter(scenarios.values()))
-    live_fp = tariff_reference_fingerprint(live_params)
+    baseline_params = (
+        strip_assets_for_reference(live_params) if live_params is not None else None
+    )
+    baseline_fp = reference_fingerprint(baseline_params)
 
     reference_by_scenario: dict[str, str] = {}
     extra_results: dict[str, pd.DataFrame] = {}
     extra_labels: dict[str, str] = {}
+    fp_to_ref_id: dict[tuple, str] = {}
 
     for scenario_id, params in scenarios.items():
-        fp = tariff_reference_fingerprint(params)
-        if fp == live_fp:
+        fp = reference_fingerprint(params)
+        if fp == baseline_fp:
             reference_by_scenario[scenario_id] = HISTORICAL_REFERENCE_ID
             continue
+        if fp in fp_to_ref_id:
+            reference_by_scenario[scenario_id] = fp_to_ref_id[fp]
+            continue
         ref_id = scenario_reference_id(scenario_id)
+        fp_to_ref_id[fp] = ref_id
         ref_settings = config.get_backtesting_feed_in_settings(runtime_override=params)
         extra_results[ref_id] = compute_historical_reference_costs(
             start,

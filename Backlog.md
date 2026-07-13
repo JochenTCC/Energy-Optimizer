@@ -70,9 +70,9 @@ Scenario Exploration consumption model → [Backlog-Erledigt.md](Backlog-Erledig
 
 Branding (Earnie rename) → [Backlog-Erledigt.md](Backlog-Erledigt.md).
 
-**Status (2026-07-13):** P1–P5, **P6a**, **Components**, **Unified Open-Meteo solar**, and **SE consumption model** done (see [Backlog-Erledigt.md](Backlog-Erledigt.md)). Open under 2.0: **P7** + EV nominal voltage + smoke-test Phase A verification + Phase B plausibility/fixed-tariff investigation. Loxone sidebar bugfix → [Backlog-Erledigt.md](Backlog-Erledigt.md).
+**Status (2026-07-13):** P1–P5, **P6a**, **Components**, **Unified Open-Meteo solar**, **SE consumption model**, and smoke-test **Phase A** done (see [Backlog-Erledigt.md](Backlog-Erledigt.md)). Open under 2.0: **P7** + EV nominal voltage + Phase B plausibility/fixed-tariff investigation. Loxone sidebar bugfix → [Backlog-Erledigt.md](Backlog-Erledigt.md).
 
-Recommended order (2.0): smoke-test **Phase A** (Open-Meteo solar) → **Phase B** (*SE higher cost*) → **P7** README / evaluations → propose `version.py` → `2.0.0` (user approval). **P6b** live cutover → **2.+1** (first item after 2.0 release).
+Recommended order (2.0): smoke-test **Phase B** (*SE higher cost*) → **P7** README / evaluations → propose `version.py` → `2.0.0` (user approval). **P6b** live cutover → **2.+1** (first item after 2.0 release).
 
 Critical path: **fixed-tariff SE investigation**, then **P7**. Open bugs → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
@@ -104,21 +104,7 @@ Components (`components.json` sidecar) → [Backlog-Erledigt.md](Backlog-Erledig
 
 #### Smoketest Findings — next actions (updated 2026-07-13)
 
-Greenfield smoke **2026-07-12**; backtesting iteration **2026-07-13**. Completed work → [Backlog-Erledigt.md](Backlog-Erledigt.md) (Smoketest UX 2026-07-12, *Unified Open-Meteo solar*, *SE consumption model*, per-scenario reference tariffs, Jan 2025 greenfield run). **Bugfix** items → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
-
-**Phase A — Open-Meteo solar (manual verification)**
-
-Implementation complete. Remaining acceptance on greenfield venv (:8511); reset per **Greenfield Reset** if `cons_data` is stale.
-
-- [x] Regenerate `cons_data` + Open-Meteo cache (`data/cache/open_meteo/`) — greenfield 2026-07-13
-- [x] Backtesting smoke — **Jan 2025** `fixed_24h`, scenarios `live` + `s3-no-battery` (31 windows; optimization cheaper than reference on `awattar_at`)
-- [ ] **July 2024 calendar alignment** — spot-check `cons_data_hourly.csv`: `pv_kw` / `haus_kw` peaks on 2024-07 hours (no modulo drift)
-- [ ] **Solar-Kollektor** — `solar_thermal_area_m2` > 0 lowers summer midday `haus_kw` vs 0 m²
-- [ ] **Hauskonfigurator WP preview** — caption shows Open-Meteo archive year; collector area reduces estimated kWh/a
-- [ ] **Fail-hard (offline)** — blocked API → explicit error, no fixture fallback
-- [ ] **July 2024 backtesting month** — `--start-month 7 --end-month 7` completes
-
-Haus Wärme MILP timing → **Thermals P1a** (not Phase A).
+Greenfield smoke **2026-07-12**; backtesting iteration **2026-07-13**. Completed work → [Backlog-Erledigt.md](Backlog-Erledigt.md) (Smoketest UX 2026-07-12, *Unified Open-Meteo solar*, *SE consumption model*, Phase A manual verification, per-scenario reference tariffs, Jan 2025 greenfield run). **Bugfix** items → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 **Phase B — SE credibility (fixed tariffs & plausibility)**
 
@@ -126,15 +112,16 @@ Done in code → [Backlog-Erledigt.md](Backlog-Erledigt.md): SE consumption mode
 
 **Open investigation** (goal: plausible kWh + explainable € on flat import):
 
-1. [ ] **Fixed-tariff scenario matrix in greenfield** — add `fixed_full`, `fixed_no_pv`, `fixed_no_battery`, `fixed_no_pv_no_battery` (`fixed_25ct` / `fixed_37ct`) from `config/backtesting_scenarios.example.json`; run `--horizon-mode fixed_24h`
-2. [ ] **Bulk classify** — per scenario: plausibility ok/total, Δ€ vs matched reference, deviation kinds; tool: `scripts/analyze_plausibility_failures.py`
-3. [ ] **Plausibility — flex under-delivery (~3 kWh)** — Jan 2025: 3–4 windows/scenario; baseload matches, flex short ~3 kWh (EV / `ready_by_hour` at 07:00 anchor); `scripts/diag_single_window.py --anchor …`
-4. [ ] **Terminal SOC / window-end MILP** — `live` window 2025-01-15→16: anchor SOC 88.5% vs end 48.5%; MILP `Infeasible` 22:00/23:00; `new_soc` from last row start SOC — SOC chain vs chart tail diverge
-5. [ ] **Fixed-tariff economics** — with matched kWh: Δ€ bounded by PV self-consumption vs export spread (~12 ct/kWh at 25/37 ct), minus round-trip loss; no import-timing arbitrage
-6. [ ] **Sanity table (one month)** — `fixed_no_pv` / `fixed_no_battery` → Δ€ ≈ 0; document conclusion for user docs / SE caption
-7. [ ] **Optional UX** — expose `diag_single_window` from SE deviation detail (CLI exists)
+1. [ ] **Fixed-tariff scenario matrix in greenfield** — `live` (full), `s2-kein-pv` (no PV), `s3-no-battery` (no battery), `s1-kein-pv-keine-battery` (no PV, no battery) with `fixed_25ct` / `fixed_37ct` in `greenfield/config/backtesting_scenarios.json`; run `--horizon-mode fixed_24h`
+  - Created all scenarios in local greenfield env
+  - Made test backtesting calculation (January 2025)
+  - Finding: `s2-kein-pv` / `s1-kein-pv-keine-battery` show higher costs than baseline that is with PV --> Take PV out of baseline
+  - Notice: "Zeitverschiebung (Energie ≈ Spec)" - what does that mean? --> More precise wording
+2. [ ] **Optional UX** — expose `diag_single_window` from SE deviation detail (CLI exists)
+3. [ ] **Bulk classify** — per scenario: plausibility ok/total, Δ€ vs matched reference, deviation kinds; tool: `scripts/analyze_plausibility_failures.py`
+4. [ ] **Structural flex under-delivery (`s2-kein-pv` Jan 2 & 7)** — MILP hardening first, then post-MILP top-up; cost-gated baseline fallback last (fixed tariff only). Decision flow: [`docs/spec/backtesting-plausibility-s2-kein-pv-jan-2-7.md`](docs/spec/backtesting-plausibility-s2-kein-pv-jan-2-7.md#fix-strategy--decision-flow)
 
-Fixture test matrix (Phase 0) already in `tests/fixtures/backtesting/backtesting_scenarios.json`: `fixed_full`, `fixed_no_pv`, `fixed_no_battery`, `fixed_no_pv_no_battery`.
+Greenfield matrix (Phase B): `greenfield/config/backtesting_scenarios.json` — `live`, `s2-kein-pv`, `s3-no-battery`, `s1-kein-pv-keine-battery`.
 
 **Phase C — polish (may slip to 2.+1)**
 
@@ -144,11 +131,10 @@ Fixture test matrix (Phase 0) already in `tests/fixtures/backtesting/backtesting
 
 - [ ] Test mit Standard-Setting (inkl. Haus Wärme / PV / Batterie)
   - Jan 2025: optimization **cheaper** than reference on dynamic tariffs (`live` 107 € vs ref 192 €) — fixed-tariff case still open (Phase B)
-  - Climate/PV/solar-collector → Phase A remaining checks
-  - Haus Wärme MILP shift → **Thermals P1a** (fixed PWM overlay today)
+  - Climate/PV/solar-collector → Phase A done ([Backlog-Erledigt.md](Backlog-Erledigt.md))
 - [ ] Test ohne Haus Wärme
 - [ ] Test ohne PV
-- [ ] Test ohne Batterie (`s3-no-battery` partial — Jan 2025 run done; plausibility gaps remain)
+- [ ] Test ohne Batterie
 - [ ] Test ohne PV und Batterie
 
 - [ ] Use new Loxone signal "Ernie-SOC-Ist-EAuto" as comparison with inner SOC-Act calculation when EV is charging. When Loxone Signal states that SOC==100% - EV is charged completely and optimizer does not have to charge anymore.
@@ -203,6 +189,7 @@ After 2.0 release: dead code, obsolete tests, and leftover patches from pre-1.26
 ### Version 2.+1
 
 - [ ] **Thermals P1a — Haus Wärme MILP flex bridge** *(design 2026-07-13)*
+  - **Smoketest finding (Phase A, 2026-07-13):** Haus Wärme MILP **timing** belongs here, not Open-Meteo solar — fixed PWM overlay today (`thermal_daily_pwm_hourly_profile`).
   - **Problem:** `thermal_annual` („Haus Wärme“) is modeled as a **fixed** hourly PWM overlay (`thermal_daily_pwm_hourly_profile` → `thermal_hourly_overlay` → `expected_p_act`). Pulse **timing** is deterministic; MILP optimizes battery and other flex loads **around** it but cannot shift heating to cheaper hours. Production `waermepumpe` in `flexible_consumers[]` is a **separate** path (`daily_target_source: historical`) and is skipped when `flexible_consumers` is non-empty (`profile_manager` overlay gate).
   - **Goal:** Daily heating **energy** from the existing HDD/climate model (`daily_electric_kwh`); MILP chooses **when** to run 1–4 h ON pulses at `nominal_power_kw` to minimize cost (same semantics as other binary flex consumers).
   - **Prerequisite (done):** *Unified Open-Meteo solar* — shared Open-Meteo archive for HDD + solar-collector inputs ([Backlog-Erledigt.md](Backlog-Erledigt.md)); this chapter only adds MILP **pulse timing** flex (not climate/solar input alignment).

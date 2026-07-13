@@ -29,6 +29,7 @@ from data.backtesting_prices import (
     load_price_resources,
     parse_price_strategy,
 )
+from house_config.entity_resolution import strip_assets_for_reference
 from simulation.engine import (
     HISTORICAL_REFERENCE_ID,
     HistoricalDataCache,
@@ -47,7 +48,7 @@ from simulation.horizon_mode import (
     parse_horizon_mode,
 )
 
-HISTORICAL_REFERENCE_LABEL = "Historisch (ohne Optimierung)"
+HISTORICAL_REFERENCE_LABEL = "Historisch (ohne Optimierung, ohne PV/Batterie)"
 BACKTESTING_YEAR = 2025
 MONTH_ARG_HELP = f"Monatsnummer 1–12 (Basisjahr {BACKTESTING_YEAR})"
 
@@ -657,6 +658,9 @@ def main(argv: list[str] | None = None):
         ref_settings = config.get_backtesting_feed_in_settings(
             runtime_override=live_params
         )
+    reference_params = (
+        strip_assets_for_reference(live_params) if live_params is not None else None
+    )
     progress_file = args.progress_file
     total_hours = len(anchors) * 24
 
@@ -679,7 +683,7 @@ def main(argv: list[str] | None = None):
             prices,
             ref_settings,
             cache=cache,
-            scenario_params=live_params,
+            scenario_params=reference_params,
         ),
     }
     extra_refs, extra_ref_labels, reference_by_scenario = (

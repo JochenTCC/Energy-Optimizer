@@ -63,6 +63,8 @@ from .simulation import (
     simulate_baseline_horizon,
     simulate_matched_baseline_horizon,
     simulate_horizon,
+    horizon_end_soc_from_chart_rows,
+    horizon_end_soc_percent,
     sync_chart_row_netzbezug,
     total_consumption_kwh_from_rows as _total_consumption_kwh_from_rows,
 )
@@ -120,6 +122,8 @@ __all__ = [
     "simulate_baseline_horizon",
     "simulate_matched_baseline_horizon",
     "simulate_horizon",
+    "horizon_end_soc_from_chart_rows",
+    "horizon_end_soc_percent",
     "steuerbefehl_for_mode",
     # Von optimization_consistency / simulation_engine genutzt:
     "_apply_soc_change",
