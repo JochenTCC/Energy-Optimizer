@@ -2,7 +2,7 @@
 """
 Greenfield Docker stack smoke test — Earnie rename / compose verification.
 
-Prepares greenfield/config + greenfield/runtime, starts docker-compose-greenfield.yml,
+Prepares greenfield/config + greenfield/runtime, starts docker/compose/greenfield.yml,
 and checks container names, bootstrap files, worker log, and Streamlit on :8502.
 
 Usage:
@@ -23,7 +23,7 @@ import urllib.request
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-COMPOSE_FILE = REPO_ROOT / "docker-compose-greenfield.yml"
+COMPOSE_FILE = REPO_ROOT / "docker" / "compose" / "greenfield.yml"
 GREENFIELD_ROOT = REPO_ROOT / "greenfield"
 CONFIG_DIR = GREENFIELD_ROOT / "config"
 RUNTIME_DIR = GREENFIELD_ROOT / "runtime"
@@ -72,7 +72,15 @@ def reset_greenfield_volumes(*, compose_down: bool = True) -> None:
 
 
 def _run_compose(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
-    cmd = ["docker", "compose", "-f", str(COMPOSE_FILE), *args]
+    cmd = [
+        "docker",
+        "compose",
+        "--project-directory",
+        str(REPO_ROOT),
+        "-f",
+        str(COMPOSE_FILE),
+        *args,
+    ]
     print("+", " ".join(cmd))
     try:
         return subprocess.run(cmd, cwd=REPO_ROOT, check=check, text=True)

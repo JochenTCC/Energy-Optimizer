@@ -103,8 +103,8 @@ ein Schritt pro E-Auto-Anker reicht für den Horizont-Vergleich; Live-Prod bleib
 ### 4.3 Vergleichslauf
 
 ```bash
-python run_backtesting.py --start-month 1 --end-month 12 --horizon-mode fixed_24h
-python run_backtesting.py --start-month 1 --end-month 12 --horizon-mode sunrise_window
+python -m scripts.run_backtesting --start-month 1 --end-month 12 --horizon-mode fixed_24h
+python -m scripts.run_backtesting --start-month 1 --end-month 12 --horizon-mode sunrise_window
 ```
 
 `horizon_mode` wird in `backtesting_log.json` unter `period.horizon_mode` persistiert.

@@ -5,16 +5,16 @@ Lokaler Container-Stack im Zustand **nach Ersteinrichtung** — Abnahme-Infrastr
 ## Voraussetzungen
 
 - Docker Desktop (Windows) oder Docker Engine
-- Projekt-Checkout mit `docker-compose-greenfield.yml`
+- Projekt-Checkout mit `docker/compose/greenfield.yml`
 
 ## Stack starten (leerer Zustand)
 
 ```powershell
 mkdir greenfield\config, greenfield\runtime
-docker compose -f docker-compose-greenfield.yml up -d --build
+docker compose --project-directory . -f docker/compose/greenfield.yml up -d --build
 ```
 
-Persistente Daten liegen nur unter `greenfield/config/` und `greenfield/runtime/` — der normale Dev-Stack (`docker-compose.yml` mit `./config` und `./runtime`) bleibt unberührt.
+Persistente Daten liegen nur unter `greenfield/config/` und `greenfield/runtime/` — der normale Dev-Stack (`docker/compose/dev.yml` mit `./config` und `./runtime`) bleibt unberührt.
 
 | Service | Container | Host-Port |
 |---------|-----------|-----------|
@@ -59,7 +59,7 @@ Nach **Speichern** in der Ersteinrichtung:
 | Worker-Log | `greenfield/runtime/earnie.log` — kein Abbruch wegen fehlender `.env` |
 
 ```powershell
-docker compose -f docker-compose-greenfield.yml logs -f optimizer-worker
+docker compose --project-directory . -f docker/compose/greenfield.yml logs -f optimizer-worker
 ```
 
 ## Manuelle Abnahme (1.24.e)
@@ -71,7 +71,7 @@ Mit abgeschlossener Ersteinrichtung und vollständiger Planungs-Konfiguration:
 3. **Echtzeit-Umgebung** — Live-Szenario und Entitäts-Referenzen speichern.
 4. **Scenario-Exploration** — Seite erscheint nach Freischaltung; Planung starten.
 
-`EARNIE_UI_MODES=sunset2sunset,scenario_exploration` — Sunset-2-Sunset ist seit **1.26.0 P0** für Live-Pfad-Smoke freigeschaltet (zusammen mit Scenario-Exploration). In `docker-compose-greenfield.yml` gesetzt.
+`EARNIE_UI_MODES=sunset2sunset,scenario_exploration` — Sunset-2-Sunset ist seit **1.26.0 P0** für Live-Pfad-Smoke freigeschaltet (zusammen mit Scenario-Exploration). In `docker/compose/greenfield.yml` gesetzt.
 
 ## Abnahme Live-Pfad (1.26.0 P0 / 2.0 P2)
 
@@ -86,13 +86,13 @@ Ziel: Greenfield nutzt **`live_scenario_id`** + Live-Szenario in `backtesting_sc
 | 1. Config | `greenfield/config/config.json` | `live_scenario_id: live`, **kein** Block `runtime_settings` |
 | 2. Live-Szenario | `greenfield/config/backtesting_scenarios.json` → Szenario `live` | Entitäts-IDs: `battery_id`, `import_tariff_id`, `export_tariff_id`, `house_profile_id`, optional `pv_system_id` — Geo/Zeitzone aus `house_profiles.json` |
 | 3. Entitäts-Auflösung | Echtzeit-Umgebung → Live-Konfiguration | JSON mit aufgelösten PV-, Batterie- und Tarifparametern aus `components.json`, `tariffs.json` |
-| 3. Live-Zyklus | `docker compose -f docker-compose-greenfield.yml logs -f optimizer-worker` | `main.py` durchläuft mindestens einen Optimierungszyklus ohne Config-Fehler |
+| 3. Live-Zyklus | `docker compose --project-directory . -f docker/compose/greenfield.yml logs -f optimizer-worker` | `main.py` durchläuft mindestens einen Optimierungszyklus ohne Config-Fehler |
 | 4. UI Sunset-2-Sunset | Seite **Cockpit** | Aufgelöste Werte (PV kWp, Batterie, Einspeisevergütung) **read-only** auf **Live-Konfiguration** — keine Sidebar-Edits |
 | 5. Scenario-Exploration-Parität | Gleiche Tarif-IDs, gleiches Zeitfenster | Import/Export-cent/kWh identisch zu Live (Detail-Paritätstest folgt in **1.26.0 P3**) |
 
 ```powershell
-docker compose -f docker-compose-greenfield.yml up -d --build
-docker compose -f docker-compose-greenfield.yml logs -f optimizer-worker
+docker compose --project-directory . -f docker/compose/greenfield.yml up -d --build
+docker compose --project-directory . -f docker/compose/greenfield.yml logs -f optimizer-worker
 ```
 
 Bei lokalem venv (Port **8511**): VS Code Compound **„main.py + Streamlit (Greenfield :8511)“** — Worker + UI mit `greenfield/config` + `greenfield/runtime`. Alternativ nur UI: „Streamlit app.py (LOKAL, Greenfield :8511)“.
@@ -102,10 +102,10 @@ Bei lokalem venv (Port **8511**): VS Code Compound **„main.py + Streamlit (Gre
 Komplett neu (alle Greenfield-Daten löschen):
 
 ```powershell
-docker compose -f docker-compose-greenfield.yml down
+docker compose --project-directory . -f docker/compose/greenfield.yml down
 Remove-Item -Recurse -Force greenfield\config, greenfield\runtime
 mkdir greenfield\config, greenfield\runtime
-docker compose -f docker-compose-greenfield.yml up -d --build
+docker compose --project-directory . -f docker/compose/greenfield.yml up -d --build
 ```
 
 ## Automatisierter Smoke-Test
@@ -157,6 +157,6 @@ Port-Übersicht aller Stacks: [streamlit-ports.md](../referenz/streamlit-ports.m
 | Stack | Zweck |
 |-------|--------|
 | **Greenfield** (diese Datei) | Ersteinrichtung, leere Volumes, Port 8502 |
-| `docker-compose.yml` | Lokaler Dev mit bestehendem `config/` + `runtime/` |
+| `docker/compose/dev.yml` | Lokaler Dev mit bestehendem `config/` + `runtime/` |
 | **7g Silent** | Prod-Loxone lesen, `loxone_silent_mode` |
 | **7g Simuliert** | Synthetisches Haus (nach Loxone-Simulator) |

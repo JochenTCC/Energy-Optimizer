@@ -1,4 +1,4 @@
-# Synology Container Manager – Produktions-Compose (vorgefertigtes Image)
+# LoxBerry 4 (RPi 4B, arm64) – Produktions-Compose (vorgefertigtes Multi-Arch-Image)
 #
 # Persistente Daten (überleben Image-Updates):
 #   ./config/config.json   – Haus-Konfiguration (wird nie überschrieben)
@@ -7,7 +7,7 @@
 #   ./config/.env          – Loxone-Zugangsdaten
 #   ./runtime/             – cons_data, Zustands-JSONs, Profile, Logs
 #
-# Erstinstallation:
+# Erstinstallation (z. B. /opt/earnie-energy/ auf dem LoxBerry):
 #   1. Ordner anlegen: mkdir -p config runtime
 #   2. Container starten – fehlende Dateien legt der Entrypoint an (config/.env, config.json)
 #   3. config/.env und config/config.json anpassen (Loxone-Zugang, Namen, Verbraucher)
@@ -25,10 +25,12 @@
 #   In config/config.json: "path_cons_data": "runtime/cons_data_hourly.csv"
 #
 # Nach Änderungen an config/config.json: Container optimizer-worker neu starten.
-# Nach Code-Änderungen: Image bauen/pushen (docs/einrichtung/container.md), dann auf der NAS:
-#   docker compose -f docker-compose-synology.yml pull && docker compose -f docker-compose-synology.yml up -d
+# Nach Code-Änderungen: Multi-Arch-Image bauen/pushen (docs/einrichtung/container.md), dann auf dem LoxBerry:
+#   docker compose --project-directory . -f docker/compose/loxberry.yml pull
+#   docker compose --project-directory . -f docker/compose/loxberry.yml up -d
 #
 # UI: EARNIE_UI_MODES=sunset2sunset,scenario_exploration (Prod); Dev ohne Variable = Standard-Modi.
+# UI im LAN: http://<loxberry-ip>:8501 (kein DSM Reverse Proxy – extern nur mit eigenem Proxy/VPN).
 
 version: "3.8"
 
@@ -39,7 +41,6 @@ x-persist-volumes: &persist-volumes
 x-common-env: &common-env
   TZ: Europe/Vienna
   EARNIE_CONFIG_PATH: config/config.json
-  # Tarif-Plausibilität beim Worker-Start; siehe scripts/startup_checks.py
   EARNIE_STRICT_TARIFF_VALIDATE: "1"
   # Loxone-Smoke-Test beim Worker-Start (nach pull/up); siehe scripts/startup_checks.py
   EARNIE_VERIFY_LOXONE_ON_START: "1"

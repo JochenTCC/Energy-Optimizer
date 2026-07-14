@@ -28,7 +28,9 @@ Earnie/
 ├── scripts/             # CLI/Wartung
 │
 ├── tests/
-└── runtime/             # Laufzeit-JSON (unverändert)
+├── docker/                  # Dockerfile, Compose, Build-Skripte
+├── backlog/                 # Roadmap-Dateien
+└── runtime/                 # Laufzeit-JSON (unverändert)
 ```
 
 ---
@@ -38,7 +40,7 @@ Earnie/
 | Phase | Status | Datum / Notiz |
 |-------|--------|---------------|
 | 0 Vorbereitung | offen | |
-| 1 scripts/ | **erledigt** | Wrapper in Wurzel für generate_cons_data + run_backtesting |
+| 1 scripts/ | **erledigt** | Kanonisch unter `scripts/`; Root-Wrapper entfernt (2026-07-14) |
 | 2a ui/ Grundgerüst | **erledigt** | styles, runtime_config, mode_selector, auto_refresh |
 | 2b config_forms | **erledigt** | |
 | 2c charts | **erledigt** | |
@@ -86,7 +88,7 @@ Earnie/
 **Tests:** `pytest`  
 **Smoke:** `python -m scripts.run_backtesting --help`
 
-**Hinweis:** `GenerateConsData.py` und `run_backtesting.py` in der Wurzel sind dünne Kompatibilitäts-Wrapper.
+**Hinweis:** Root-Wrapper `GenerateConsData.py` und `run_backtesting.py` wurden entfernt; Aufruf nur noch über `python -m scripts.*`.
 
 ---
 
@@ -194,7 +196,7 @@ Nur Page-Config, Routing, `main()`.
 ## Phase 6 — Aufräumen & Doku (~½ Tag)
 
 - Shims entfernen, Imports projektweit anpassen
-- `Backlog.md`: „Dateistruktur aufräumen“ abhaken
+- `backlog/Backlog.md`: „Dateistruktur aufräumen“ abhaken
 - `README.md` aktualisieren
 
 ---

@@ -1,6 +1,6 @@
 ---
 description: 
-globs: Backlog.md, Backlog-Bugfixes.md, Backlog-Erledigt.md
+globs: backlog/Backlog.md, backlog/Backlog-Bugfixes.md, backlog/Backlog-Erledigt.md
 alwaysApply: false
 ---
 
@@ -8,11 +8,11 @@ alwaysApply: false
 
 ## 1. File Structure & Responsibilities
 
-* **`Backlog.md`:** Open features (sorted by version, packaging, references). Repeated `### Version …` headings are intentional – move blocks, do not merge them.
+* **`backlog/Backlog.md`:** Open features (sorted by version, packaging, references). Repeated `### Version …` headings are intentional – move blocks, do not merge them.
 
-* **`Backlog-Bugfixes.md`:** Open bugs, deviations, and regressions (`xfail`). Contains the dedicated chapter `## Bugfix Verifications Pending`.
+* **`backlog/Backlog-Bugfixes.md`:** Open bugs, deviations, and regressions (`xfail`). Contains the dedicated chapter `## Bugfix Verifications Pending`.
 
-* **`Backlog-Erledigt.md`:** Central archive for all completed features and bugfixes.
+* **`backlog/Backlog-Erledigt.md`:** Central archive for all completed features and bugfixes.
 
 ## 2. Archiving & Maintenance Rules
 
@@ -21,9 +21,9 @@ alwaysApply: false
 * **Partially Completed:** For incomplete epics, only the remaining open phases/items remain in the source file.
 
 
-**Backlog-Erledigt.md:** * **References:** Reference tables (e.g., log files) remain permanently under **Reference** in `Backlog.md`.
+**backlog/Backlog-Erledigt.md:** * **References:** Reference tables (e.g., log files) remain permanently under **Reference** in `backlog/Backlog.md`.
 
-* **Archive Format (`Backlog-Erledigt.md`):**
+* **Archive Format (`backlog/Backlog-Erledigt.md`):**
 
 * Structure: `### <Topic Bugfix or> (YYYY-MM-DD)` (Date according to Europe/Vienna).
 
@@ -37,13 +37,13 @@ alwaysApply: false
 
 ## 3. Bugfix 3-Step Workflow
 
-Bugfixes go through three strict phases in `Backlog-Bugfixes.md`:
+Bugfixes go through three strict phases in `backlog/Backlog-Bugfixes.md`:
 
 1. **Open:** The bug is known but unresolved $\rightarrow$ It is in the relevant chapter (e.g., `## Bug SwimSpa`).
 
 2. **Verifications Pending:** The fix is ​​implemented and committed $\rightarrow$ Move the entry from the topic to the chapter `## Bugfix Verifications Pending` (**do not archive yet!**). If verification fails, return to the topic or create a new follow-up item.
 
-3. **Done:** Only after successful live/production acceptance, remove from *Pending* and permanently move to `Backlog-Erledigt.md`.
+3. **Done:** Only after successful live/production acceptance, remove from *Pending* and permanently move to `backlog/Backlog-Erledigt.md`.
 
 ## 4. Versioning & Release
 

@@ -1,7 +1,7 @@
 # NAS Prod Consumer Migration (1.95–1.99)
 
 **Status:** Implementation plan (2026-07-14)  
-**Backlog:** `Backlog.md` → Versions **1.95**, **1.96**, **1.97**, **1.99**  
+**Backlog:** `backlog/Backlog.md` → Versions **1.95**, **1.96**, **1.97**, **1.99**  
 **Prerequisite (done):** **1.93** unified scenario model + P6a silent migration test
 
 ## Goal

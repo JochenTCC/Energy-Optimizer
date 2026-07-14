@@ -5,7 +5,7 @@ build_container.py – Kanonischer Docker-Build für Synology (amd64) und LoxBer
 Aufruf:
   python -m scripts.build_container
   python -m scripts.build_container --target all --push
-  .\\build-container.ps1 --target synology --push
+  .\\docker\\build-container.ps1 --target synology --push
 """
 from __future__ import annotations
 
@@ -150,7 +150,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--dockerfile",
         type=Path,
-        default=REPO_ROOT / "Dockerfile",
+        default=REPO_ROOT / "docker" / "Dockerfile",
         help="Pfad zum Dockerfile",
     )
     parser.add_argument(

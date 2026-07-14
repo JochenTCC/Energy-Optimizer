@@ -1,3 +1,5 @@
+# Lokaler Dev-Stack — Build aus Repo-Root:
+#   docker compose --project-directory . -f docker/compose/dev.yml up -d --build
 version: '3.8'
 
 x-persist-volumes: &persist-volumes
@@ -9,9 +11,13 @@ x-common-env: &common-env
   EARNIE_CONFIG_PATH: config/config.json
   EARNIE_VERIFY_LOXONE_ON_START: "1"
 
+x-build: &build
+  context: .
+  dockerfile: docker/Dockerfile
+
 services:
   optimizer-worker:
-    build: .
+    build: *build
     container_name: earnie-optimizer-worker
     command: python main.py
     restart: unless-stopped
@@ -20,7 +26,7 @@ services:
       <<: *common-env
 
   optimizer-ui:
-    build: .
+    build: *build
     container_name: earnie-optimizer-ui
     command: python -m scripts.run_streamlit
     restart: unless-stopped

@@ -1,4 +1,4 @@
-# app_test_data.py
+# ui/dev/app_test_data.py — Dev-only Streamlit dashboard (streamlit run ui/dev/app_test_data.py)
 import streamlit as st
 import pandas as pd
 from datetime import datetime
