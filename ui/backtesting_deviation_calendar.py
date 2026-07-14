@@ -224,6 +224,23 @@ def _stored_selected_date() -> date | None:
     return None
 
 
+def month_with_most_deviation_days(
+    index: dict[date, CalendarCellState],
+    *,
+    year: int,
+) -> int | None:
+    """Monat mit den meisten in-run Tagen mit mindestens einer Abweichung."""
+    counts = {month: 0 for month in range(1, 13)}
+    for cell_date, cell in index.items():
+        if cell_date.year != year or not cell.in_run or not cell.cases_by_scenario:
+            continue
+        counts[cell_date.month] += 1
+    best = max(counts.values())
+    if best <= 0:
+        return None
+    return min(month for month, count in counts.items() if count == best)
+
+
 def _default_visible_month(
     index: dict[date, CalendarCellState],
     year: int,
@@ -234,6 +251,9 @@ def _default_visible_month(
         return stored
     if selected_date is not None and selected_date.year == year:
         return selected_date.month
+    deviation_month = month_with_most_deviation_days(index, year=year)
+    if deviation_month is not None:
+        return deviation_month
     default = default_calendar_date(index)
     if default is not None and default.year == year:
         return default.month

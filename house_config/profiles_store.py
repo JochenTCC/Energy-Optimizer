@@ -137,6 +137,15 @@ def _normalize_consumer(raw: dict, index: int, profile_id: str) -> dict:
         }
         if hwb_value > 0:
             spec["thermal"]["hwb_kwh_m2"] = hwb_value
+        if "optimizer_flex" in raw:
+            spec["optimizer_flex"] = bool(raw["optimizer_flex"])
+        window = raw.get("thermal_flex_window")
+        if isinstance(window, dict) and window:
+            spec["thermal_flex_window"] = dict(window)
+        if "max_on_quarterhours" in raw:
+            spec["max_on_quarterhours"] = max(4, int(raw.get("max_on_quarterhours", 16) or 16))
+        if "max_pulses_per_day" in raw:
+            spec["max_pulses_per_day"] = max(1, int(raw.get("max_pulses_per_day", 4) or 4))
     elif consumer_type == "thermal_rc":
         spec["thermal_rc"] = _normalize_thermal_rc(raw, index, profile_id)
     legacy_id = str(raw.get("legacy_id", "")).strip()

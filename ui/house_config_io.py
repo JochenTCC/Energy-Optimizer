@@ -106,6 +106,9 @@ def upsert_house_profile(profile: dict) -> None:
     profiles = [p for p in profiles if p.get("id") != profile["id"]]
     profiles.append(profile)
     save_house_profiles_document(path, {"profiles": profiles})
+    from data import cons_data_store
+
+    cons_data_store.invalidate_cons_data_meta()
 
 
 def save_profile_consumption_csv(profile_id: str, content: bytes, filename: str) -> str:

@@ -333,6 +333,7 @@ def build_historical_matrix_for_slots(
     from house_config.planning_flex_bridge import (
         PROFILE_SPEC,
         house_profile_baseload_overlay,
+        milp_flex_thermal_annual_ids,
         profile_flat_baseload_kw,
         resolve_consumption_source,
         resolve_profile_spec_flex_targets,
@@ -367,11 +368,13 @@ def build_historical_matrix_for_slots(
 
         climate = ModeledClimateContext.from_scenario(scenario_params)
         flat_kw = profile_flat_baseload_kw(profile)
+        thermal_milp_ids = milp_flex_thermal_annual_ids(flexible_consumers)
         overlay = house_profile_baseload_overlay(
             profile,
             slot_datetimes,
             historical_totals=None,
             cons_data_consumer_ids=set(),
+            milp_flex_thermal_ids=thermal_milp_ids,
             climate=climate,
         )
         baseload_kw = [round(flat_kw + extra, 3) for extra in overlay]
@@ -383,6 +386,7 @@ def build_historical_matrix_for_slots(
             slot_datetimes,
             historical_totals=historical_totals,
             window_end=window_end,
+            climate=climate,
         )
         spec_flex_kwh = round(sum(consumer_daily_targets_kwh.values()), 3)
         spec_total_kwh = round(historical_baseload_kwh + spec_flex_kwh, 3)

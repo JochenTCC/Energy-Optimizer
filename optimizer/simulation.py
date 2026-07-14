@@ -414,7 +414,7 @@ def simulate_horizon(
     )
     delivered_horizon: dict[str, float] = {c["id"]: 0.0 for c in consumers_cfg}
     generic_flex_run: dict[str, dict] = {}
-    terminal_soc_percent = None if sunrise_soc_min_index is not None else initial_soc
+    horizon_terminal_soc = None if sunrise_soc_min_index is not None else initial_soc
     own_cbc_collection = not cbc_event_collection_active()
     if own_cbc_collection:
         begin_cbc_event_collection()
@@ -431,6 +431,10 @@ def simulate_horizon(
                 for consumer in consumers_cfg
             }
             remaining_slice = optimization_matrix[i:]
+            is_last_hour = i == len(optimization_matrix) - 1
+            terminal_soc_percent = (
+                horizon_terminal_soc if is_last_hour else None
+            )
             continue_on = continue_on_from_state(
                 {"generic_flex_run": generic_flex_run},
                 consumers_cfg,

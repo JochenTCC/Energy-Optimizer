@@ -155,14 +155,22 @@ def save_cons_data(df: pd.DataFrame, path: str | None = None, *, apply_retention
     export.to_csv(path, sep=CSV_SEP, index=False, decimal=".")
 
     meta_path = path.replace(".csv", METADATA_SUFFIX) if path.endswith(".csv") else path + METADATA_SUFFIX
-    from data.cons_data_house_profile import expected_cons_data_consumer_ids
+    from data.cons_data_house_profile import (
+        expected_cons_data_consumer_ids,
+        house_profile_cons_data_fingerprint,
+        resolve_runtime_house_profile,
+    )
 
+    profile = resolve_runtime_house_profile()
     meta = stamp_payload(
         {
             "output_file": path,
             "retention_months": get_retention_months(),
             "consumer_ids": expected_cons_data_consumer_ids()
             or _consumer_ids_from_dataframe(df),
+            "house_profile_fingerprint": (
+                house_profile_cons_data_fingerprint(profile) if profile else None
+            ),
             "date_range": {"min": str(df.index.min()), "max": str(df.index.max())},
             "row_count": len(df),
             "source_counts": df["source"].value_counts().to_dict() if not df.empty else {},
@@ -267,7 +275,12 @@ def load_cons_data_meta(path: str | None = None) -> dict | None:
 
 
 def cons_data_consumer_match_reason(path: str | None = None) -> str | None:
-    """None wenn consumer_ids passen; sonst 'missing_meta' oder 'id_mismatch'."""
+    """None wenn consumer_ids und Hausprofil passen; sonst Grund-Code."""
+    from data.cons_data_house_profile import (
+        house_profile_cons_data_fingerprint,
+        resolve_runtime_house_profile,
+    )
+
     meta = load_cons_data_meta(path)
     if meta is None:
         return "missing_meta"
@@ -278,7 +291,26 @@ def cons_data_consumer_match_reason(path: str | None = None) -> str | None:
     stored_sorted = sorted(str(item) for item in stored)
     if stored_sorted != current:
         return "id_mismatch"
+    profile = resolve_runtime_house_profile()
+    if profile is not None:
+        current_fp = house_profile_cons_data_fingerprint(profile)
+        stored_fp = meta.get("house_profile_fingerprint")
+        if stored_fp is not None and str(stored_fp) != current_fp:
+            return "profile_mismatch"
     return None
+
+
+def invalidate_cons_data_meta(path: str | None = None) -> bool:
+    """Entfernt Meta-Datei — cons_data gilt danach als veraltet bis Neu-Generierung."""
+    path = path or get_output_path()
+    meta_path = _meta_file_path(path)
+    if not os.path.isfile(meta_path):
+        return False
+    try:
+        os.remove(meta_path)
+    except OSError:
+        return False
+    return True
 
 
 # ---------------------------------------------------------------------------

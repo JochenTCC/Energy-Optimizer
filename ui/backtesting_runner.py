@@ -63,7 +63,7 @@ def auto_backtesting_workers(scenario_count: int) -> int:
 
 
 def suggest_test_month() -> int | None:
-    """Erster Monat in BACKTESTING_YEAR mit cons_data-Daten, sonst None."""
+    """Monat für Testlauf: März wenn Daten vorhanden, sonst erster überlappender Monat."""
     lox_min, lox_max = profile_manager.get_cons_data_date_bounds()
     if lox_min is None or lox_max is None:
         return None
@@ -71,6 +71,10 @@ def suggest_test_month() -> int | None:
     year_end = date(BACKTESTING_YEAR, 12, 31)
     if lox_max < year_start or lox_min > year_end:
         return None
+    march_start = date(BACKTESTING_YEAR, 3, 1)
+    march_end = date(BACKTESTING_YEAR, 3, 31)
+    if lox_max >= march_start and lox_min <= march_end:
+        return 3
     overlap_start = max(lox_min, year_start)
     return overlap_start.month
 

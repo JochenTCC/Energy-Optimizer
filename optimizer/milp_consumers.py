@@ -28,6 +28,7 @@ from .generic_flex_context import (
     consumer_generic_eligible_indices,
     generic_flex_window,
 )
+from .thermal_flex_context import is_thermal_flex_consumer
 
 if TYPE_CHECKING:
     from .milp_horizon import MilpHorizonModel
@@ -419,6 +420,8 @@ def _add_consumer_delivery_constraints(
     filters = filter_contexts or {}
     for consumer in model.planned_consumers:
         cid = consumer["id"]
+        if is_thermal_flex_consumer(consumer):
+            continue
         target = remaining.get(cid, 0.0)
         if target <= 0:
             continue

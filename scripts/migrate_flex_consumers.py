@@ -131,12 +131,19 @@ def _generic_from_appliance(appliance: dict) -> dict:
     }
 
 
+def _order_migrated_consumers(consumers: list[dict]) -> list[dict]:
+    """thermal_annual muss Verbraucher 1 sein (profiles_store-Regel)."""
+    thermal = [consumer for consumer in consumers if consumer.get("type") == "thermal_annual"]
+    others = [consumer for consumer in consumers if consumer.get("type") != "thermal_annual"]
+    return thermal + others
+
+
 def migrate_prod_consumers(
     config: dict,
     house_profiles: dict,
     *,
     profile_id: str = PROFILE_ID,
-    strip_flex_ids: tuple[str, ...] = ("eauto", "swimspa", "swimspa_filter"),
+    strip_flex_ids: tuple[str, ...] = ("eauto", "swimspa", "swimspa_filter", "waermepumpe"),
 ) -> tuple[dict, dict, list[dict]]:
     """Return updated (config, house_profiles, migration_status_rows)."""
     config_out = deepcopy(config)
@@ -186,8 +193,7 @@ def migrate_prod_consumers(
                 "id": "wp_heating",
                 "legacy_id": "waermepumpe",
                 "phase": "1.97",
-                "status": "partial",
-                "blocker": "Thermals P1a — keep waermepumpe in flex",
+                "status": "migrated",
             }
         )
 
@@ -199,7 +205,7 @@ def migrate_prod_consumers(
         consumers.append(_generic_from_appliance(appliance))
         status.append({"id": aid, "phase": "1.96d", "status": "profile-row", "blocker": "Appliances unify"})
 
-    profile["consumers"] = consumers
+    profile["consumers"] = _order_migrated_consumers(consumers)
     if isinstance(profiles, dict):
         profiles[profile_id] = profile
 

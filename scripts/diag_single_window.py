@@ -464,9 +464,10 @@ def main() -> None:
     price_start_month, price_end_month = _price_window_for_anchor(
         anchor, args.start_month, args.end_month
     )
+    price_year = pd.Timestamp(anchor).year
     start, end = resolve_backtesting_window(
-        pd.Timestamp(2025, price_start_month, 1),
-        pd.Timestamp(2025, price_end_month, 1),
+        pd.Timestamp(price_year, price_start_month, 1),
+        pd.Timestamp(price_year, price_end_month, 1),
         sim_cfg.get("price_range", "last_12_months"),
         sim_cfg["path_consumption"],
         sim_cfg["path_production"],

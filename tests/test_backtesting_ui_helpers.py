@@ -138,6 +138,14 @@ def test_suggest_test_month_from_cons_data_bounds(monkeypatch):
     assert suggest_test_month() == 3
 
 
+def test_suggest_test_month_prefers_march_over_january(monkeypatch):
+    monkeypatch.setattr(
+        "ui.backtesting_runner.profile_manager.get_cons_data_date_bounds",
+        lambda: (date(2025, 1, 1), date(2025, 12, 31)),
+    )
+    assert suggest_test_month() == 3
+
+
 def test_suggest_test_month_none_without_overlap(monkeypatch):
     monkeypatch.setattr(
         "ui.backtesting_runner.profile_manager.get_cons_data_date_bounds",

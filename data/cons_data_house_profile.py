@@ -1,6 +1,8 @@
 """Hausprofil-Auflösung und Synthese für cons_data_hourly.csv."""
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Callable
 from datetime import date, datetime, time
 from typing import TYPE_CHECKING
@@ -8,7 +10,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 import config
-from settings.flexible_consumers import runtime_consumer_id
+from settings.flexible_consumers import normalize_consumer, runtime_consumer_id
 from data.consumption_profiles import (
     _consumer_id,
     _modeled_hour_index,
@@ -98,16 +100,14 @@ def resolve_runtime_house_profile() -> dict | None:
 
 
 def _configured_flexible_consumer_ids() -> list[str]:
-    """IDs aus aufgelösten flex-Verbrauchern (runtime keys für cons_data-Spalten)."""
-    consumers = config.get_flexible_consumers()
-    if consumers:
-        return [runtime_consumer_id(c) for c in consumers]
+    """IDs aus config.flexible_consumers (ohne Planungs-Merge) für cons_data-Spalten."""
     raw = config.CONFIG._raw_config.get("flexible_consumers", [])
-    return [
-        str(entry["id"])
+    consumers = [
+        normalize_consumer(entry)
         for entry in raw
         if isinstance(entry, dict) and entry.get("id")
     ]
+    return [runtime_consumer_id(c) for c in consumers]
 
 
 def _house_profile_consumer_ids(profile: dict) -> list[str]:
@@ -118,6 +118,22 @@ def _house_profile_consumer_ids(profile: dict) -> list[str]:
         _consumer_id(consumer, index)
         for index, consumer in enumerate(profile.get("consumers", []))
     ]
+
+
+def house_profile_cons_data_fingerprint(profile: dict) -> str:
+    """Stabiler Hash über alle für cons_data-Synthese relevanten Profilfelder."""
+    payload = {
+        "id": profile.get("id"),
+        "annual_kwh": profile.get("annual_kwh"),
+        "latitude": profile.get("latitude"),
+        "longitude": profile.get("longitude"),
+        "default_pv_tilt": profile.get("default_pv_tilt"),
+        "default_pv_azimuth": profile.get("default_pv_azimuth"),
+        "total_profile_csv": profile.get("total_profile_csv"),
+        "consumers": profile.get("consumers", []),
+    }
+    encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
 def expected_cons_data_consumer_ids() -> list[str]:
