@@ -100,6 +100,8 @@ After **real** 2.0 release: dead code, obsolete tests, and leftover patches from
 
 - [ ] Enhance data model to nested structures. E.g. pool can consist of multiple "inner" consumers or house consists also of multiple "inner" consumers
   - Consumers can be marked as "controlled by Earnie" or just "known by Earnie"
+    - "controlled by Earnie": Earnie is controlling consumer either directly or as "Manuelle Geräte"
+    - "known by Earnie": Earnie knows about scheduled consumption and adds it to predicted "Grundlast" for optimization 
 
 ### Version 2.+1
 
