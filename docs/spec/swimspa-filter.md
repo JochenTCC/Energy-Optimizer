@@ -2,7 +2,7 @@
 
 **Version:** 1.0  
 **Status:** Abgeschlossen (2026-07-07) — Code Phasen 1–4, Live-Abnahme, Deviation-Regeln, Ist-Leistung/Fall B; Release **v1.20.0**  
-**Backlog:** `Backlog.md` → **Version 1.20.0** → **Swimspa Filternutzung optimieren**
+**Backlog:** `backlog/Backlog.md` → **Version 1.20.0** → **Swimspa Filternutzung optimieren**
 
 ## 1. Ziel
 

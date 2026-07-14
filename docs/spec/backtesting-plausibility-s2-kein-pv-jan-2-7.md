@@ -6,7 +6,7 @@ Developer research note for greenfield Scenario Exploration (SE) Phase B.
 **Backtest:** January 2025, `fixed_24h`, greenfield env  
 **Scenario:** `s2-kein-pv` — 5 kWh battery, no PV, `mein_haushalt`, `profile_spec`, tariffs `fixed_25ct` / `fixed_37ct`
 
-Related: [scenario-exploration-consumption.md](scenario-exploration-consumption.md), `Backlog.md` Phase B.
+Related: [scenario-exploration-consumption.md](scenario-exploration-consumption.md), `backlog/Backlog.md` Phase B.
 
 ---
 

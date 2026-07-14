@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Roadmap & Versioning Nomenclature
 
-## 1. Backlog Versioning (`Backlog.md`)
+## 1. Backlog Versioning (`backlog/Backlog.md`)
 
 * **Cycle Logic:** Development steps proceed alphabetically up to Release `.0` (e.g., `1.24.a` → `1.24.b` → Release `1.24.0` → Next Minor `1.25.0`).
 

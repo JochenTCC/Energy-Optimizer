@@ -3,6 +3,13 @@
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 
+### Version 1.99 — File structure hygiene (2026-07-14)
+
+- [x] **Docker bundle** — `docker/` with `Dockerfile`, `entrypoint.sh`, `compose/{dev,synology,loxberry,greenfield}.yml`, `build-container.ps1`, `docker/README.md`; build context stays repo root; `.dockerignore` remains at root
+- [x] **Backlog directory** — `backlog/Backlog.md`, `Backlog-Bugfixes.md`, `Backlog-Erledigt.md`; Cursor rules/skills and doc cross-links updated
+- [x] **Root Python cleanup** — keep `main.py`, `app.py`, `config.py`, `version.py`, `logger_config.py`; remove legacy wrappers `run_backtesting.py`, `GenerateConsData.py`; move dev dashboard to `ui/dev/app_test_data.py`
+
+
 ### Version 1.99 — Loxone debug UI (2026-07-14)
 
 Plan [`docs/spec/nas-consumer-migration-1.95-1.99.md`](docs/spec/nas-consumer-migration-1.95-1.99.md) — cutover validation tooling. Runbook [`docs/einrichtung/nas-live-cutover-1.99.md`](docs/einrichtung/nas-live-cutover-1.99.md).

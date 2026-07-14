@@ -2,6 +2,8 @@
 
 **Streamlit-Ports aller Stacks:** [streamlit-ports.md](../referenz/streamlit-ports.md)
 
+**Docker-Artefakte:** [`docker/README.md`](../../docker/README.md) — Dockerfile, Compose-Dateien und Build-Skripte liegen unter `docker/`. Compose-Befehle immer vom Repo-Root mit `--project-directory .`.
+
 ## Persistente Daten
 
 Diese Verzeichnisse liegen **außerhalb des Images** und überleben Image-Updates:
@@ -22,7 +24,7 @@ Umgebungsvariable in Compose: `EARNIE_CONFIG_PATH=config/config.json`
 
 ## Erstinstallation (NAS)
 
-1. Projektordner mit `docker-compose-synology.yml` anlegen
+1. Projektordner mit `docker/compose/synology.yml` anlegen (auf der NAS oft als `compose.yaml` kopiert)
 2. `mkdir -p config runtime`
 3. Container starten — der **Entrypoint** legt fehlende Dateien an (`config/.env`, `config.json`, `tariffs.json`, weitere Sidecars, Vorlagen aus `share/config/` falls nötig, leere Runtime-Dateien)
 4. `config/.env`, `config/config.json` und **`config/tariffs.json`** anpassen (Loxone-Zugang, Entitäten, Tarif-IDs der Szenarien)
@@ -66,7 +68,7 @@ Kanonischer Befehl — nur Synology (amd64), wie bisher:
 ```powershell
 python -m scripts.build_container
 # oder unter Windows:
-.\build-container.ps1
+.\docker\build-container.ps1
 ```
 
 Zielplattform wählen:
@@ -130,8 +132,15 @@ docker manifest inspect ghcr.io/jochentcc/earnie-energy:latest
 Im Projektordner auf der NAS (nur Compose + persistente Daten, kein Quellcode nötig):
 
 ```bash
-docker compose -f docker-compose-synology.yml pull
-docker compose -f docker-compose-synology.yml up -d
+docker compose --project-directory . -f docker/compose/synology.yml pull
+docker compose --project-directory . -f docker/compose/synology.yml up -d
+```
+
+Auf der NAS (nur `compose.yaml` im Projektordner, ohne Repo-Checkout):
+
+```bash
+docker compose pull
+docker compose up -d
 ```
 
 Der **optimizer-worker** führt beim Start automatisch Tarif-Plausibilität und `verify_loxone_setup` aus. Ergebnis steht in `runtime/earnie.log` (`Tarif-Startup-Prüfung`, `[loxone-verify]`).
@@ -152,20 +161,20 @@ Manuell (z. B. nach Config-Änderung ohne Neustart):
 python -m scripts.verify_loxone_setup
 ```
 
-`docker-compose-synology.yml` referenziert `ghcr.io/jochentcc/earnie-energy:latest`.
+`docker/compose/synology.yml` referenziert `ghcr.io/jochentcc/earnie-energy:latest`.
 
 ### 3. Lokaler Test vor dem NAS-Deploy
 
 ```powershell
-docker compose build
-docker compose up -d
+docker compose --project-directory . -f docker/compose/dev.yml build
+docker compose --project-directory . -f docker/compose/dev.yml up -d
 ```
 
-Nutzt `docker-compose.yml` mit lokalem Build und denselben Mounts (`config/`, `runtime/`).
+Nutzt `docker/compose/dev.yml` mit lokalem Build und denselben Mounts (`config/`, `runtime/`).
 
 ### Greenfield Dev-Stack (Ersteinrichtung)
 
-Für Abnahme von Hauskonfigurator und Backtesting auf **leeren** Volumes (Port **8502**, getrennte Container-Namen): [greenfield-dev-stack.md](greenfield-dev-stack.md) und `docker-compose-greenfield.yml`.
+Für Abnahme von Hauskonfigurator und Backtesting auf **leeren** Volumes (Port **8502**, getrennte Container-Namen): [greenfield-dev-stack.md](greenfield-dev-stack.md) und `docker/compose/greenfield.yml`.
 
 ## LoxBerry (RPi 4B, arm64)
 
@@ -177,7 +186,7 @@ Für Abnahme von Hauskonfigurator und Backtesting auf **leeren** Volumes (Port *
 
 ### Erstinstallation
 
-1. Projektordner anlegen (z. B. `/opt/earnie-energy/`) mit `docker-compose-loxberry.yml`
+1. Projektordner anlegen (z. B. `/opt/earnie-energy/`) mit `docker/compose/loxberry.yml`
 2. `mkdir -p config runtime`
 3. Container starten — der **Entrypoint** legt fehlende Dateien an (`config/.env`, `config/config.json`, …)
 4. `config/.env`, `config/config.json` und **`config/tariffs.json`** anpassen (Loxone-Zugang, Entitäten, Tarif-IDs der Szenarien)
@@ -188,11 +197,11 @@ Für Abnahme von Hauskonfigurator und Backtesting auf **leeren** Volumes (Port *
 Im Projektordner auf dem LoxBerry (nur Compose + persistente Daten, kein Quellcode nötig):
 
 ```bash
-docker compose -f docker-compose-loxberry.yml pull
-docker compose -f docker-compose-loxberry.yml up -d
+docker compose --project-directory . -f docker/compose/loxberry.yml pull
+docker compose --project-directory . -f docker/compose/loxberry.yml up -d
 ```
 
-`docker-compose-loxberry.yml` referenziert dasselbe Multi-Arch-Image wie Synology; Docker wählt automatisch `linux/arm64`.
+`docker/compose/loxberry.yml` referenziert dasselbe Multi-Arch-Image wie Synology; Docker wählt automatisch `linux/arm64`.
 
 ### UI-Zugriff
 
@@ -249,7 +258,7 @@ Optional: **Zugriffssteuerungsprofil** mit DSM-Anmeldung — Streamlit hat keine
 
 ### Streamlit hinter dem Proxy
 
-`docker-compose-synology.yml` startet die UI mit Proxy-tauglichen Flags:
+`docker/compose/synology.yml` startet die UI mit Proxy-tauglichen Flags:
 
 ```yaml
 command: >
@@ -261,9 +270,9 @@ command: >
 
 Port in `config/config.json` → `ui.streamlit_port` (Standard 8501). Das Compose-Mapping `ports` muss denselben Wert verwenden.
 
-Nach Änderung an der Compose-Datei: `docker compose -f docker-compose-synology.yml up -d optimizer-ui` (kein neues Image nötig).
+Nach Änderung an der Compose-Datei: `docker compose --project-directory . -f docker/compose/synology.yml up -d optimizer-ui` (kein neues Image nötig).
 
-Produktion: `EARNIE_UI_MODES=sunset2sunset,scenario_exploration` (in `docker-compose-synology.yml` am Service `optimizer-ui`). Nur Sunset-2-Sunset ohne Scenario-Exploration: `sunset2sunset`. Details: [Betriebsmodi](../ui/betriebsmodi.md).
+Produktion: `EARNIE_UI_MODES=sunset2sunset,scenario_exploration` (in `docker/compose/synology.yml` am Service `optimizer-ui`). Nur Sunset-2-Sunset ohne Scenario-Exploration: `sunset2sunset`. Details: [Betriebsmodi](../ui/betriebsmodi.md).
 
 ### Typische Probleme
 

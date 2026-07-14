@@ -22,7 +22,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN sed -i 's/\r$//' docker-entrypoint.sh && chmod +x docker-entrypoint.sh
+RUN sed -i 's/\r$//' docker/entrypoint.sh && chmod +x docker/entrypoint.sh
 
 RUN mkdir -p share/config \
     && cp config/config.example.json share/config/config.example.json \
@@ -42,5 +42,5 @@ RUN mkdir -p share/config \
     && cp runtime/local_settings.example.json share/config/local_settings.example.json \
     && cp .env.example share/config/.env.example
 
-ENTRYPOINT ["/bin/sh", "docker-entrypoint.sh"]
+ENTRYPOINT ["/bin/sh", "docker/entrypoint.sh"]
 CMD ["python", "main.py"]

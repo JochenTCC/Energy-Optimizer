@@ -5,7 +5,7 @@ alwaysApply: true
 
 # German Markdown in This Project
 
-Some project `.md` files may still be in German (e.g. `docs/spec/`, older notes). **Backlog files are in English** (`Backlog.md`, `Backlog-Bugfixes.md`, `Backlog-Erledigt.md`).
+Some project `.md` files may still be in German (e.g. `docs/spec/`, older notes). **Backlog files are in English** (`backlog/Backlog.md`, `backlog/Backlog-Bugfixes.md`, `backlog/Backlog-Erledigt.md`).
 
 **User docs** (`docs/README.md`, `docs/einrichtung/`, `docs/konfiguration/`, `docs/ui/`, `docs/referenz/`) are **intentionally German** — see `german-user-docs.mdc`. Do not offer to translate them to English; read as-is.
 
@@ -30,5 +30,5 @@ Before you **read and use** a project `.md` file for decisions, implementation, 
 |-----------|--------|
 | Task requires `docs/konfiguration/preise.md` (German) | Ask once: translate or read as-is? |
 | User already said “read as-is” for that file this session | Read without asking again |
-| `Backlog.md` (English) | No ask |
+| `backlog/Backlog.md` (English) | No ask |
 | German word in a code comment or config label | No ask |

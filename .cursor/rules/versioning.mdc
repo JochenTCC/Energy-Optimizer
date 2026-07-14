@@ -19,10 +19,10 @@ Format: **MAJOR.MINOR.PATCH** (Semantic Versioning in `version.py`) — **no let
 | Level | File / location | Notation | Purpose |
 |-------|-----------------|----------|---------|
 | **Release state** | `version.py` | `1.24.0` | Published app/container version (only after user approval) |
-| **Development step** | `Backlog.md` | `1.24.f` | Sub-step in the MINOR cycle (planning/progress) |
+| **Development step** | `backlog/Backlog.md` | `1.24.f` | Sub-step in the MINOR cycle (planning/progress) |
 
 - Letter chapters (`.a`, `.b`, … `.g`) and the release chapter (`.0`) exist **only in the backlog**, not in `version.py`.
-- Backlog progress (moving chapters to `Backlog-Erledigt.md`) is **independent** of `version.py`.
+- Backlog progress (moving chapters to `backlog/Backlog-Erledigt.md`) is **independent** of `version.py`.
 
 ## MINOR cycle: no automatic increment
 

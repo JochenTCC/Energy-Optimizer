@@ -1,8 +1,8 @@
 ---
 name: session-abschluss
 description: >-
-  Ends a development session: maintain Backlog.md, Backlog-Bugfixes.md, and
-  Backlog-Erledigt.md,
+  Ends a development session: maintain backlog/Backlog.md, backlog/Backlog-Bugfixes.md, and
+  backlog/Backlog-Erledigt.md,
   commit and push all open changes, optionally build a Docker image
   and push it to ghcr.io.
   Use for "end session", "backlog sync", "commit and push", or
@@ -45,17 +45,17 @@ Stage only after the user responds. Do not commit excluded files.
 
 ### 3. Update backlog
 
-Keep the schema from `Backlog.md` / `Backlog-Bugfixes.md` / `Backlog-Erledigt.md` (see also `.cursor/rules/backlog.mdc`, chapter nomenclature in `roadmap-nomenclature.mdc`):
+Keep the schema from `backlog/Backlog.md` / `backlog/Backlog-Bugfixes.md` / `backlog/Backlog-Erledigt.md` (see also `.cursor/rules/backlog.mdc`, chapter nomenclature in `roadmap-nomenclature.mdc`):
 
-- **Letter chapters** (`1.24.a` … `1.24.g`): when done → `Backlog-Erledigt.md`; **do not change `version.py` automatically** (see `versioning.mdc`)
+- **Letter chapters** (`1.24.a` … `1.24.g`): when done → `backlog/Backlog-Erledigt.md`; **do not change `version.py` automatically** (see `versioning.mdc`)
 - **Release chapters** (`1.24.0`, `1.25.0`): backlog progress as usual; version bump **only after explicit user approval**
 - **`version.py` ≠ backlog state:** backlog chapters mark development steps; `version.py` stays stable during a MINOR cycle until the user approves a bump
 
-- **Do not strikethrough completed items** — remove them from the respective open file and add them to `Backlog-Erledigt.md` with `- [x]`
-- **Backlog-Bugfixes.md:** open prod bugs/regressions; when done **suggest PATCH only** and ask the user — do not change silently
-- **`## Bugfix Verifications Pending`:** implemented fixes awaiting live verification — move here after commit, **not** to `Backlog-Erledigt.md`; archive only after successful verification (see `.cursor/rules/backlog.mdc`)
-- **Backlog.md:** feature backlog (version blocks), packaging, reference — only remaining open phases/sub-items
-- **Backlog-Erledigt.md:** New section `### <Topic> (YYYY-MM-DD)` with date **today** (local time Europe/Vienna)
+- **Do not strikethrough completed items** — remove them from the respective open file and add them to `backlog/Backlog-Erledigt.md` with `- [x]`
+- **backlog/Backlog-Bugfixes.md:** open prod bugs/regressions; when done **suggest PATCH only** and ask the user — do not change silently
+- **`## Bugfix Verifications Pending`:** implemented fixes awaiting live verification — move here after commit, **not** to `backlog/Backlog-Erledigt.md`; archive only after successful verification (see `.cursor/rules/backlog.mdc`)
+- **backlog/Backlog.md:** feature backlog (version blocks), packaging, reference — only remaining open phases/sub-items
+- **backlog/Backlog-Erledigt.md:** New section `### <Topic> (YYYY-MM-DD)` with date **today** (local time Europe/Vienna)
 - Document only what was actually completed in the session/diff — do not invent items
 - Leave open next steps for partially completed items
 - **Effort line per new completed section (optional):** Ask the user for Cursor token usage and relevant chat UUID(s), and add as the last line:
@@ -125,7 +125,7 @@ Synology only (amd64):
 python -m scripts.build_container --target synology --push
 ```
 
-Alternative Windows wrapper: `.\build-container.ps1 --target all --push`
+Alternative Windows wrapper: `.\docker\build-container.ps1 --target all --push`
 
 Default tags:
 
@@ -145,8 +145,8 @@ Details: `docs/einrichtung/container.md`
 - Built/pushed tags
 - Version from `version.py`
 - Deploy notes:
-  - Synology: `docker compose -f docker-compose-synology.yml pull && ... up -d`
-  - LoxBerry: `docker compose -f docker-compose-loxberry.yml pull && ... up -d`
+  - Synology: `docker compose --project-directory . -f docker/compose/synology.yml pull && ... up -d`
+  - LoxBerry: `docker compose --project-directory . -f docker/compose/loxberry.yml pull && ... up -d`
 
 ---
 

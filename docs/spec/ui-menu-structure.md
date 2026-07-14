@@ -132,7 +132,7 @@ Konkretes Schema wird in Schritt 3 festgelegt.
 | `ui/backtesting.py`, `ui/price_forecast.py` | anpassen | Sidebar-Controls → Body |
 | `config/config.schema.json`, `config/config.example.json` | ergänzen | neue Merker-Felder + Geräte-Block |
 | `tests/…` | neu | Unit-Tests für `appliance_recommendation` + Seiten-Registry |
-| `Backlog.md`, `version.py` | Abschluss | Punkte nach Erledigt, Bump auf `1.21.0` |
+| `backlog/Backlog.md`, `version.py` | Abschluss | Punkte nach Erledigt, Bump auf `1.21.0` |
 
 Struktur-Regeln beachten: je Datei ≤ 400 LOC (UI), Funktionen ≤ 40 LOC, pro Schritt 1–3 Dateien.
 

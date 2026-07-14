@@ -13,7 +13,7 @@ Einrichtung, Konfiguration, Streamlit-Oberfläche und Loxone-Schnittstelle: **[d
 
 !Kapitel zu Installationsmöglichkeiten einfügen bzw. Verweis zu vorhandener Doku
 
-!Stark zusammengefasste Roadmap aus Backlog.md erstellen und einfügen
+!Stark zusammengefasste Roadmap aus backlog/Backlog.md erstellen und einfügen
 
 
 ## Lizenz
@@ -30,6 +30,8 @@ Die Software ist **Source-Available** und auf **private, nicht-kommerzielle Nutz
 Earnie/
 ├── main.py, app.py          # Einstiegspunkte (bleiben in der Wurzel)
 ├── config.py                # Konfigurations-Loader
+├── docker/                  # Dockerfile, Compose, Build-Skripte (siehe docker/README.md)
+├── backlog/                 # Roadmap (Backlog.md, Backlog-Bugfixes.md, Backlog-Erledigt.md)
 ├── config/
 │   ├── config.json          # Haus-Konfiguration (gitignored, persistent)
 │   ├── config.example.json  # Vorlage für neue Installationen
@@ -47,8 +49,10 @@ Earnie/
 
 
 
+Roadmap → **[backlog/Backlog.md](backlog/Backlog.md)**
+
 ## Lokale Entwicklung
-! Gegen Todo in Backlog.md prüfen bzgl. Deploy ohne Container
+! Gegen Todo in backlog/Backlog.md prüfen bzgl. Deploy ohne Container
 
 ```powershell
 python -m venv .venv
@@ -73,7 +77,7 @@ Legacy: `config.json` im Projektroot wird weiterhin unterstützt, wenn `config/c
 
 ```powershell
 # Windows – Wrapper
-.\build-container.ps1
+.\docker\build-container.ps1
 
 # plattformübergreifend (Standard: Synology amd64)
 python -m scripts.build_container
@@ -85,10 +89,10 @@ Registry-Push:
 
 ```powershell
 # Nur Synology (amd64)
-.\build-container.ps1 --target synology --push
+.\docker\build-container.ps1 --target synology --push
 
 # Release Synology + LoxBerry (Multi-Arch-Manifest)
-.\build-container.ps1 --target all --push
+.\docker\build-container.ps1 --target all --push
 ```
 
 Weitere Optionen: `--target` (`synology` | `loxberry` | `all`), `--tag`, `--platform`, `--no-cache`, `--dockerfile`, `--context`.
@@ -96,8 +100,8 @@ Weitere Optionen: `--target` (`synology` | `loxberry` | `all`), `--tag`, `--plat
 ### Lokal starten (Dev)
 
 ```powershell
-docker compose build
-docker compose up -d
+docker compose --project-directory . -f docker/compose/dev.yml build
+docker compose --project-directory . -f docker/compose/dev.yml up -d
 ```
 
 
@@ -105,16 +109,16 @@ docker compose up -d
 ### Produktion (Synology)
 
 1. Multi-Arch-Image bauen und pushen: `python -m scripts.build_container --target all --push`
-2. Auf der NAS nur `docker-compose-synology.yml`, `config/`, `runtime/` bereitstellen
-3. `docker compose -f docker-compose-synology.yml pull && docker compose -f docker-compose-synology.yml up -d`
+2. Auf der NAS nur `docker/compose/synology.yml` (oft als `compose.yaml` kopiert), `config/`, `runtime/` bereitstellen
+3. `docker compose --project-directory . -f docker/compose/synology.yml pull; docker compose --project-directory . -f docker/compose/synology.yml up -d`
 
 
 
 ### Produktion (LoxBerry, RPi 4B)
 
 1. Multi-Arch-Image bauen und pushen (siehe oben)
-2. Auf dem LoxBerry nur `docker-compose-loxberry.yml`, `config/`, `runtime/` bereitstellen
-3. `docker compose -f docker-compose-loxberry.yml pull && docker compose -f docker-compose-loxberry.yml up -d`
+2. Auf dem LoxBerry nur `docker/compose/loxberry.yml`, `config/`, `runtime/` bereitstellen
+3. `docker compose --project-directory . -f docker/compose/loxberry.yml pull; docker compose --project-directory . -f docker/compose/loxberry.yml up -d`
 4. UI im LAN: `http://<loxberry-ip>:8501`
 5. 
 

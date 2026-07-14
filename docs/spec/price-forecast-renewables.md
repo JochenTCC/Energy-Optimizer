@@ -222,7 +222,7 @@ Open-Meteo / Energy-Charts ──▶│ predict missing slots
 
 - Preise Live: [preise.md](../konfiguration/preise.md)
 - UI grüne Zone: [ui-sunset2sunset.md](ui-sunset2sunset.md) §5
-- Backlog: `Backlog.md` Research Items
+- Backlog: `backlog/Backlog.md` Research Items
 
 ## Änderungshistorie
 

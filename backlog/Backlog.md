@@ -10,6 +10,7 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
   - 1: 6.5, 2: 5.0, 3: 4.0, 4: 5.5, 5: 8.5, 6: 11.5, 7: 14.0, 8: 16.0, 9: 17.5, 10: 15.5, 11: 12.5, 12: 9.5 (°C)
 - [ ] Adapt business plan
 - [ ] **Outreach (not software):** Ask for interested parties in loxforum / reddit — post under “my project”; take interesting chart snapshots (loxforum admins contacted re. best place)
+- [ ] Add a predictive model for Grundlast with logged Grundlast from the past. Research for Models (AI?). Take date / average temperature / week day / and other factors into account
 
 
 ## Feature Backlog
@@ -49,10 +50,6 @@ Silent-stack debug sessions (Hausconfig, Chart 1, `main.py` SwimSpa, config drif
 
 - [ ] **P6b** — Non-silent NAS live cutover — Phase **1.99** in plan. **Prerequisite:** your sign-off after manual validation ([Backlog-Erledigt.md](Backlog-Erledigt.md) § NAS migration plan — manual validation); runbook [`docs/einrichtung/nas-live-cutover-1.99.md`](docs/einrichtung/nas-live-cutover-1.99.md).
 - Loxone debug page → [Backlog-Erledigt.md](Backlog-Erledigt.md) § Version 1.99 — Loxone debug UI (2026-07-14).
-- [ ] File structure hygiene
-  - Own directory for docker container stuff
-  - Own directory for backlog stuff
-  - Check if .py files in main directory should be kept there or move it to any subfolder also
 
 ## Real Version 2.0 — legacy data model removed
 

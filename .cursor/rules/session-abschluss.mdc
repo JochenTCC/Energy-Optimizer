@@ -8,7 +8,7 @@ alwaysApply: false
 When the user wants to **end session**, **backlog sync**, **commit and push**, or a comparable session wrap-up:
 
 1. Follow skill `.cursor/skills/session-abschluss/SKILL.md` in full
-2. **Phase 1:** Maintain `Backlog.md` / `Backlog-Bugfixes.md` / `Backlog-Erledigt.md` → commit all approved open changes → push
+2. **Phase 1:** Maintain `backlog/Backlog.md` / `backlog/Backlog-Bugfixes.md` / `backlog/Backlog-Erledigt.md` → commit all approved open changes → push
 3. **`version.py`:** change only after explicit user approval (see `versioning.mdc`) — no automatic bump at session end
 4. For local or possibly temporary files **ask first** (e.g. personal VS Code settings, local paths)
 5. **Phase 2** (Docker build/push) **only** after explicit confirmation — never automatically
