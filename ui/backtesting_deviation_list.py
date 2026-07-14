@@ -334,6 +334,24 @@ def render_deviation_detail(
     )
 
 
+_DETAIL_MODE_OVERVIEW = "overview"
+_DETAIL_MODE_CHARTS = "charts"
+
+
+def _render_detail_mode_radio() -> str:
+    return st.radio(
+        "Detailansicht",
+        options=[_DETAIL_MODE_OVERVIEW, _DETAIL_MODE_CHARTS],
+        format_func=lambda mode: (
+            "Nur Übersicht (Kalender + Metadaten)"
+            if mode == _DETAIL_MODE_OVERVIEW
+            else "Charts & Diagnose laden"
+        ),
+        horizontal=True,
+        key="backtesting_deviation_detail_mode",
+    )
+
+
 def render_deviation_list(
     meta: dict,
     labels_map: dict[str, str],
@@ -341,7 +359,7 @@ def render_deviation_list(
     log_dir: str,
     hourly_df: pd.DataFrame,
 ) -> None:
-    st.subheader("Detaillierte Simulationsansicht (Erfordert einmalige Neuberechnung)")
+    st.subheader("Detaillierte Simulationsansicht")
 
     run_anchors = _run_anchors_for_meta(meta)
     if not run_anchors:
@@ -386,8 +404,32 @@ def render_deviation_list(
         return
 
     window_anchor = cell.anchor_iso or ""
-    segment_toggle = _render_sa_segment_toggle(meta)
+    detail_mode = _render_detail_mode_radio()
     case = cases_for_date_and_scenario(index, selected_date, scenario_id)
+    if detail_mode == _DETAIL_MODE_OVERVIEW:
+        window = _format_deviation_window({"window_anchor": window_anchor}, meta)
+        scenario = _scenario_label(scenario_id, labels_map)
+        if case is None:
+            st.markdown(
+                f"**Fenster:** {window} · **Szenario:** {scenario} · **Keine Abweichung**"
+            )
+        else:
+            art = kind_label(str(case.get("kind", "?")))
+            delta = format_deviation_delta_kwh(case)
+            st.markdown(
+                f"**Fenster:** {window} · **Szenario:** {scenario} · **Art:** {art} · "
+                f"**Δ kWh (Soll/Ist):** {delta}"
+            )
+            _render_consumption_caption(case)
+            if case.get("kind") != "consumption_tolerance":
+                _render_cbc_facts_caption(case)
+        st.info(
+            "Charts und Fenster-Diagnose werden erst nach Auswahl "
+            "„Charts & Diagnose laden“ berechnet."
+        )
+        return
+
+    segment_toggle = _render_sa_segment_toggle(meta)
     render_deviation_detail(
         case,
         labels_map,

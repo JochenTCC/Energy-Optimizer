@@ -14,52 +14,6 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 - [ ] **Outreach (not software):** Ask for interested parties in loxforum / reddit — post under “my project”; take interesting chart snapshots (loxforum admins contacted re. best place)
 
 
-
-## Reminder für Greenfield Reset
-
-It depends which local Greenfield setup you mean — the project distinguishes venv (:8511) and Docker (:8502).
-
-Local venv Greenfield (port 8511)
-Stop any running main.py / Streamlit first, then from the repo root:
-
-Remove-Item -Recurse -Force greenfield\config, greenfield\runtime
-mkdir greenfield\config, greenfield\runtime
-Then restart via VS Code „main.py + Streamlit (Greenfield :8511)“ (or the individual Greenfield launch configs). Bootstrap runs automatically on startup and recreates the default files.
-
-Docker Greenfield (port 8502)
-Manual reset (from docs/einrichtung/greenfield-dev-stack.md):
-
-docker compose -f docker-compose-greenfield.yml down
-Remove-Item -Recurse -Force greenfield\config, greenfield\runtime
-mkdir greenfield\config, greenfield\runtime
-docker compose -f docker-compose-greenfield.yml up -d --build
-One-liner (reset + start + smoke checks):
-
-.venv\Scripts\python.exe -m scripts.smoke_greenfield_docker --reset
-Use --no-build if you don’t want to rebuild the image:
-
-.venv\Scripts\python.exe -m scripts.smoke_greenfield_docker --reset --no-build
-Note: All of these wipe everything under greenfield/config/ and greenfield/runtime/; your normal ./config and ./runtime dev stack is untouched.
-
-Command für boots
-
-For bootstrap (scripts.bootstrap_runtime):
-
-Default dev stack (config/ + runtime/)
-.venv\Scripts\python.exe -m scripts.bootstrap_runtime
-Creates only missing files; existing ones are not overwritten.
-
-Greenfield (venv, port 8511)
-After wiping greenfield\config and greenfield\runtime, either restart via VS Code (main.py + Streamlit Greenfield :8511) — bootstrap runs automatically — or run it manually with Greenfield env vars:
-
-$env:EARNIE_CONFIG_PATH = "greenfield/config/config.json"
-$env:EARNIE_RUNTIME_DIR = "greenfield/runtime"
-$env:EARNIE_DOTENV_PATH = "greenfield/config/.env"
-$env:EARNIE_HOUSE_PROFILES_PATH = "greenfield/config/house_profiles.json"
-$env:EARNIE_TARIFFS_PATH = "greenfield/config/tariffs.json"
-$env:EARNIE_BACKTESTING_SCENARIOS_PATH = "greenfield/config/backtesting_scenarios.json"
-.venv\Scripts\python.exe -m scripts.bootstrap_runtime
-
 ## Feature Backlog
 
 
@@ -92,21 +46,30 @@ Critical path: **1.95–1.97** (especially **Consumers P1** + **Thermals P1** / 
 
 Silent local abnahme stack → [Backlog-Erledigt.md](Backlog-Erledigt.md) (2026-07-14).
 
+Manual validation (dynamic tariff, fixed tariff Δ€, SE `live`) → [Backlog-Erledigt.md](Backlog-Erledigt.md) § NAS migration plan — manual validation (2026-07-14).
+
+#### Minor changes
+- [ ] Show a progress bar for each worker in SE
+- [ ] `diag_single_window --hour-offset`: price year still hardcoded 2025 (`_load_anchor_by_hour_offset`; `--anchor` path fixed)
+
 #### Suggested next steps
 
-- [ ] Continue with **1.97 Thermals P1a** (WP MILP bridge) or **1.96d** (appliances unify)
-- [ ] **1.99** prod cutover only after extended silent validation + your sign-off
-- [ ] Copy prod `.env` locally if NAS `config/.env` is not readable from Windows (see `MIGRATION_REVIEW.md`)
-
+- [ ] Continue with **1.96d** (appliances unify) or prep **1.99** P6b cutover runbook
+- [ ] **1.99** prod cutover after your sign-off (manual validation block done → [Backlog-Erledigt.md](Backlog-Erledigt.md) § NAS migration plan — manual validation (2026-07-14))
 
 ### Version 1.97
 
-- [ ] **Thermals P1a** — Haus Wärme MILP flex bridge; retire prod `waermepumpe` from `flexible_consumers[]` — Phase **1.97** in plan
+- [x] **Thermals P1a** — Haus Wärme MILP flex bridge; retire prod `waermepumpe` from `flexible_consumers[]` — Phase **1.97** in plan
 
 
 ### Version 1.99 — Live cutover (former P6b)
 
 - [ ] **P6b** — Non-silent NAS live cutover after **1.95–1.97** — Phase **1.99** in plan (operational runbook, manual acceptance, `2.0.0` proposal)
+- [ ] Set up debug page for Loxone communication showing read data with last update, whether data was sent to Loxone successfully (with value and timestamp — when silentmode==false)
+- [ ] File structure hygiene
+  - Own directory for docker container stuff
+  - Own directory for backlog stuff
+  - Check if .py files in main directory should be kept there or move it to any subfolder also
 
 ## Real Version 2.0 — legacy data model removed
 
@@ -121,12 +84,10 @@ Silent local abnahme stack → [Backlog-Erledigt.md](Backlog-Erledigt.md) (2026-
 After **real** 2.0 release: dead code, obsolete tests, and leftover patches from pre-1.26.0 data model (1.26.0 P6 removed runtime fallbacks; this epic mops up the rest)
 
 
-
-
 ### Version 2.+1 — Quality epic / post-migration cleanup
 
 - [ ] Evaluate option for code coverage testing and identification of deprecated code / tests (especially due to substantial data model change) / obsolete patches because of legacy data model
-- [ ] Thorough code review and refactoring
+- [ ] Thorough code review and refactoring (with proper KPIs)
 - [ ] Search for deprecated and unnecessary files and remove them
 - [ ] Evaluate option for automated UI testing
 
@@ -134,22 +95,6 @@ After **real** 2.0 release: dead code, obsolete tests, and leftover patches from
 
   - Build additional container for Windows as pure Python environment (if that makes sense) — spike vs local venv; go/no-go note
   - Evaluate running Scenario-Exploration as "web app" in Streamlit Community Cloud — secrets, no Loxone, demo feasibility
-
-
-### Version 2.+1
-
-- [ ] Define CSV data format for consumer annual demand (except house and EV) and provide import option (in addition to rated values). Annual profile from rated values can be compared graphically and in summary with measured profile.
-- [ ] Set up debug page for Loxone communication showing read data with last update, whether data was sent to Loxone successfully (with value and timestamp — when silentmode==false)
-
-
-
-### Version 2.+1
-
-- [ ] **Recommendation mode smart/adaptive devices** (follow-up to recommendation mode manual devices)
-  - Adaptive re runtime/energy per run; smart devices instead of manual input
-  - Adaptation algo maintains `appliances[].default_power_kw` from Loxone power markers (`loxone_power_name`) — reserved so far, no live use
-  - Dishwasher power possibly via Hue
-
 
 
 ### Version 2.+1
@@ -166,6 +111,18 @@ After **real** 2.0 release: dead code, obsolete tests, and leftover patches from
   - Evaluate whether a **replay/recalculation path** from a dump should be documented or partially automated
   - Add further inputs only if proven relevant for real failure cases
 
+
+### Version 2.+1
+
+- [ ] Enhance data model to nested structures. E.g. pool can consist of multiple "inner" consumers or house consists also of multiple "inner" consumers
+  - Consumers can be marked as "controlled by Earnie" or just "known by Earnie"
+
+### Version 2.+1
+
+- [ ] **Recommendation mode smart/adaptive devices** (follow-up to recommendation mode manual devices)
+  - Adaptive re runtime/energy per run; smart devices instead of manual input
+  - Adaptation algo maintains `appliances[].default_power_kw` from Loxone power markers (`loxone_power_name`) — reserved so far, no live use
+  - Dishwasher power possibly via Hue
 
 
 ### Version 2.+1 — Epics **Adaptation** & **Thermals** (architecture first)

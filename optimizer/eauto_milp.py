@@ -1,10 +1,15 @@
 """E-Auto-MILP-Moduswahl: Modus A (power_setpoint) vs. Modus B (binär/Preset)."""
 from __future__ import annotations
 
+import math
+from datetime import datetime
 from typing import Any
 
 from optimizer.charging_context import (
     consumer_charging_eligible_indices,
+    hours_needed_to_deliver,
+    latest_start_datetime,
+    matrix_slot_datetime,
     schedule_indices_for_consumer,
 )
 from optimizer.consumer_power import power_limits_kw, uses_power_setpoint
@@ -208,6 +213,52 @@ def _ev_cheapest_eligible_index(
     return min(eligible, key=lambda t: float(matrix[t]["k_act"]))
 
 
+def _parse_charging_deadline(value: datetime | str | None) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    text = str(value).strip()
+    if not text:
+        return None
+    return datetime.fromisoformat(text)
+
+
+def _preset_must_charge_now(
+    matrix: list[dict[str, Any]],
+    consumer: dict,
+    remaining_kwh: float,
+    schedule_indices: list[int],
+    charging_context: dict | None,
+) -> bool:
+    """Preset-Fallback: Deadline-Druck statt nur günstigste Stunde (t=0)."""
+    if remaining_kwh <= 1e-9:
+        return False
+    ctx = charging_context or {}
+    deadline = _parse_charging_deadline(ctx.get("deadline"))
+    if deadline is None:
+        return False
+    _, max_kw = power_limits_kw(consumer)
+    if max_kw <= 1e-9:
+        return False
+    now = matrix_slot_datetime(matrix, 0)
+    must_start = latest_start_datetime(deadline, remaining_kwh, max_kw)
+    if now >= must_start:
+        return True
+    horizon = len(matrix)
+    consumer_indices = schedule_indices_for_consumer(
+        matrix, horizon, schedule_indices, consumer, ctx
+    )
+    eligible = consumer_charging_eligible_indices(
+        matrix, consumer, consumer_indices, ctx
+    )
+    future = [t for t in eligible if t >= 0]
+    if not future:
+        return False
+    slots_needed = math.ceil(hours_needed_to_deliver(remaining_kwh, max_kw))
+    return len(future) <= slots_needed
+
+
 def ev_preset_power_now(
     matrix: list[dict[str, Any]],
     consumer: dict,
@@ -230,9 +281,13 @@ def ev_preset_power_now(
     slot = _ev_cheapest_eligible_index(
         matrix, consumer, schedule_indices, charging_context
     )
-    if slot is None or slot != 0:
-        return 0.0
-    return ev_preset_charge_kw(consumer, remaining_kwh)
+    if slot == 0:
+        return ev_preset_charge_kw(consumer, remaining_kwh)
+    if _preset_must_charge_now(
+        matrix, consumer, remaining_kwh, schedule_indices, charging_context
+    ):
+        return ev_preset_charge_kw(consumer, remaining_kwh)
+    return 0.0
 
 
 eauto_preset_power_now = ev_preset_power_now

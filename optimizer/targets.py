@@ -216,6 +216,7 @@ def build_applied_targets_detail(
                 "loxone": "loxone",
                 "loxone_remaining_hours": "loxone (Sollstunden)",
                 "thermal": "thermal (RC-Modell)",
+                "thermal_annual": "thermal_annual (HDD-Tagesziel)",
             }
             source = source_labels.get(source_key, source_key)
         details.append({

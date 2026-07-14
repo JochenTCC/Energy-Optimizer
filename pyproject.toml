@@ -23,6 +23,10 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0.0",
+    "pytest-cov>=4.0.0",
+]
+mutation = [
+    "mutmut>=2.7.0",
 ]
 
 [project.scripts]
@@ -61,4 +65,16 @@ testpaths = ["tests"]
 markers = [
     "requires_loxone: Integrationstest gegen echten Loxone-Miniserver",
     "slow: Längerer Backtesting- oder MILP-Integrationslauf",
+    "test_health_protected: Nie automatisch als Review-Kandidat markieren",
+]
+
+[tool.coverage.run]
+source = ["optimizer", "data", "house_config", "simulation", "settings", "runtime_store"]
+omit = ["tests/*", "scripts/*", "ui/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
 ]

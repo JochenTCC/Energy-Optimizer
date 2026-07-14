@@ -108,3 +108,43 @@ def test_cases_for_date_and_scenario():
     assert found is not None
     assert found["kind"] == "strict_slow"
     assert cases_for_date_and_scenario(index, day, "missing") is None
+
+
+def test_month_with_most_deviation_days():
+    meta = _sample_meta()
+    march_day = date(2025, 3, 5)
+    april_day = date(2025, 4, 10)
+    march_anchor = anchor_for_calendar_date(march_day)
+    april_anchor = anchor_for_calendar_date(april_day)
+    cases = [
+        {
+            "kind": "strict_slow",
+            "scenario_id": "live",
+            "window_anchor": normalize_window_anchor_key(march_anchor),
+        },
+        {
+            "kind": "consumption_tolerance",
+            "scenario_id": "live",
+            "window_anchor": normalize_window_anchor_key(
+                anchor_for_calendar_date(date(2025, 3, 12))
+            ),
+            "diff_kwh": 0.2,
+        },
+        {
+            "kind": "strict_fallback",
+            "scenario_id": "live",
+            "window_anchor": normalize_window_anchor_key(april_anchor),
+        },
+    ]
+    index = build_deviation_calendar_index(
+        meta,
+        cases,
+        run_anchors=[
+            march_anchor,
+            anchor_for_calendar_date(date(2025, 3, 12)),
+            april_anchor,
+        ],
+    )
+    from ui.backtesting_deviation_calendar import month_with_most_deviation_days
+
+    assert month_with_most_deviation_days(index, year=2025) == 3

@@ -333,10 +333,18 @@ def normalize_consumer(raw: dict) -> dict:
             legacy = str(charging_raw["source"]).lower().strip()
             if legacy in ("config", "historical", "loxone", "loxone_remaining_hours", "thermal"):
                 source = legacy
-    if source not in ("config", "historical", "loxone", "loxone_remaining_hours", "thermal"):
+    if source not in (
+        "config",
+        "historical",
+        "loxone",
+        "loxone_remaining_hours",
+        "thermal",
+        "thermal_annual",
+    ):
         raise ValueError(
             f"Kritischer Konfigurationsfehler: flexible_consumers Eintrag '{raw.get('id', '?')}' "
-            "daily_target_source muss config, historical, loxone, loxone_remaining_hours oder thermal sein."
+            "daily_target_source muss config, historical, loxone, loxone_remaining_hours, "
+            "thermal oder thermal_annual sein."
         )
     consumer_id = str(raw["id"])
     thermal_control = normalize_thermal_control(raw.get("thermal_control"), consumer_id)
@@ -398,6 +406,16 @@ def normalize_consumer(raw: dict) -> dict:
     legacy_id = normalize_legacy_id(raw, consumer_id)
     if legacy_id:
         result["legacy_id"] = legacy_id
+    window = raw.get("thermal_flex_window")
+    if isinstance(window, dict) and window:
+        result["thermal_flex_window"] = dict(window)
+    if "max_on_quarterhours" in raw:
+        result["max_on_quarterhours"] = max(4, int(raw.get("max_on_quarterhours", 16) or 16))
+    if "max_pulses_per_day" in raw:
+        result["max_pulses_per_day"] = max(1, int(raw.get("max_pulses_per_day", 4) or 4))
+    generic_window = raw.get("generic_flex_window")
+    if isinstance(generic_window, dict) and generic_window:
+        result["generic_flex_window"] = dict(generic_window)
     return result
 
 

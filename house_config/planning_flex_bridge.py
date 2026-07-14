@@ -245,11 +245,17 @@ def planning_thermal_rc_consumers(house_profile: dict) -> list[dict]:
 
 
 def collect_planning_flex_consumers(house_profile: dict) -> list[dict]:
-    """Generic MILP-flex + EV + thermal_rc (+ Filter-Bridge bei thermal_rc)."""
+    """Generic MILP-flex + EV + thermal_annual + thermal_rc (+ Filter bei thermal_rc)."""
     _fixed, flex_generic = split_planning_generic_consumers(house_profile)
-    thermal = planning_thermal_rc_consumers(house_profile)
-    filters = [planning_filter_to_milp()] if thermal else []
-    return flex_generic + planning_ev_consumers(house_profile) + thermal + filters
+    thermal_rc = planning_thermal_rc_consumers(house_profile)
+    filters = [planning_filter_to_milp()] if thermal_rc else []
+    return (
+        flex_generic
+        + planning_ev_consumers(house_profile)
+        + planning_thermal_consumers(house_profile)
+        + thermal_rc
+        + filters
+    )
 
 
 def planning_ev_daily_targets(
@@ -295,6 +301,98 @@ def _house_thermal_consumers(house_profile: dict) -> list[dict]:
     ]
 
 
+def thermal_optimizer_flex_enabled(consumer: dict) -> bool:
+    """True wenn thermal_annual über MILP statt PWM-Overlay laufen soll."""
+    if consumer.get("type") != "thermal_annual":
+        return False
+    nominal = float(consumer.get("nominal_power_kw", 0.0) or 0.0)
+    if nominal <= 0.0:
+        return False
+    if "optimizer_flex" in consumer:
+        return bool(consumer["optimizer_flex"])
+    return True
+
+
+def planning_thermal_to_milp(consumer: dict) -> dict:
+    """Hausprofil thermal_annual → MILP-binary mit HDD-Tagesziel (Thermals P1a)."""
+    from house_config.thermal_labels import CONSUMER_TYPE_LABELS
+
+    min_on = max(4, int(consumer.get("min_on_quarterhours", 4) or 4))
+    nominal = float(consumer["nominal_power_kw"])
+    entry: dict = {
+        "id": str(consumer["id"]),
+        "name": CONSUMER_TYPE_LABELS["thermal_annual"],
+        "nominal_power_kw": nominal,
+        "min_power_kw": nominal,
+        "min_on_quarterhours": min_on,
+        "max_on_quarterhours": int(consumer.get("max_on_quarterhours", 16) or 16),
+        "max_pulses_per_day": int(consumer.get("max_pulses_per_day", 4) or 4),
+        "daily_target_kwh": 0.0,
+        "daily_target_source": "thermal_annual",
+        "signal_type": "binary",
+        "log_signal_type": "binary",
+        "optimizer_enabled": True,
+        "path_log": "",
+        "loxone_outputs": {},
+        "loxone_inputs": {},
+    }
+    window = consumer.get("thermal_flex_window")
+    if isinstance(window, dict) and window:
+        entry["thermal_flex_window"] = dict(window)
+    legacy_id = normalize_legacy_id(consumer, str(consumer["id"]))
+    if legacy_id:
+        entry["legacy_id"] = legacy_id
+    return entry
+
+
+def planning_thermal_consumers(house_profile: dict) -> list[dict]:
+    return [
+        planning_thermal_to_milp(consumer)
+        for consumer in _house_thermal_consumers(house_profile)
+        if thermal_optimizer_flex_enabled(consumer)
+    ]
+
+
+def planning_thermal_daily_targets(
+    flex_consumers: list[dict],
+    house_profile: dict,
+    slot_datetimes: list[datetime],
+    *,
+    climate: ModeledClimateContext | None = None,
+) -> dict[str, float]:
+    """Horizont-Summe (kWh) für thermal_annual-Flex im Fenster."""
+    from optimizer.thermal_flex_context import thermal_daily_kwh_for_date
+
+    by_id = {
+        str(consumer["id"]): consumer
+        for consumer in _house_thermal_consumers(house_profile)
+    }
+    targets: dict[str, float] = {}
+    dates = {slot_dt.date() for slot_dt in slot_datetimes}
+    for milp_consumer in flex_consumers:
+        if milp_consumer.get("daily_target_source") != "thermal_annual":
+            continue
+        source = by_id.get(milp_consumer["id"])
+        if not source:
+            continue
+        total = sum(
+            thermal_daily_kwh_for_date(source, house_profile, day, climate=climate)
+            for day in dates
+        )
+        targets[milp_consumer["id"]] = round(total, 3)
+    return targets
+
+
+def milp_flex_thermal_annual_ids(flex_consumers: list[dict] | None) -> set[str]:
+    if not flex_consumers:
+        return set()
+    return {
+        str(consumer["id"])
+        for consumer in flex_consumers
+        if consumer.get("daily_target_source") == "thermal_annual"
+    }
+
+
 def _house_profile_consumer_ids(house_profile: dict) -> set[str]:
     return {
         str(consumer.get("id") or "")
@@ -327,6 +425,7 @@ def thermal_hourly_overlay(
     slot_datetimes: list[datetime],
     *,
     skip_consumer_ids: set[str] | None = None,
+    milp_flex_thermal_ids: set[str] | None = None,
     climate: ModeledClimateContext | None = None,
 ) -> list[float]:
     """Summiert kW thermischer Verbraucher (on/off bei nominal_power_kw) je Slot."""
@@ -336,10 +435,12 @@ def thermal_hourly_overlay(
     from data.consumption_profiles import modeled_consumer_kw_at_datetime
 
     skip = skip_consumer_ids or set()
+    milp_skip = milp_flex_thermal_ids or set()
     active = [
         consumer
         for consumer in thermal
         if str(consumer.get("id") or "") not in skip
+        and str(consumer.get("id") or "") not in milp_skip
     ]
     if not active:
         return [0.0] * len(slot_datetimes)
@@ -359,6 +460,7 @@ def house_profile_baseload_overlay(
     *,
     historical_totals: dict[str, float] | None = None,
     cons_data_consumer_ids: set[str] | None = None,
+    milp_flex_thermal_ids: set[str] | None = None,
     climate: ModeledClimateContext | None = None,
 ) -> list[float]:
     """Fixe generic- und thermische Verbraucher aus Hausprofil je Slot."""
@@ -372,6 +474,7 @@ def house_profile_baseload_overlay(
         house_profile,
         slot_datetimes,
         skip_consumer_ids=skip_ids,
+        milp_flex_thermal_ids=milp_flex_thermal_ids,
         climate=climate,
     )
     return [round(g + t, 6) for g, t in zip(generic, thermal)]
@@ -494,6 +597,7 @@ def resolve_profile_spec_flex_targets(
     *,
     historical_totals: dict[str, float] | None = None,
     window_end: datetime | None = None,
+    climate: ModeledClimateContext | None = None,
 ) -> dict[str, float]:
     """
     Flex-Zielenergie für profile_spec: Hausprofil-Generic + cons_data für reine Config-Verbraucher.
@@ -513,6 +617,14 @@ def resolve_profile_spec_flex_targets(
             house_profile,
             slot_datetimes,
             window_end=window_end,
+        )
+    )
+    targets.update(
+        planning_thermal_daily_targets(
+            flex_consumers,
+            house_profile,
+            slot_datetimes,
+            climate=climate,
         )
     )
     cons_totals = historical_totals or {}

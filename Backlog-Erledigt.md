@@ -3,6 +3,44 @@
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 
+### NAS migration plan — manual validation (2026-07-14)
+
+Plan [`docs/spec/nas-consumer-migration-1.95-1.99.md`](docs/spec/nas-consumer-migration-1.95-1.99.md) — execution block *Validation* (greenfield / Scenario Exploration).
+
+- [x] **Dynamic tariff** — heating shifts vs PWM reference (`haus` thermal, `optimizer_flex=false`; optional retest with `optimizer_flex=true`)
+- [x] **Full-year SE `live`** — 2026-05-14 EV deadline / MILP Infeasible resolved (→ § Bugfix EV Modus B preset deadline); optional full SE re-run to confirm `failed_count: 0`
+- [x] **Fixed tariff** — Δ€ ≈ 0 vs reference across backtesting scenarios (`fixed_25ct` / `fixed_37ct` in `greenfield/config/backtesting_scenarios.json`)
+
+
+### Bugfix EV Modus B preset deadline (2026-07-14)
+
+Full-year Scenario Exploration (`live`, greenfield): sole MILP failure on **2026-05-14** — `Infeasible` at 06:00, **−5.84 kWh** EV gap (other flex on target).
+
+- [x] **Root cause** — after MILP partial delivery (11 kWh at 18:00), Modus B preset charged only when `t=0` was the cheapest eligible hour; 5.84 kWh tail never delivered overnight → last-hour MILP infeasible
+- [x] **Fix** — `ev_preset_power_now` also charges under deadline pressure (`must_start`) or when remaining eligible slots ≤ delivery slots needed (`optimizer/eauto_milp.py`)
+- [x] **diag_single_window** — `--anchor` price load uses anchor calendar year (was hardcoded 2025 → false negatives for 2026 windows)
+- [x] **Test + repro** — `test_preset_charges_when_deadline_slots_exhausted`; `scripts/repro_may14_ev.py` (chained SOC replay → `plausibility_ok=True`, EV 16.84 kWh)
+
+
+### Dev — Windows Unicode console (2026-07-14)
+
+- [x] **Agent skill** — `.cursor/skills/windows-unicode-console/SKILL.md` (`PYTHONIOENCODING` / `PYTHONUTF8` before shell Python on Windows)
+- [x] **pytest** — `tests/conftest.py` reconfigures stdout/stderr to UTF-8 at import (→, subscripts, umlauts)
+
+
+### 1.96 — migration validation minor changes (2026-07-14)
+
+Plan [`docs/spec/nas-consumer-migration-1.95-1.99.md`](docs/spec/nas-consumer-migration-1.95-1.99.md) — UX and tooling around silent stack and Szenarien-Explorer.
+
+- [x] **migrate_flex_consumers** — integrated in `setup_silent_migration_test`; `thermal_annual` ordered first; local silent stack migrated + `startup_checks` OK
+- [x] **Chart 1 Haus Wärme** — `wp_heating` MILP display name via `planning_thermal_to_milp` → „Haus Wärme“
+- [x] **Detaillierte Simulationsansicht** — charts/diagnose only after radio „Charts & Diagnose laden“ (`ui/backtesting_deviation_list.py`)
+- [x] **Deviation calendar** — auto-open month with most deviation days (`month_with_most_deviation_days`)
+- [x] **Verbrauchsdaten staleness** — Hauskonfigurator save invalidates meta; `house_profile_fingerprint` in `.meta.json` (`data/cons_data_store.py`, `ui/house_config_io.py`)
+- [x] **Backtesting test month** — `suggest_test_month()` prefers March when data overlaps
+- [x] **Parallel backtesting progress** — progress file + hourly updates from parallel workers (`scripts/run_backtesting.py`, `ui/backtesting.py`)
+
+
 ### Silent migration test — local abnahme (2026-07-14)
 
 Backlog path **1.93 P6a** / plan **1.99** prerequisite — prod NAS already on **2.0** entity model (`live_scenario_id`, `components.json` sidecar). Docs: [`docs/einrichtung/silent-migration-test.md`](docs/einrichtung/silent-migration-test.md), [`docs/spec/nas-consumer-migration-1.95-1.99.md`](docs/spec/nas-consumer-migration-1.95-1.99.md).

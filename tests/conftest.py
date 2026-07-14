@@ -2,12 +2,24 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 import pytest
 from dotenv import load_dotenv
 
 from tests.fixtures.historical_fixtures import CONS_DATA_FILE, fixture_available
+
+
+def _configure_console_utf8() -> None:
+    """Windows cp1252 stdout cannot encode repo Unicode (→, ₀, umlauts)."""
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+
+_configure_console_utf8()
 
 ROOT = Path(__file__).resolve().parents[1]
 DOTENV_PATHS = (ROOT / "config" / ".env", ROOT / ".env")

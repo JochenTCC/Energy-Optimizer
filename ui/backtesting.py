@@ -197,8 +197,7 @@ def _execute_backtesting_run(
     scenarios, _ = try_get_backtesting_scenarios()
     scenario_count = len(scenarios or {})
     workers = auto_backtesting_workers(scenario_count)
-    use_hourly_progress = workers == 1
-    progress_file = default_progress_file_path() if use_hourly_progress else None
+    progress_file = default_progress_file_path()
 
     with st.status(status_label, expanded=True) as status:
         progress_bar = st.progress(0.0)
@@ -206,7 +205,7 @@ def _execute_backtesting_run(
         if workers > 1:
             progress_caption.caption(
                 f"Parallele Berechnung: {workers} Worker für {scenario_count} Szenarien "
-                "(Stundenfortschritt nur bei einem Szenario verfügbar)."
+                "(Fortschritt zeigt das aktuell laufende Szenario)."
             )
 
         def _on_progress(progress: dict) -> None:
@@ -229,7 +228,7 @@ def _execute_backtesting_run(
             progress_file=progress_file,
             horizon_mode=horizon_mode,
             workers=workers,
-            on_progress=_on_progress if use_hourly_progress else None,
+            on_progress=_on_progress,
         )
         if exit_code == 0:
             progress_bar.progress(1.0)

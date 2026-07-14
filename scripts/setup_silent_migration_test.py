@@ -109,6 +109,44 @@ def _copy_runtime_files(nas_runtime: Path, runtime_out: Path, notes: list[str]) 
         )
 
 
+_LEGACY_FLEX_IDS = frozenset({"eauto", "swimspa", "swimspa_filter", "waermepumpe"})
+
+
+def _apply_flex_consumer_migration(
+    config_dir: Path,
+    *,
+    profile_id: str,
+) -> list[dict]:
+    """1.95c: legacy flexible_consumers[] → house_profiles.json (idempotent)."""
+    from scripts.migrate_flex_consumers import migrate_prod_consumers
+
+    config_path = config_dir / "config.json"
+    profiles_path = config_dir / "house_profiles.json"
+    config = _read_json(config_path)
+    flex_ids = {
+        str(entry.get("id", ""))
+        for entry in config.get("flexible_consumers", [])
+        if isinstance(entry, dict)
+    }
+    if not flex_ids & _LEGACY_FLEX_IDS:
+        return []
+    profiles_doc = _read_json(profiles_path)
+    config_out, profiles_out, status = migrate_prod_consumers(
+        config,
+        profiles_doc,
+        profile_id=profile_id,
+    )
+    config_path.write_text(
+        json.dumps(config_out, indent=4, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    profiles_path.write_text(
+        json.dumps(profiles_out, indent=4, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    return status
+
+
 def _write_review(
     config_out: Path,
     output_dir: Path,
@@ -374,6 +412,14 @@ def setup_silent_migration_test(
         shutil.copy2(deviation_src, config_out / "deviation_rules.json")
 
     _copy_schemas(config_out)
+
+    profile_id = str(live_settings.get("house_profile_id") or "example_efh").strip() or "example_efh"
+    flex_status = _apply_flex_consumer_migration(config_out, profile_id=profile_id)
+    if flex_status:
+        p6_notes.append(
+            f"migrate_flex_consumers: {len(flex_status)} Verbraucher-Zeilen "
+            f"nach Profil '{profile_id}' migriert."
+        )
 
     copy_notes: list[str] = list(tariff_notes)
     _copy_dotenv(config_dir, config_out, copy_notes)

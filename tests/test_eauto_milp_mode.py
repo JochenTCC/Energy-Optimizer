@@ -206,6 +206,38 @@ class TestEautoBacktestingPreset:
             matrix, consumer, 1.0, schedule[3:], None, params
         ) == 0.0
 
+    def test_preset_charges_when_deadline_slots_exhausted(self):
+        """Tail after partial MILP: preset must deliver when only one slot remains."""
+        from datetime import datetime
+
+        consumer = _ev_consumer_canonical()
+        consumer["nominal_power_kw"] = 11.0
+        deadline = datetime(2026, 5, 14, 7, 0)
+        matrix = [
+            {
+                "slot_datetime": datetime(2026, 5, 14, 6, 0),
+                "hour": 6,
+                "expected_p_pv": 0.0,
+                "expected_p_act": 0.5,
+                "k_act": 20.0,
+                "consumption_mode": "logged_day",
+            }
+        ]
+        params = _eauto_milp_params()
+        ctx = {
+            "active": True,
+            "deadline": deadline,
+            "use_time_window": True,
+            "config_day_schedule": {
+                "car_available_from_hour": 18,
+                "ready_by_hour": 7,
+            },
+        }
+        power = eauto_preset_power_now(
+            matrix, consumer, 5.842, [0], ctx, params
+        )
+        assert power == pytest.approx(5.842, abs=0.01)
+
     def test_logged_day_small_target_uses_preset_not_milp(self):
         _, _, _, powers, _, _, _ = milp_optimizer(
             _matrix(6, logged_day=True),

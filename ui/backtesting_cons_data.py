@@ -9,11 +9,15 @@ from ui.backtesting_results_helpers import cons_data_has_flex_energy
 from ui.backtesting_time_ranges import cons_data_section_caption, render_time_range_help
 from ui.consumption_display import ConsumptionDisplayMode, render_consumption_display
 
-_MATCH_OK = "Passt zur aktuellen Konfiguration (Verbraucher-IDs)."
+_MATCH_OK = "Passt zur aktuellen Konfiguration (Verbraucher-IDs und Hausprofil)."
 _MATCH_MISSING_META = "Prüfung nicht möglich (keine Meta-Datei)."
 _MATCH_ID_MISMATCH = (
     "Verbraucher-IDs in den gespeicherten Daten weichen von der aktuellen "
     "Konfiguration ab — bitte neu generieren."
+)
+_MATCH_PROFILE_MISMATCH = (
+    "Hausprofil-Parameter wurden seit der letzten Generierung geändert — "
+    "bitte Verbrauchsdaten neu generieren."
 )
 
 
@@ -26,6 +30,8 @@ def _format_match_status(reason: str | None) -> tuple[str, str]:
         return "success", _MATCH_OK
     if reason == "missing_meta":
         return "warning", _MATCH_MISSING_META
+    if reason == "profile_mismatch":
+        return "warning", _MATCH_PROFILE_MISMATCH
     return "warning", _MATCH_ID_MISMATCH
 
 

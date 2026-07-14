@@ -146,6 +146,32 @@ def test_expected_ids_match_house_profile_synthesis(tmp_path, monkeypatch):
     assert cons_data_store.cons_data_consumer_match_reason(str(path)) is None
 
 
+def test_cons_data_consumer_match_reason_profile_mismatch(tmp_path, monkeypatch):
+    path = tmp_path / "cons_data_hourly.csv"
+    profile = {
+        "id": "efh",
+        "annual_kwh": 11000.0,
+        "consumers": [{"id": "ev", "type": "ev", "nominal_power_kw": 3.5}],
+    }
+    _patch_config_flex_ids(monkeypatch, ["ev"])
+    monkeypatch.setattr(
+        "data.cons_data_house_profile.resolve_runtime_house_profile",
+        lambda: profile,
+    )
+    cons_data_store.save_cons_data(_sample_df(), str(path), apply_retention=False)
+    profile["annual_kwh"] = 12000.0
+    assert cons_data_store.cons_data_consumer_match_reason(str(path)) == "profile_mismatch"
+
+
+def test_invalidate_cons_data_meta(tmp_path, monkeypatch):
+    path = tmp_path / "cons_data_hourly.csv"
+    _patch_config_flex_ids(monkeypatch, [])
+    cons_data_store.save_cons_data(_sample_df(), str(path), apply_retention=False)
+    assert cons_data_store.load_cons_data_meta(str(path)) is not None
+    assert cons_data_store.invalidate_cons_data_meta(str(path)) is True
+    assert cons_data_store.cons_data_consumer_match_reason(str(path)) == "missing_meta"
+
+
 def test_cons_dataframe_to_series():
     series = cons_dataframe_to_series(_sample_df())
     assert len(series) == 3

@@ -127,6 +127,24 @@
                     "minimum": -180,
                     "maximum": 180,
                     "description": "Ausrichtung Solar-Kollektor: 0° Süd, -90° Ost, 90° West."
+                },
+                "optimizer_flex": {
+                    "type": "boolean",
+                    "description": "True: MILP-Pulse statt PWM-Overlay (Standard bei nominal_power_kw > 0)."
+                },
+                "thermal_flex_window": {
+                    "type": "object",
+                    "description": "Optionales Tagesfenster für MILP-Pulse (start_hour, duration_h, start_shift_h)."
+                },
+                "max_on_quarterhours": {
+                    "type": "integer",
+                    "minimum": 4,
+                    "description": "Max. Einschaltdauer pro Block in Viertelstunden (Standard 16 = 4 h)."
+                },
+                "max_pulses_per_day": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Max. Einschalt-Blöcke pro Kalendertag (Standard 4)."
                 }
             }
         },

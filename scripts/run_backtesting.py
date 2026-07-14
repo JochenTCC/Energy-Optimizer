@@ -246,6 +246,8 @@ def _run_scenario_worker(
     price_strategy: str,
     feature_dataset_path: str | None,
     forecast_model_path: str | None,
+    progress_file: str | None = None,
+    progress_label: str | None = None,
 ) -> tuple[str, pd.DataFrame, object, list[dict], list[dict]]:
     """Top-Level-Worker für ProcessPoolExecutor (Windows spawn)."""
     from pathlib import Path
@@ -262,6 +264,10 @@ def _run_scenario_worker(
         forecast_model_path=Path(forecast_model_path) if forecast_model_path else None,
     )
     snapshots: list[dict] = []
+    display = progress_label or name
+    on_progress = (
+        _make_progress_printer(display, progress_file) if progress_file else None
+    )
     df_result, plausibility, cbc_events = run_simulation(
         start,
         end,
@@ -272,6 +278,7 @@ def _run_scenario_worker(
         horizon_mode=horizon_mode,
         price_resources=price_resources,
         snapshot_collector=snapshots,
+        on_progress=on_progress,
     )
     return name, df_result, plausibility, cbc_events, snapshots
 
@@ -287,6 +294,7 @@ def _run_scenarios_parallel(
     price_strategy: str,
     feature_dataset_path: str | None,
     forecast_model_path: str | None,
+    progress_file: str | None = None,
 ) -> tuple[dict[str, pd.DataFrame], dict[str, object], dict[str, list[dict]], list[dict]]:
     sim_results: dict[str, pd.DataFrame] = {}
     plausibility_by_scenario: dict[str, object] = {}
@@ -309,6 +317,8 @@ def _run_scenarios_parallel(
                 price_strategy,
                 feature_dataset_path,
                 forecast_model_path,
+                progress_file,
+                labels.get(name, name),
             ): name
             for name, params in scenarios.items()
         }
@@ -738,6 +748,7 @@ def main(argv: list[str] | None = None):
             price_strategy,
             feature_dataset_str,
             forecast_model_str,
+            progress_file=progress_file,
         )
         )
         sim_results.update(parallel_results)

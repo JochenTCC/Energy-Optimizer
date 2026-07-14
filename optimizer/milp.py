@@ -14,6 +14,11 @@ from .eauto_milp import (
     validate_eauto_milp_params,
 )
 from .filter_context import resolve_filter_contexts
+from .thermal_flex_context import (
+    add_thermal_flex_constraints,
+    is_thermal_flex_consumer,
+    resolve_thermal_flex_contexts,
+)
 from .milp_consumers import (
     _add_consumer_delivery_constraints,
     _collect_urgent_rule_observability,
@@ -78,6 +83,32 @@ def _remaining_kwh_by_consumer(
     return remaining
 
 
+def _resolve_thermal_flex_contexts(
+    matrix: list[dict[str, Any]],
+    consumers: list,
+    thermal_flex_contexts: dict[str, dict] | None,
+) -> dict[str, dict]:
+    if thermal_flex_contexts is not None:
+        return thermal_flex_contexts
+    if not any(is_thermal_flex_consumer(consumer) for consumer in consumers):
+        return {}
+    settings = config.get_resolved_runtime_settings()
+    profile = settings.get("_house_profile")
+    if not profile:
+        return {}
+    climate = None
+    if matrix and matrix[0].get("consumption_mode") == "profile_spec":
+        from data.modeled_climate import ModeledClimateContext
+
+        climate = ModeledClimateContext.from_scenario(settings)
+    return resolve_thermal_flex_contexts(
+        matrix,
+        consumers,
+        profile,
+        climate=climate,
+    )
+
+
 def milp_optimizer(
     matrix: list[dict[str, Any]],
     current_hour: int,
@@ -95,6 +126,7 @@ def milp_optimizer(
     terminal_soc_percent: float | None = None,
     sunrise_soc_min_index: int | None = None,
     consumer_continue_on: dict[str, bool] | None = None,
+    thermal_flex_contexts: dict[str, dict] | None = None,
 ) -> tuple[int, float, float, dict[str, float], dict[str, int], dict[str, float], dict[str, dict]]:
     """
     Berechnet den optimalen Betriebsmodus und die Ziel-Leistung für den Loxone Miniserver.
@@ -180,6 +212,18 @@ def milp_optimizer(
         contexts,
         consumer_continue_on,
         filter_contexts=filters,
+    )
+    thermal_contexts = _resolve_thermal_flex_contexts(
+        matrix[:horizon],
+        active,
+        thermal_flex_contexts,
+    )
+    add_thermal_flex_constraints(
+        model,
+        matrix[:horizon],
+        schedule_indices,
+        thermal_contexts,
+        consumer_continue_on=consumer_continue_on,
     )
     if sunrise_soc_min_index is not None:
         e_min = (battery_params["min_soc"] / 100.0) * battery_params["battery_capacity_kwh"]
