@@ -68,9 +68,9 @@ Details: [Betrieb](docs/einrichtung/betrieb.md)
 - [Docker](https://www.docker.com/) auf [Synology](https://www.synology.com/) / [LoxBerry](https://www.loxberry.com/) oder PC (weitere Systeme folgen bei Bedarf)
 - Persistente Laufzeitdaten für Nachvollziehbarkeit und Debug-Dumps
 
-Earnie Monitor — Sunset-2-Sunset
+![Earnie Monitor](docs/earnie-monitoring.png)
 
-*Monitor-Cockpit: Kompletter Optimierungs-Horizont mit Energiefluss, SOC und Verbraucherverhalten.*
+*Earnie Monitor: Kompletter Optimierungs-Horizont mit Energiefluss, SOC und Verbraucherverhalten.*
 
 ## Typischer Ablauf
 
