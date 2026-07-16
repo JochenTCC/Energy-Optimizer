@@ -69,7 +69,7 @@ git push origin vX.Y.Z
 - Tag must match `version.py` exactly (`v2.0.0` ↔ `__version__ = "2.0.0"`); mismatch fails the workflow.
 - Optional notes: `.github/release-notes/vX.Y.Z.md` (else a short default body).
 - Images: `ghcr.io/jochentcc/earnie-energy:X.Y.Z` and `:latest` (+ legacy `ernie-energy` aliases).
-- **GHCR visibility (one-time):** after the first Actions push, in GitHub → Packages → `earnie-energy` / `ernie-energy` → link to this repo and set **Public** if anonymous `docker pull` is required.
+- **GHCR auth for Actions:** store a classic PAT with `write:packages` (and `read:packages`) as repo secret `GHCR_TOKEN`. Without it, `GITHUB_TOKEN` only works if each package (`earnie-energy`, `ernie-energy`) grants this repository **Write** under Package settings → Manage Actions access. Also set packages **Public** if anonymous `docker pull` is required.
 
 **Fallback** (CI down / emergency): local multi-arch push:
 
