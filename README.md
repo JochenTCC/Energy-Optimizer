@@ -11,7 +11,7 @@ GitHub-Repository: [JochenTCC/Earnie](https://github.com/JochenTCC/Earnie).
 **Earnie** richtet sich an Hausbesitzer, die Kosten beim Stromverbrauch minimieren möchten, insbesondere bei [SPOT-Tarifen](https://www.epexspot.com/). Er optimiert in einem variablen Zeitfenster (von max. 48h) die Verbräuche und Erträge so, dass die Kosten minimal sind. Das funktioniert am besten bei Häusern mit einer PV-Anlage, Batteriespeicher und Verbrauchern, die per Smart-Home gesteuert werden können (also smarter Wechselrichter, smarte Wallbox für das E-Auto, smarte Wärmepumpe und andere Geräte). Bisher kommuniziert **Earnie** mit diesen Systemen über eine [Loxone](https://www.loxone.com/dede/)-Haus-Automation — das kann aber auch um beliebige andere Systeme erweitert werden. Für andere Geräte, die noch nicht smart sind, kann **Earnie** Empfehlungen für den besten Start-Zeitpunkt geben.
 Der große Hebel für Einsparungen ist das geschickte Timing all dieser Verbraucher und der intelligente Einsatz des Batteriespeichers als Puffer.
 
-![Was-Wäre-Wenn-Analyse](docs\assets\Monatliche-Stromkosten.png)
+![Was-Wäre-Wenn-Analyse](docs/assets/Monatliche-Stromkosten.png)
 *Was-Wäre-Wenn-Analyse: Vorab schon sehen, was eine andere Konfiguration sparen könnte*
 
 
@@ -72,7 +72,7 @@ Details: [Betrieb](docs/einrichtung/betrieb.md)
 - [Docker](https://www.docker.com/) auf [Synology](https://www.synology.com/) / [LoxBerry](https://www.loxberry.com/) / [Proxmox](https://www.proxmox.com/) LXC oder PC (weitere Systeme folgen bei Bedarf)
 - Persistente Laufzeitdaten für Nachvollziehbarkeit und Debug-Dumps
 
-![Earnie Monitor](docs\assets\Live-Monitoring-Chart1-2.png)
+![Earnie Monitor](docs/assets/Live-Monitoring-Chart1-2.png)
 *Earnie Monitor: Kompletter Optimierungs-Horizont mit Energiefluss, SOC und Verbraucherverhalten.*
 
 ## Typischer Ablauf
