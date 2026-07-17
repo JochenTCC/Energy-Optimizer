@@ -42,8 +42,6 @@ Backtesting display bundles carry `flex_consumers` into Chart 1 via `chart_flex_
 
 If a `{name} (kW)` column has energy but is missing from the registry, Chart 1 falls back to discovering it from the dataframe (legacy snapshots / partial migration).
 
-NAS consumer migration checklist: [`docs/spec/nas-consumer-migration-1.95-1.99.md`](nas-consumer-migration-1.95-1.99.md) (Phases 1.95–1.99).
-
 ### EV bridge vs prod `flexible_consumers`
 
 Bridged EV entries mirror prod shape (`signal_type: power`, `daily_target_source: config`, `charging_schedule.enabled: true`) but omit Loxone I/O. Capacity is read from `battery_capacity_kwh` on the consumer or `charging_schedule.battery_capacity_kwh` via `resolve_consumer_battery_capacity_kwh()` before falling back to Loxone.

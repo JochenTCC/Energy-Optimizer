@@ -28,7 +28,7 @@ Output: `.pytest_cache/test-metrics/health-report.md`
 
 Triage flags: never failed, not **protected**, plus heuristics (mock-heavy, low related coverage, legacy symbols, always skipped).
 
-**Protected** (never auto-flagged): `test_prod_dump_regression.py`, `test_historical_24h_consistency.py`, `test_deviation_scenario_catalog.py`, `test_deviation_eval.py`.
+**Protected** (never auto-flagged): `test_prod_dump_regression.py`, `test_historical_24h_consistency.py`, `test_deviation_scenario_catalog.py`, `test_deviation_eval.py`, `test_loxone_integration.py` (live Miniserver; skipped without credentials).
 
 ## Weekly / before release
 
@@ -38,6 +38,17 @@ Triage flags: never failed, not **protected**, plus heuristics (mock-heavy, low 
 ```
 
 Coverage scope: `optimizer`, `data`, `house_config`, `simulation`, `settings`, `runtime_store` (see `pyproject.toml`).
+
+## Dead code / orphaned fixtures (supplement)
+
+Requires `pip install -e ".[dev]"` (`vulture`, `pytest-deadfixtures`). Manual review only — never auto-delete.
+
+```powershell
+.venv\Scripts\python.exe -m vulture optimizer data house_config simulation settings runtime_store scripts --min-confidence 80
+.venv\Scripts\python.exe -m pytest --dead-fixtures
+```
+
+`LEGACY_TEST_SYMBOLS` in `scripts/test_health_report.py` targets migration / pre-1.26 leftovers (not still-valid `legacy_id` / `subtract_consumer_ids` bridges).
 
 ## Mutation testing (optional, weekly)
 

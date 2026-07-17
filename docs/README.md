@@ -35,7 +35,6 @@ Parameter-Beschreibungen erscheinen in Cursor/VS Code als Hover-Hilfe, wenn in `
 - [Container](einrichtung/container.md) — Docker/Synology/LoxBerry, Multi-Arch, Bootstrap, Migration, Config-Drift
 - [Proxmox LXC](einrichtung/proxmox-lxc.md) — Unprivileged LXC mit Docker Compose (Port 8501)
 - [Greenfield Dev-Stack](einrichtung/greenfield-dev-stack.md) — lokale Ersteinrichtung (Port 8502) für Hauskonfigurator/Backtesting
-- [Silent Migration Test](einrichtung/silent-migration-test.md) — lokaler Migrations-Test vor NAS-Cutover (Port 8512)
 
 ### Konfiguration (`config/config.json`)
 
@@ -52,7 +51,7 @@ Parameter-Beschreibungen erscheinen in Cursor/VS Code als Hover-Hilfe, wenn in `
 
 ### Referenz
 
-- [Streamlit-Ports](referenz/streamlit-ports.md) — Port pro Stack/Plattform (8501 Prod, 8502 Greenfield, 8503 lokal gegen NAS, 8512 Silent Migration)
+- [Streamlit-Ports](referenz/streamlit-ports.md) — Port pro Stack/Plattform (8501 Prod, 8502 Greenfield, 8503 lokal gegen NAS)
 - [Loxone-Signale](referenz/loxone-signale.md) — Tabelle aller Lesen-/Schreib-Signale
 
 ### Entwickler-Specs (Englisch/technisch)

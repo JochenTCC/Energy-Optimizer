@@ -3,6 +3,20 @@
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 
+### Bugfix Greenfield Loxone SoC 404 (2026-07-17)
+
+- [x] **Greenfield live abort: `Battery_SOC` 404** — after Live-Konfiguration, worker called real Miniserver with placeholder `loxone_blocks` from `config.minimal.json` (`Battery_SOC` → HTTP 404, „Kein Zugriff auf Loxone SoC“); aligned `greenfield/config/config.json` `loxone_blocks` to Earnie/Miniserver names (e.g. `B004-Battery_SOC`); verified local greenfield silent run
+
+
+### Version 2.2 — Quality epic / post-migration cleanup (2026-07-17)
+
+- [x] **Coverage + legacy/obsolete audit tooling** — `vulture` / `pytest-deadfixtures` in `pyproject.toml` `[dev]`; refined `LEGACY_TEST_SYMBOLS`; per-package coverage aggregation in `scripts/test_health_report.py`; baseline ~79.5% overall (`optimizer`/`data`/`house_config`/`simulation`/`settings`/`runtime_store`); workflow in `.cursor/rules/test-health.mdc`
+- [x] **Remove V1→2.0 migration toolchain** — deleted `migrate_runtime_entities`, `migrate_flex_consumers`, `migrate_components_sidecar`, silent-migration setup/deploy, `patch_swimspa_filter_config`, `resolve_legacy_runtime_settings`, related tests/docs/launch configs/`migrated/`; kept live `legacy_id` bridges + dump/history readers
+- [x] **Hard-reject soft pre-1.26 / root fallbacks** — root `eauto_milp` / `appliances[]` fail on load (`settings/legacy_config_gates.py`); MILP only from `charging_schedule.milp`; removed `get_swimspa_settings` / `get_eauto_milp_params` / `PATH_*` aliases; schema + fixtures updated
+- [x] **Legacy test / fixture audit** — removed dead `fixture_prices_df`; protected `test_loxone_integration.py`; health report skips missing test files; mock-heavy unit tests kept (manual triage)
+- [x] **KPI refactor (bounded)** — split `_load_static_params`; removed unused `spa_cfg`; gates extracted; full `config.py` file split deferred → [Backlog.md](Backlog.md) § Version 2.2 follow-ups
+
+
 ### Synology UI Streamlit bind (2026-07-17)
 
 - [x] **Synology compose UI listen address** — `optimizer-ui` now passes `--server.port 8501` and `--server.address 0.0.0.0` so Streamlit is reachable on the published host port (`docker/compose/synology.yml`)

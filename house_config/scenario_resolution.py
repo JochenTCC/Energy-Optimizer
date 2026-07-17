@@ -188,34 +188,3 @@ def resolve_live_scenario_settings(
         house_profiles_path=house_profiles_path,
         monthly_rates_holder=monthly_rates_holder,
     )
-
-
-def resolve_legacy_runtime_settings(
-    raw_config: dict,
-    *,
-    components_path: str | None = None,
-    components: dict | None = None,
-    tariffs_path: str,
-    house_profiles_path: str,
-    monthly_rates_holder: dict | None = None,
-) -> dict:
-    """
-    Legacy-Auflösung aus config.json runtime_settings (nur Migration 1.26.0 P5).
-    """
-    runtime = raw_config.get("runtime_settings", {})
-    if not isinstance(runtime, dict):
-        raise ValueError("runtime_settings muss ein Objekt sein.")
-    settings = dict(runtime)
-    prepared = _prepare_live_scenario_settings(
-        settings,
-        house_profiles_path=house_profiles_path,
-    )
-    return resolve_scenario_settings(
-        prepared,
-        raw_config=raw_config,
-        components_path=components_path,
-        components=components,
-        tariffs_path=tariffs_path,
-        house_profiles_path=house_profiles_path,
-        monthly_rates_holder=monthly_rates_holder,
-    )

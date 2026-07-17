@@ -69,29 +69,21 @@ def is_ev_milp_consumer(consumer: dict) -> bool:
     return bool(sched and sched.get("enabled"))
 
 
-def milp_params_from_consumer(
-    consumer: dict,
-    root_fallback: dict | None = None,
-) -> dict[str, float] | None:
-    """MILP-Parameter aus charging_schedule.milp oder root eauto_milp (Legacy)."""
+def milp_params_from_consumer(consumer: dict) -> dict[str, float] | None:
+    """MILP-Parameter aus charging_schedule.milp (Pflicht für EV power_setpoint)."""
     if not is_ev_milp_consumer(consumer):
         return None
     sched = consumer.get("charging_schedule") or {}
     milp_raw = sched.get("milp")
     if isinstance(milp_raw, dict) and milp_raw:
         return validate_eauto_milp_params(milp_raw)
-    if root_fallback:
-        return validate_eauto_milp_params(root_fallback)
     return None
 
 
-def build_ev_milp_params_by_id(
-    consumers: list,
-    root_fallback: dict[str, float] | None,
-) -> dict[str, dict[str, float]]:
+def build_ev_milp_params_by_id(consumers: list) -> dict[str, dict[str, float]]:
     result: dict[str, dict[str, float]] = {}
     for consumer in consumers:
-        params = milp_params_from_consumer(consumer, root_fallback)
+        params = milp_params_from_consumer(consumer)
         if params is not None:
             result[str(consumer["id"])] = params
     return result
@@ -299,14 +291,13 @@ def split_eauto_preset(
     remaining: dict[str, float],
     schedule_indices: list[int],
     charging_contexts: dict[str, dict],
-    root_milp_fallback: dict[str, float] | None,
 ) -> tuple[dict[str, float], list]:
     """Trennt Preset-EV (außerhalb MILP) von MILP-Verbrauchern."""
     preset_now: dict[str, float] = {}
     milp_consumers: list = []
     for consumer in planned_consumers:
         cid = consumer["id"]
-        params = milp_params_from_consumer(consumer, root_milp_fallback)
+        params = milp_params_from_consumer(consumer)
         preset = ev_preset_power_now(
             matrix,
             consumer,

@@ -13,10 +13,6 @@
       "$ref": "#/definitions/market_prices",
       "description": "Fehlende Day-Ahead-Slots: Spiegelung oder OLS-Prognose (Phase 3)."
     },
-        "eauto_milp": {
-            "$ref": "#/definitions/eauto_milp",
-            "description": "E-Auto MILP: Live-Schwelle Modus A/B und Tie-Break-Koeffizienten (Pflicht)."
-        },
         "system": {
       "$ref": "#/definitions/system",
       "description": "HTTP-Timeouts und Intervall der Optimierungs-Schleife (main.py)."
@@ -42,13 +38,6 @@
       "description": "Steuerbare Verbraucher für die MILP-Optimierung.",
       "items": {
         "$ref": "#/definitions/flexible_consumer"
-      }
-    },
-    "appliances": {
-      "type": "array",
-      "description": "Manuelle Geräte für den Empfehlungsmodus (rein beratend, kein MILP): günstigste Startzeit im 6-h-Horizont.",
-      "items": {
-        "$ref": "#/definitions/appliance"
       }
     },
     "appliance_recommendation": {

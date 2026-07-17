@@ -48,7 +48,7 @@ Use `working_directory` for the project root; do **not** use `&&` (PowerShell 5.
 
 ## New CLI scripts and `main()` entry points
 
-At the top of `main()` (or before first `print`/`logging` to console), reuse the project pattern from `scripts/setup_silent_migration_test.py`:
+At the top of `main()` (or before first `print`/`logging` to console), reuse the project pattern from `scripts/replay_debug_dump.py`:
 
 ```python
 import sys

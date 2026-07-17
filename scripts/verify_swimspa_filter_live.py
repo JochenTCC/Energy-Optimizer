@@ -114,8 +114,8 @@ def main() -> int:
     consumer = _find_swimspa_filter()
     if consumer is None:
         print(
-            "FEHLER: swimspa_filter fehlt in flexible_consumers. "
-            "python -m scripts.patch_swimspa_filter_config ausführen.",
+            "FEHLER: swimspa_filter fehlt in flexible_consumers "
+            "(Hausprofil / Planungspfad prüfen).",
             file=sys.stderr,
         )
         return 2

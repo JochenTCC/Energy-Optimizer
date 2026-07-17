@@ -166,8 +166,4 @@ Live-Abnahme:
 .venv\Scripts\python.exe -m scripts.verify_swimspa_filter_live
 ```
 
-Bestehende `config.json` um `swimspa_filter` ergänzen (idempotent):
-
-```powershell
-.venv\Scripts\python.exe -m scripts.patch_swimspa_filter_config
-```
+`swimspa_filter` gehört ins Hausprofil / den Planungspfad (`flexible_consumers` bzw. bridged profile), nicht mehr als One-Shot-Patch-Skript.

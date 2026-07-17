@@ -1,6 +1,6 @@
 # Loxone-Kommunikation (Debug-Seite)
 
-Die Seite **Loxone-Kommunikation** unter **Echtzeit-Umgebung** zeigt den Live-Zustand aller konfigurierten Loxone-Merker und die Schreibvorgänge des letzten Produktiv-Laufs von `main.py`. Sie dient vor allem der Abnahme beim [NAS Live-Cutover (1.99)](../einrichtung/nas-live-cutover-1.99.md).
+Die Seite **Loxone-Kommunikation** unter **Echtzeit-Umgebung** zeigt den Live-Zustand aller konfigurierten Loxone-Merker und die Schreibvorgänge des letzten Produktiv-Laufs von `main.py`.
 
 ## Aufruf
 

@@ -5,6 +5,10 @@ Typical workflow:
   .venv\\Scripts\\python.exe -m scripts.test_health_report run --coverage
   .venv\\Scripts\\python.exe -m scripts.test_health_report report
 
+  # Dead-code / orphaned-fixture supplements (pip install -e \".[dev]\"):
+  .venv\\Scripts\\python.exe -m vulture optimizer data house_config simulation settings runtime_store scripts --min-confidence 80
+  .venv\\Scripts\\python.exe -m pytest --dead-fixtures
+
   # Pre-commit only ingests the last JUnit file (see .githooks/pre-commit).
 
   # Optional mutation spike (pip install -e \".[mutation]\"):
@@ -38,16 +42,22 @@ PROTECTED_TEST_FILES = frozenset(
         "test_historical_24h_consistency.py",
         "test_deviation_scenario_catalog.py",
         "test_deviation_eval.py",
+        "test_loxone_integration.py",
     }
 )
 
+# Migration / pre-1.26 leftovers only — not still-valid 2.0 bridges (legacy_id,
+# subtract_consumer_ids) or routine test env overrides (ENERGY_OPTIMIZER_CONFIG_PATH).
+# Manual review only; never auto-delete flagged tests.
 LEGACY_TEST_SYMBOLS = (
-    "subtract_consumer_ids",
-    "swimspa_filter",
-    "legacy_id",
+    "migrate_runtime_entities",
+    "finalize_migration_for_2_0",
+    "resolve_legacy_runtime_settings",
+    "migrate_flex_consumers",
+    "patch_swimspa_filter_config",
+    "setup_silent_migration",
+    "deploy_silent_migration",
     "_raw_config.get(\"swimspa\")",
-    "get_swimspa_settings",
-    "ENERGY_OPTIMIZER_CONFIG_PATH",
 )
 
 COV_SOURCE_PACKAGES = (
@@ -245,15 +255,42 @@ def _legacy_hits(test_path: Path) -> list[str]:
     return [symbol for symbol in LEGACY_TEST_SYMBOLS if symbol in text]
 
 
+def _package_for_cov_filename(filename: str) -> str | None:
+    """Map Cobertura class filename to a cov source package (multi-root XML uses '.')."""
+    normalized = filename.replace("\\", "/").lstrip("./")
+    for pkg in COV_SOURCE_PACKAGES:
+        candidate = ROOT / pkg / normalized
+        if candidate.is_file():
+            return pkg
+    return None
+
+
 def _module_coverage() -> dict[str, float]:
     if not COVERAGE_XML.is_file():
         return {}
     root = ET.parse(COVERAGE_XML).getroot()
+    covered: dict[str, int] = {pkg: 0 for pkg in COV_SOURCE_PACKAGES}
+    valid: dict[str, int] = {pkg: 0 for pkg in COV_SOURCE_PACKAGES}
+    for cls in root.findall(".//class"):
+        pkg = _package_for_cov_filename(cls.get("filename", "") or "")
+        if pkg is None:
+            continue
+        for line in cls.findall("lines/line"):
+            valid[pkg] += 1
+            if int(line.get("hits", "0") or 0) > 0:
+                covered[pkg] += 1
     packages: dict[str, float] = {}
-    for package in root.findall(".//package"):
-        name = package.get("name", "")
-        line_rate = float(package.get("line-rate", 0.0) or 0.0)
-        packages[name] = round(line_rate * 100.0, 1)
+    overall_c = overall_v = 0
+    for pkg in COV_SOURCE_PACKAGES:
+        if valid[pkg] == 0:
+            continue
+        packages[pkg] = round(100.0 * covered[pkg] / valid[pkg], 1)
+        overall_c += covered[pkg]
+        overall_v += valid[pkg]
+    if overall_v:
+        packages["_overall"] = round(100.0 * overall_c / overall_v, 1)
+    elif root.get("line-rate") is not None:
+        packages["_overall"] = round(float(root.get("line-rate") or 0.0) * 100.0, 1)
     return packages
 
 
@@ -273,7 +310,9 @@ def _related_coverage(test_file: str, module_cov: dict[str, float]) -> float | N
         return None
     for guess in _guess_modules_for_test(test_file):
         for pkg, pct in module_cov.items():
-            if guess in pkg.replace(".", "_").replace("/", "_"):
+            if pkg.startswith("_"):
+                continue
+            if guess == pkg or guess.startswith(f"{pkg}_") or guess in pkg.replace(".", "_"):
                 return pct
     return None
 
@@ -294,6 +333,9 @@ def _build_candidates(min_runs: int) -> list[dict]:
             continue
         test_file = _test_file_from_nodeid(nodeid)
         test_path = ROOT / "tests" / test_file
+        if not test_path.is_file():
+            # Stale JUnit history after renames/moves — skip from triage queue.
+            continue
         mock_density = _mock_density(test_path)
         legacy = _legacy_hits(test_path)
         cov_pct = _related_coverage(test_file, module_cov)
@@ -344,9 +386,15 @@ def write_report(*, min_runs: int, top: int, output: Path) -> Path:
     if module_cov:
         lines.append("## Package coverage (last `run --coverage`)")
         lines.append("")
+        overall = module_cov.pop("_overall", None)
+        if overall is not None:
+            lines.append(f"- **overall**: {overall:.1f}%")
         for pkg, pct in sorted(module_cov.items()):
-            lines.append(f"- `{pkg}`: {pct:.1f}%")
+            flag = " — weak (<40%)" if pct < 40.0 else ""
+            lines.append(f"- `{pkg}`: {pct:.1f}%{flag}")
         lines.append("")
+        if overall is not None:
+            module_cov["_overall"] = overall
 
     lines.extend(["## Review candidates", ""])
     if not candidates:

@@ -15,6 +15,7 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
     - Loxone Konfigurationsbereich
     - Loxone D-A-CH
     - Loxone Deutschland
+  - Contact IoBroker-Community and HomeAssistant (when Best Interface is found)
   - Evaluate running Szenario-Explorer as "web app" in Streamlit Community Cloud — secrets, no Loxone, demo feasibility  
 - [ ] Check if Loxone's Energiemonitor provides statistics to import in Earnie  
   - Energiemonitor logs statistics
@@ -25,31 +26,33 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 ## Feature Backlog
 
 
-### Version 2.+1 — Quality epic / post-migration cleanup
+### Version 2.2 — Quality epic / post-migration cleanup
 
-- [ ] Evaluate option for code coverage testing and identification of deprecated code / tests (especially due to substantial data model change) / obsolete patches because of legacy data model
-  - **Context:** after real 2.0.0 release — mop up dead code, obsolete tests, leftover patches from pre-1.26.0 data model (1.26.0 P6 removed runtime fallbacks)
-  - **Planning (three deliverables):**
-    - **Coverage baseline** — run coverage on migrated core packages; identify weakly covered modules that changed most in the 2.0 data model
-    - **Legacy test audit** — review tests flagged by legacy symbols and `scripts/test_health_report.py`; decide keep, rewrite, or delete
-    - **Obsolete patch audit** — search for compatibility code, fallback paths, and migration-only branches from pre-1.26.0 model
-  - **Tooling already in repo:** `pytest-cov` / `coverage.py` (`pyproject.toml`), `scripts/test_health_report.py` (JUnit history, coverage triage, legacy hints), optional `mutmut` (`mutmut.ini`)
-  - **Recommended additions (minimal, high value):** `vulture` (unused code / dead migration helpers), `pytest-deadfixtures` (orphaned fixtures after model change)
-  - **Workflow:** weekly or pre-release: `test_health_report run --coverage` → `test_health_report report`; supplement with `vulture` and targeted `rg` on known legacy symbols; manual review only — never auto-delete flagged tests
-- [ ] Thorough code review and refactoring (with proper KPIs)
-- [ ] Search for deprecated and unnecessary files and remove them
-  - Code for migration from V 1.x to 2.0 is not needed anymore
-
+- [ ] Add a German documentation about how to use Earnie from a user perspective (after installation is done)
+- [ ] **Follow-up:** Split `config.py` further (still ~872 LOC; core hard limit 600) — extract static/load helpers beyond `settings/legacy_config_gates.py`
+- [ ] **Follow-up (optional):** Rewrite mock-heavy `tests/test_main_charging_trigger.py` / `tests/test_main_loxone_writes.py` when `main.py` orchestration changes or a live bug proves mocks too coarse
+- [ ] **Follow-up (optional):** Widen `mutmut.ini` to one post-cleanup hotspot module (not a release gate)
 
 ### Version 2.+1
 
 - [ ] Make main.py controllable from streamlit.app (Checks must be included if main.py is runnin already, if necessary change spec / doc and put it in one container as deamon or so)
-
+- [ ] Reactive possibility to link historical data to consumers as .csv-file
+  - Define column structure of csv-file for overall consumption 
+  - Add input possibility to UI für csv-file and a check if it should be substracted from overall consumption log (if not checked, the synthetic usage profil is used instead)
+  - Add a normalization function to import csv-files with fitting column structure
+    - Define Unit normalization and right sign of signal
+    - Normalize sampling rate to one/hour (by interpolation / mean calculation)
+    - Check length (at least 12 months)
+  - Define column structure of csv-file - depending on consumer-type
+    - use same normalization function as for overall consumption
+  - Change plotting respectively
+    - In the plotting area (Verbrauchsprofil) the user can decide to see all consumers at once (present mode) or each consumer solely that are instrumented with a csv-file to adopt usage profile (for scheduling in live mode)
+  - Settings must be used correctly in Scenario Explorer (using synthetic or real profiles)
 
 ### Version 2.+1
 
-- [ ] Add a German documentation about how to use Earnie from a user perspective (after installation is done)
 - [ ] Make appropriate information accessible to user about where differences between optimized SOC and BL SOC Ziel come from to give him explanation (prove plausability)
+- [ ] Check if there is a special issue on weekends, when time-to-be ready is set to 12:00 (Start/ End-SOC constraints)
 - [ ] Check if removing constraint for SOC at end of horizon changes simulation resulst in backtesting
 - [ ] Find EPEX API to have provider independent tariff calculation
 - [ ] Review current tariffs - use https://www.e-control.at/referenzmarktwert and docs\referenz\.~lock.Oeko_RefMrktPr.csv# as anchor point

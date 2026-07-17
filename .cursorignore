@@ -32,9 +32,8 @@ backtesting_logs/
 !tests/fixtures/prod_dumps/**/optimizer_run_state.json
 
 # keep the global blocks, then add:
-!greenfield/runtime/backtesting_log.json
-!greenfield/runtime/cons_data_hourly.csv
-!greenfield/runtime/backtesting_cbc_events.jsonl
-!greenfield/runtime/backtesting_window_snapshots.jsonl
+!greenfield/runtime
+!greenfield/config
+
 # --- Vertraulich / Projektunterlagen ---
 docs/Loxone EMS Projekt.pdf

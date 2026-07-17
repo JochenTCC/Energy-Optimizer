@@ -112,8 +112,7 @@ def run_live_scenario_entity_check_on_startup() -> None:
     except ValueError as exc:
         logger.error(
             "Live-Szenario-Startup-Prüfung: %s "
-            "Bitte backtesting_scenarios.json deployen "
-            "(scripts/deploy_silent_migration_to_nas.py).",
+            "Bitte backtesting_scenarios.json mit dem Live-Szenario deployen.",
             exc,
         )
         if _env_flag("STRICT_TARIFF_VALIDATE"):
@@ -143,7 +142,7 @@ def run_live_scenario_entity_check_on_startup() -> None:
     message = (
         f"Live-Szenario '{scenario_id}' unvollständig (Bootstrap-Minimalstand?): "
         f"fehlende IDs: {', '.join(missing)}. "
-        "Bitte scripts/deploy_silent_migration_to_nas.py ausführen."
+        "Bitte backtesting_scenarios.json und Komponenten-Sidecars prüfen."
     )
     if _env_flag("STRICT_TARIFF_VALIDATE"):
         logger.error("%s Abbruch (EARNIE_STRICT_TARIFF_VALIDATE).", message)

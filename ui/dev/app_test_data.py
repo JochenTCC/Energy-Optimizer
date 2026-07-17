@@ -7,6 +7,7 @@ from runtime_store.config_load import load_config_or_exit
 
 config = load_config_or_exit()
 from integrations import loxone_log_import
+from settings.flexible_consumers import consumer_by_id, consumer_path
 
 # Streamlit Seitenkonfiguration
 st.set_page_config(page_title="Last-Isolierung Test", layout="wide")
@@ -24,12 +25,13 @@ selected_date = st.sidebar.date_input("Simulations-Tag auswählen:", default_dat
 # 2. Daten laden und aufbereiten
 @st.cache_data(ttl=60)
 def load_and_process_day(target_date):
-    # Basis-Pfade holen
+    raw = config.CONFIG._raw_config
     path_total = config.get('PATH_CONSUMPTION_TOTAL', cast=str)
-    path_eauto = config.get('PATH_E_AUTO', cast=str)
-    path_pool = config.get('PATH_POOL', cast=str)
-    path_wp = config.get('PATH_WP', cast=str)
-    wp_power = config.get('WP_NOMINAL_POWER_KW', cast=float)
+    path_eauto = consumer_path(raw, "eauto")
+    path_pool = consumer_path(raw, "swimspa")
+    path_wp = consumer_path(raw, "waermepumpe")
+    wp_consumer = consumer_by_id(raw, "waermepumpe") or {}
+    wp_power = float(wp_consumer.get("nominal_power_kw", 1.6) or 1.6)
 
     s_total = loxone_log_import.load_and_resample_csv(path_total)
     s_eauto = loxone_log_import.load_and_resample_csv(path_eauto)

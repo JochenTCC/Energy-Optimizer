@@ -13,7 +13,6 @@ Konfiguration im Container/venv: `config.json` → `ui.streamlit_port` oder `EAR
 | **8501** | **Lokal ohne Docker (venv)** | Dev-PC (venv) | `python main.py` (lokal) | `http://localhost:8501` (Standard `ui.streamlit_port`) | `python -m scripts.run_streamlit`, VS Code „Streamlit app.py (:8501 lokal)“ |
 | **8502** | **Greenfield (Docker)** | Dev-PC (Docker) | `earnie-greenfield-worker` | `http://localhost:8502` | `docker/compose/greenfield.yml` (`8502:8501`) |
 | **8511** | **Greenfield (venv)** | Dev-PC (venv) | `python main.py` mit `greenfield/config` | `http://localhost:8511` | VS Code „Streamlit app.py (LOKAL, Greenfield :8511)“ |
-| **8512** | **Silent Migration Test** | Dev-PC (venv) | optional lokal oder nur UI | `http://localhost:8512` | VS Code „Streamlit app.py (Silent Migration :8512)“ — siehe [Silent Migration Test](../einrichtung/silent-migration-test.md) |
 | **8503** | **Lokal gegen NAS-Daten** | Dev-PC (venv) | **auf der NAS** (`optimizer-worker` im Prod-Container) | `http://localhost:8503` | VS Code „Streamlit app.py (NAS :8503)“ — liest `config`/`runtime` per UNC/SMB von der NAS |
 
 ## Parallelbetrieb auf dem Dev-PC

@@ -86,7 +86,7 @@ Details: [Betrieb](docs/einrichtung/betrieb.md)
 7. **Monitor öffnen** — [Streamlit](https://streamlit.io/) auf Port 8501 (Standard, siehe `ui.streamlit_port`)
 8. **Feintuning** — Hausprofil, Szenarien, flexible Verbraucher über Planungs- und Betriebsseiten
 
-Optional: [Greenfield Dev-Stack](docs/einrichtung/greenfield-dev-stack.md) (Ersteinrichtung) · [Silent Migration Test](docs/einrichtung/silent-migration-test.md) (Cutover-Test)
+Optional: [Greenfield Dev-Stack](docs/einrichtung/greenfield-dev-stack.md) (Ersteinrichtung)
 
 ## Anwender-Dokumentation
 

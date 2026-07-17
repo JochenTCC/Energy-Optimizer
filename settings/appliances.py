@@ -1,14 +1,8 @@
 """Normalisierung und Persistenz manueller Geräte (appliances)."""
 from __future__ import annotations
 
-import logging
-
 from house_config.earnie_role import is_earnie_manual, manual_recommendation_horizon_h
 from settings.json_io import read_json_dict, write_json_dict
-
-logger = logging.getLogger(__name__)
-
-_LEGACY_APPLIANCES_WARNED = False
 
 
 def optional_positive(value, appliance_id: str, field: str, *, allow_zero: bool):
@@ -87,20 +81,9 @@ def normalize_appliance_list(raw: list) -> list[dict]:
     return appliances
 
 
-def warn_legacy_appliances_block() -> None:
-    global _LEGACY_APPLIANCES_WARNED
-    if _LEGACY_APPLIANCES_WARNED:
-        return
-    _LEGACY_APPLIANCES_WARNED = True
-    logger.warning(
-        "config.json 'appliances[]' ist veraltet — Verbraucher mit "
-        "appliance_recommendation ins Hausprofil migrieren (1.96d)."
-    )
-
-
 def reject_legacy_appliances_block(raw_config: dict) -> None:
     """2.0 gate: root appliances[] must not be present."""
-    if raw_config.get("appliances"):
+    if raw_config.get("appliances") is not None:
         raise ValueError(
             "Block 'appliances' in config.json ist entfernt (2.0). "
             "Empfehlungsgeräte als type:generic mit appliance_recommendation "
@@ -307,49 +290,6 @@ def normalize_appliance_recommendation(raw: dict | None) -> dict:
     if pct_1 <= pct_4:
         raise ValueError("appliance_recommendation.pct_stars_1 muss > pct_stars_4 sein.")
     return result
-
-
-def update_appliance_defaults_in_file(
-    config_path: str,
-    appliance_id: str,
-    *,
-    power_kw: float,
-    runtime_h: float,
-) -> dict:
-    """Persistiert Nennleistung und Laufzeit-Vorbelegung; gibt aktualisiertes config-Dict zurück."""
-    if power_kw < 0:
-        raise ValueError(
-            f"update_appliance_defaults: power_kw muss >= 0 sein (erhalten: {power_kw})."
-        )
-    if runtime_h <= 0:
-        raise ValueError(
-            f"update_appliance_defaults: runtime_h muss > 0 sein (erhalten: {runtime_h})."
-        )
-    data = read_json_dict(config_path)
-    raw = data.get("appliances")
-    if not isinstance(raw, list):
-        raise ValueError(
-            "Kritischer Konfigurationsfehler: 'appliances' muss ein Array sein."
-        )
-    target_index = None
-    for index, item in enumerate(raw):
-        if not isinstance(item, dict):
-            continue
-        if str(item.get("id", "")).strip() == appliance_id:
-            target_index = index
-            break
-    if target_index is None:
-        raise KeyError(
-            f"update_appliance_defaults: unbekannte appliance_id '{appliance_id}'."
-        )
-    entry = dict(raw[target_index])
-    entry["default_power_kw"] = float(power_kw)
-    entry["default_runtime_h"] = float(runtime_h)
-    normalize_appliance(entry, target_index)
-    raw[target_index] = entry
-    data["appliances"] = raw
-    write_json_dict(config_path, data)
-    return data
 
 
 def update_appliance_recommendation_in_file(

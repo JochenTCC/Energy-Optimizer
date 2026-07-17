@@ -8,11 +8,6 @@ import config
 
 def _minimal_charge_immediate_config() -> dict:
     return {
-        "eauto_milp": {
-            "live_modus_a_min_remaining_kwh": 2.8,
-            "tie_break_on_epsilon": 0.001,
-            "tie_break_time_epsilon": 0.0001,
-        },
         "system": {"global_timeout": 10, "loop_timeout": 900},
         "loxone_blocks": {
             "soc_name": "Battery_SOC",
@@ -67,6 +62,11 @@ def _minimal_charge_immediate_config() -> dict:
                         "charge_immediate_remaining_name": "Ernie_Restzeit_Sofortladen",
                         "battery_capacity_kwh_name": "Batteriekapazität_E-Auto",
                         "nominal_power_kw_name": "EAuto_MaxLeistung",
+                    },
+                    "milp": {
+                        "live_modus_a_min_remaining_kwh": 2.8,
+                        "tie_break_on_epsilon": 0.001,
+                        "tie_break_time_epsilon": 0.0001,
                     },
                 },
             }

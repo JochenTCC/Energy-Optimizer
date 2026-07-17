@@ -11,7 +11,6 @@ from .cbc_solver import solve_with_strict_fallback
 from .eauto_milp import (
     build_ev_milp_params_by_id,
     split_eauto_preset,
-    validate_eauto_milp_params,
 )
 from .filter_context import resolve_filter_contexts
 from .thermal_flex_context import (
@@ -57,13 +56,6 @@ def _active_consumers(consumers: list | None) -> list:
     if consumers is not None:
         return consumers
     return config.get_flexible_consumers(optimizer_only=True)
-
-
-def _optional_root_eauto_milp() -> dict[str, float] | None:
-    raw = config.CONFIG._raw_config.get("eauto_milp")
-    if not raw:
-        return None
-    return validate_eauto_milp_params(raw)
 
 
 def _remaining_kwh_by_consumer(
@@ -118,7 +110,6 @@ def milp_optimizer(
     verbose: bool = True,
     consumers: list | None = None,
     consumer_remaining_kwh: dict[str, float] | None = None,
-    spa_cfg: dict | None = None,
     spa_remaining_kwh: float | None = None,
     flex_indices: list[int] | None = None,
     charging_contexts: dict[str, dict] | None = None,
@@ -161,15 +152,13 @@ def milp_optimizer(
         contexts,
         filters,
     )
-    root_milp_fallback = _optional_root_eauto_milp()
-    ev_milp_by_id = build_ev_milp_params_by_id(planned_consumers, root_milp_fallback)
+    ev_milp_by_id = build_ev_milp_params_by_id(planned_consumers)
     preset_powers, milp_consumers = split_eauto_preset(
         planned_consumers,
         matrix[:horizon],
         remaining,
         schedule_indices,
         contexts,
-        root_milp_fallback,
     )
     fixed_flex_kw_t0 = sum(preset_powers.values())
 

@@ -84,11 +84,6 @@ def _write_id_only_config(config_dir, *, battery_wear_enabled: bool = False) -> 
         json.dumps(
             {
                 "live_scenario_id": DEFAULT_LIVE_SCENARIO_ID,
-                "eauto_milp": {
-                    "live_modus_a_min_remaining_kwh": 2.8,
-                    "tie_break_on_epsilon": 0.001,
-                    "tie_break_time_epsilon": 0.0001,
-                },
                 "system": {"global_timeout": 10, "loop_timeout": 900},
                 "loxone_blocks": {
                     "soc_name": "Battery_SOC",

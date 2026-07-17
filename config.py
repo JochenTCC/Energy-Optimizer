@@ -19,6 +19,7 @@ from runtime_store.persist_paths import (
 )
 from settings import appliances as appliance_settings
 from settings import flexible_consumers as fc_settings
+from settings import legacy_config_gates
 from settings import scenarios as scenario_settings
 from settings import system_settings
 from settings.json_io import read_json_dict, write_json_dict
@@ -165,6 +166,11 @@ class Config:
             )
 
     def _load_static_params(self) -> None:
+        self._load_system_and_ui_params()
+        self._load_loxone_block_params()
+        self._load_sim_path_params()
+
+    def _load_system_and_ui_params(self) -> None:
         self.GLOBAL_TIMEOUT = self._get_strict(self._raw_config, ["system", "global_timeout"])
         self.LOOP_TIMEOUT = self._get_strict(self._raw_config, ["system", "loop_timeout"])
         local_settings = self._load_local_settings_document()
@@ -208,22 +214,40 @@ class Config:
             False,
         )
 
+    def _load_loxone_block_params(self) -> None:
         self.LOXONE_SOC_NAME = self._get_strict(self._raw_config, ["loxone_blocks", "soc_name"])
-        self.LOXONE_PV_COUNTER_NAME = self._get_strict(self._raw_config, ["loxone_blocks", "pv_counter_name"])
-        self.LOXONE_LOG_FILENAME = self._get_strict(self._raw_config, ["loxone_blocks", "log_filename"])
-        self.PV_TUNING_LOG_FILE = self._get_strict(self._raw_config, ["loxone_blocks", "pv_tuning_log_file"])
-        self.LOXONE_PV_POWER_NAME = self._get_strict(self._raw_config, ["loxone_blocks", "pv_power_name"])
-        self.LOXONE_BATTERY_POWER_NAME = self._get_strict(self._raw_config, ["loxone_blocks", "battery_power_name"])
-        self.LOXONE_GRID_POWER_NAME = self._get_strict(self._raw_config, ["loxone_blocks", "grid_power_name"])
-        self.LOXONE_TARGET_SOC_NAME = self._get_strict(self._raw_config, ["loxone_blocks", "target_soc_name"])
+        self.LOXONE_PV_COUNTER_NAME = self._get_strict(
+            self._raw_config, ["loxone_blocks", "pv_counter_name"]
+        )
+        self.LOXONE_LOG_FILENAME = self._get_strict(
+            self._raw_config, ["loxone_blocks", "log_filename"]
+        )
+        self.PV_TUNING_LOG_FILE = self._get_strict(
+            self._raw_config, ["loxone_blocks", "pv_tuning_log_file"]
+        )
+        self.LOXONE_PV_POWER_NAME = self._get_strict(
+            self._raw_config, ["loxone_blocks", "pv_power_name"]
+        )
+        self.LOXONE_BATTERY_POWER_NAME = self._get_strict(
+            self._raw_config, ["loxone_blocks", "battery_power_name"]
+        )
+        self.LOXONE_GRID_POWER_NAME = self._get_strict(
+            self._raw_config, ["loxone_blocks", "grid_power_name"]
+        )
+        self.LOXONE_TARGET_SOC_NAME = self._get_strict(
+            self._raw_config, ["loxone_blocks", "target_soc_name"]
+        )
         self.LOXONE_TARGET_CHARGE_POWER_NAME = self._get_strict(
             self._raw_config, ["loxone_blocks", "target_charge_power_name"]
         )
         self.LOXONE_TARGET_DISCHARGE_POWER_NAME = self._get_strict(
             self._raw_config, ["loxone_blocks", "target_discharge_power_name"]
         )
-        self.LOXONE_CONTROL_CMD_NAME = self._get_strict(self._raw_config, ["loxone_blocks", "control_cmd_name"])
+        self.LOXONE_CONTROL_CMD_NAME = self._get_strict(
+            self._raw_config, ["loxone_blocks", "control_cmd_name"]
+        )
 
+    def _load_sim_path_params(self) -> None:
         sim_paths = self._raw_config.get("file_paths_battery_simulation", {})
         self.PATH_CONSUMPTION = sim_paths.get("path_consumption", "")
         self.PATH_CONSUMPTION_TOTAL = self.PATH_CONSUMPTION
@@ -237,19 +261,6 @@ class Config:
         self.PRICE_RANGE = sim_paths.get("price_range", "last_12_months")
         self.ENERGY_CHARTS_BZN = sim_paths.get("energy_charts_bzn", "DE-LU")
 
-        # Legacy-Pfad-Aliase aus flexible_consumers (Abwärtskompatibilität)
-        self.PATH_E_AUTO = self._consumer_path("eauto")
-        self.PATH_POOL = self._consumer_path("swimspa")
-        self.PATH_WP = self._consumer_path("waermepumpe")
-        wp_consumer = self._consumer_by_id("waermepumpe")
-        self.WP_NOMINAL_POWER_KW = float(wp_consumer.get("nominal_power_kw", 1.6)) if wp_consumer else 1.6
-
-    def _consumer_by_id(self, consumer_id: str) -> dict | None:
-        return fc_settings.consumer_by_id(self._raw_config, consumer_id)
-
-    def _consumer_path(self, consumer_id: str, default: str = "") -> str:
-        return fc_settings.consumer_path(self._raw_config, consumer_id, default)
-
     def _lookup_runtime_value(self, resolved: dict, key: str):
         if key in resolved:
             return resolved[key]
@@ -259,37 +270,10 @@ class Config:
         )
 
     def _reject_legacy_config_blocks(self) -> None:
-        if self._raw_config.get("awattar") is not None:
-            raise ValueError(
-                "Block 'awattar' in config.json ist entfernt (1.26.0 P6). "
-                "Aufschläge gehören in tariffs.json; die API-URL wird aus "
-                "import_tariff_id (land) abgeleitet."
-            )
-        if self._raw_config.get("battery_wear") is not None:
-            raise ValueError(
-                "Globaler Block 'battery_wear' ist entfernt (1.26.0 P6). "
-                "Verschleiß pro batteries[]-Eintrag konfigurieren."
-            )
-        if self._raw_config.get("batteries") is not None:
-            raise ValueError(
-                "Block 'batteries' in config.json ist entfernt (2.0 Components). "
-                "Batteriespezifikationen gehören in components.json."
-            )
-        if self._raw_config.get("pv_systems") is not None:
-            raise ValueError(
-                "Block 'pv_systems' in config.json ist entfernt (2.0 Components). "
-                "PV-Anlagen gehören in components.json."
-            )
+        legacy_config_gates.reject_legacy_config_blocks(self._raw_config)
 
     def _reject_legacy_runtime_settings_block(self) -> None:
-        if self._raw_config.get("runtime_settings") is not None:
-            from house_config.scenario_resolution import DEFAULT_LIVE_SCENARIO_ID
-
-            raise ValueError(
-                "Block 'runtime_settings' in config.json ist entfernt (2.0 P2). "
-                "Live-Konfiguration als Szenario in backtesting_scenarios.json "
-                f"(live_scenario_id, Standard: '{DEFAULT_LIVE_SCENARIO_ID}')."
-            )
+        legacy_config_gates.reject_legacy_runtime_settings_block(self._raw_config)
 
     def _resolve_live_scenario_settings_dict(self) -> dict:
         from house_config.scenario_resolution import resolve_live_scenario_settings
@@ -508,19 +492,11 @@ class Config:
         return consumers
 
     def get_appliances(self) -> list[dict]:
-        """Manuelle Geräte für den Empfehlungsmodus (Hausprofil, Fallback config appliances[])."""
+        """Manuelle Geräte für den Empfehlungsmodus (aus Hausprofil appliance_recommendation)."""
         resolved = self.get_resolved_runtime_settings()
         profile = resolved.get("_house_profile")
         if isinstance(profile, dict):
-            profile_appliances = appliance_settings.recommendation_appliances_from_profile(
-                profile
-            )
-            if profile_appliances:
-                return profile_appliances
-        legacy = self._raw_config.get("appliances")
-        if isinstance(legacy, list) and legacy:
-            appliance_settings.warn_legacy_appliances_block()
-            return appliance_settings.normalize_appliance_list(legacy)
+            return appliance_settings.recommendation_appliances_from_profile(profile)
         return []
 
     def update_appliance_defaults(
@@ -534,24 +510,25 @@ class Config:
         resolved = self.get_resolved_runtime_settings()
         profile = resolved.get("_house_profile")
         profile_id = str((profile or {}).get("id", "")).strip()
-        if profile_id and isinstance(profile, dict):
-            consumers = profile.get("consumers") or []
-            if any(
-                isinstance(item, dict)
-                and str(item.get("id", "")).strip() == appliance_id
-                and isinstance(item.get("appliance_recommendation"), dict)
-                for item in consumers
-            ):
-                appliance_settings.update_appliance_defaults_in_house_profile(
-                    self.house_profiles_path,
-                    profile_id,
-                    appliance_id,
-                    power_kw=power_kw,
-                    runtime_h=runtime_h,
-                )
-                return
-        self._raw_config = appliance_settings.update_appliance_defaults_in_file(
-            self.config_path,
+        if not profile_id or not isinstance(profile, dict):
+            raise ValueError(
+                "update_appliance_defaults: kein Hausprofil geladen — "
+                "Geräte gehören ins Hausprofil (appliance_recommendation)."
+            )
+        consumers = profile.get("consumers") or []
+        if not any(
+            isinstance(item, dict)
+            and str(item.get("id", "")).strip() == appliance_id
+            and isinstance(item.get("appliance_recommendation"), dict)
+            for item in consumers
+        ):
+            raise KeyError(
+                f"update_appliance_defaults: unbekannte appliance_id '{appliance_id}' "
+                f"im Hausprofil '{profile_id}'."
+            )
+        appliance_settings.update_appliance_defaults_in_house_profile(
+            self.house_profiles_path,
+            profile_id,
             appliance_id,
             power_kw=power_kw,
             runtime_h=runtime_h,
@@ -569,12 +546,6 @@ class Config:
             self.get_appliance_recommendation_settings(),
             new_settings,
         )
-
-    def get_eauto_milp_params(self) -> dict[str, float]:
-        """Pflichtparameter für E-Auto MILP Modus A/B und Tie-Break."""
-        from optimizer.eauto_milp import validate_eauto_milp_params
-
-        return validate_eauto_milp_params(self._raw_config.get("eauto_milp"))
 
     def get_battery_wear_cent_per_kwh(self, capacity_kwh: float) -> float:
         """Verschleiß ct/kWh Durchsatz für MILP; aus batteries[] wenn battery_id gesetzt."""
@@ -602,16 +573,6 @@ class Config:
                 "(Pflicht wenn battery_id gesetzt)."
             )
         return 0.0
-
-    def get_swimspa_settings(self) -> dict:
-        """Legacy-Hilfsfunktion: liefert den SwimSpa-Verbraucher oder Defaults."""
-        consumer = self._consumer_by_id("swimspa")
-        if consumer:
-            return {
-                "nominal_power_kw": consumer["nominal_power_kw"],
-                "daily_target_kwh": consumer["daily_target_kwh"],
-            }
-        return {"nominal_power_kw": 2.8, "daily_target_kwh": 10.0}
 
     def get_push_price_cent(self) -> float:
         return self.get('K_PUSH_CENT', cast=float)
@@ -833,8 +794,8 @@ class Config:
         "threshold_power",
     })
 
-    @classmethod
-    def _normalize_runtime_settings_key(cls, key: str) -> str:
+    @staticmethod
+    def _normalize_runtime_settings_key(key: str) -> str:
         return str(key).strip().lower()
 
     def update_live_scenario_settings(self, new_settings: dict) -> None:
@@ -955,10 +916,6 @@ def get_battery_params() -> dict:
     return CONFIG.get_battery_params()
 
 
-def get_swimspa_settings() -> dict:
-    return CONFIG.get_swimspa_settings()
-
-
 def get_flexible_consumers(optimizer_only: bool = False) -> list:
     return CONFIG.get_flexible_consumers(optimizer_only=optimizer_only)
 
@@ -973,10 +930,6 @@ def get_appliance_recommendation_settings() -> dict:
 
 def update_appliance_recommendation_settings(new_settings: dict) -> None:
     return CONFIG.update_appliance_recommendation_settings(new_settings)
-
-
-def get_eauto_milp_params() -> dict[str, float]:
-    return CONFIG.get_eauto_milp_params()
 
 
 def get_battery_wear_cent_per_kwh(capacity_kwh: float) -> float:

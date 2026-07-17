@@ -15,7 +15,6 @@ from simulation.engine import window_anchor_for_date, window_slot_datetimes
 from tests.fixtures.backtesting_fixtures import (
     LOW_EAUTO_DAY,
     activate_backtesting_fixtures,
-    build_synthetic_prices_df,
     load_fixture_cache,
 )
 
@@ -40,14 +39,6 @@ def fixture_scenario(backtesting_fixtures):
     from tests.fixtures.backtesting_fixtures import fixture_scenario_params
 
     return fixture_scenario_params()
-
-
-@pytest.fixture
-def fixture_prices_df() -> pd.DataFrame:
-    return build_synthetic_prices_df(
-        pd.Timestamp("2024-07-01"),
-        pd.Timestamp("2026-06-26"),
-    )
 
 
 def test_initial_soc_from_hourly_df():

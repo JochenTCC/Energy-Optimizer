@@ -78,7 +78,14 @@ def _eauto_consumer() -> dict:
         "min_power_kw": 1.4,
         "min_on_quarterhours": 1,
         "loxone_outputs": {"power_setpoint_name": "Ernie_EAuto_Ziel_kW"},
-        "charging_schedule": {"enabled": True},
+        "charging_schedule": {
+            "enabled": True,
+            "milp": {
+                "live_modus_a_min_remaining_kwh": 2.8,
+                "tie_break_on_epsilon": 0.001,
+                "tie_break_time_epsilon": 0.0001,
+            },
+        },
     }
 
 
