@@ -3,6 +3,11 @@
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 
+### Streamlit control of main.py + single container (2026-07-17)
+
+- [x] **Make main.py controllable from Streamlit** — lifecycle Start/Stop/Restart on **Echtzeit-Umgebung → Optimierer-Dienst**; `runtime_store/main_daemon.py` + `probe_instance` / `main.pid` sidecar (Windows-safe); `EARNIE_AUTO_START_MAIN` in `scripts.run_streamlit`; Docker collapsed to one service `earnie` (all compose files + Dockerfile CMD); docs updated
+
+
 ### Bugfix EV FertigUm ignored on config path (2026-07-17)
 
 - [x] **EV FertigUm ignored on config path** — house-profile EV (`daily_target_source=config`) kept `ready_by_hour` deadline and ignored `Ernie_EAuto_FertigUm`; later FertigUm still forced early charge (`must_start` for old deadline). Fix: `resolve_charging_context` uses `resolve_charging_deadline` (FertigUm wins, `use_time_window=False`); tests `TestConfigPathFertigUm`. Dump: `chart_debug_review/chart_debug_20260716_065036`. Live verified: changing FertigUm later while EV needs charge updates `charging_contexts.ev.deadline`; no early force-charge for the old deadline.

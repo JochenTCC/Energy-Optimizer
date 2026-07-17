@@ -76,11 +76,11 @@ Wie bei Synology/LoxBerry:
 
 1. `config/.env` — Loxone-Zugang  
 2. `config/config.json`, `config/tariffs.json` — Haus und Tarife  
-3. Worker neu starten nach Config-Änderungen:
+3. Container neu starten nach Config-Änderungen:
 
 ```bash
 cd /opt/earnie
-docker compose --project-directory . -f compose.yaml restart optimizer-worker
+docker compose --project-directory . -f compose.yaml restart earnie
 ```
 
 Bootstrap und Entrypoint legen fehlende Dateien an; bestehende werden nicht überschrieben. Details: [container.md](container.md).
@@ -94,7 +94,7 @@ docker compose --project-directory . -f compose.yaml up -d
 ```
 
 UI: `http://<lxc-ip>:8501`  
-Worker-Log: `runtime/earnie.log` bzw. `docker compose … logs -f optimizer-worker`
+Log: `runtime/earnie.log` bzw. `docker compose … logs -f earnie`
 
 ## UI-Zugriff
 

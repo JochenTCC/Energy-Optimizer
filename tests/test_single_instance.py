@@ -53,3 +53,22 @@ time.sleep(8)
 def test_empty_name_raises() -> None:
     with pytest.raises(ValueError, match="name darf nicht leer sein"):
         SingleInstanceLock("   ")
+
+
+def test_probe_instance_free_and_busy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from runtime_store.single_instance import probe_instance
+
+    monkeypatch.setenv("ENERGY_OPTIMIZER_RUNTIME_DIR", str(tmp_path))
+    free = probe_instance("probe-svc")
+    assert free.busy is False
+
+    lock = SingleInstanceLock("probe-svc")
+    lock.acquire()
+    try:
+        busy = probe_instance("probe-svc")
+        assert busy.busy is True
+        assert busy.pid == os.getpid()
+    finally:
+        lock.release()

@@ -53,6 +53,22 @@ def _run_streamlit_cli(argv: list[str]) -> int:
     return 0
 
 
+def _maybe_auto_start_main() -> None:
+    """When EARNIE_AUTO_START_MAIN=1, start main.py if not already running."""
+    from runtime_store.main_daemon import DaemonError, maybe_auto_start
+
+    try:
+        started = maybe_auto_start()
+    except DaemonError as exc:
+        print(f"Warnung: Auto-Start von main.py fehlgeschlagen: {exc}", flush=True)
+        return
+    if started is not None and started.state == "running":
+        print(
+            f"main.py Auto-Start OK (PID {started.pid})",
+            flush=True,
+        )
+
+
 def main(argv: list[str] | None = None) -> int:
     from runtime_store.config_load import load_config_or_exit
 
@@ -69,6 +85,7 @@ def main(argv: list[str] | None = None) -> int:
         f"Streamlit Port {port} (ui.streamlit_port / EARNIE_UI_STREAMLIT_PORT)",
         flush=True,
     )
+    _maybe_auto_start_main()
     return _run_streamlit_cli(_streamlit_argv(port, args.extra))
 
 

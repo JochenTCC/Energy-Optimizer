@@ -13,13 +13,14 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
   - loxforum -> done
   - Facebook groups
     - Loxone Konfigurationsbereich
-    - Loxone D-A-CH
+    - Loxone D-A-CH --> done
     - Loxone Deutschland
+    - Loxone Bauherren
   - Contact IoBroker-Community and HomeAssistant (when Best Interface is found)
   - Evaluate running Szenario-Explorer as "web app" in Streamlit Community Cloud — secrets, no Loxone, demo feasibility  
-- [ ] Check if Loxone's Energiemonitor provides statistics to import in Earnie  
+- [x] Check if Loxone's Energiemonitor provides statistics to import in Earnie  
   - Energiemonitor logs statistics
-  - [ ] Check how data looks like
+  - [x] Check how data looks like -- Data is useable
 - [ ] Add a predictive model for Grundlast with logged Grundlast from the past. Research for Models (AI?). Take date / average temperature / week day / and other factors into account
 
 
@@ -28,7 +29,6 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 
 ### Version 2.+1
 
-- [ ] Make main.py controllable from streamlit.app (Checks must be included if main.py is runnin already, if necessary change spec / doc and put it in one container as deamon or so)
 - [ ] Reactivate possibility to link historical data to consumers as .csv-file
   - Define column structure of csv-file for overall consumption 
   - Add input possibility to UI für csv-file and a check if it should be substracted from overall consumption log (if not checked, the synthetic usage profil is used instead)
@@ -57,6 +57,9 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 ### Version 2.+1
 
 - [ ] Make appropriate information accessible to user about where differences between optimized SOC and BL SOC Ziel come from to give him explanation (prove plausability)
+  - One reason is moved consumption from "standard" EV charging
+  - are there other reasons?
+  - Idea for visualization: Draw "ghost bars" for scheduled EV charging as not color filled bars (just thick edges)
 - [ ] Check if removing constraint for SOC at end of horizon changes simulation results in backtesting
 - [ ] Check if there is a special issue on weekends, when time-to-be ready is set to 12:00 (Start/ End-SOC constraints)
 - [ ] Find EPEX API to have provider independent tariff calculation

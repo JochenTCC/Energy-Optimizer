@@ -108,7 +108,7 @@ Auf der NAS vor dem ersten Prod-Cutover (Backlog **2.0 P6**) die produktive Side
 python -m scripts.validate_tariffs --tariffs config/tariffs.json --check-catalog
 ```
 
-Bei Fehlern bricht der Worker mit `EARNIE_STRICT_TARIFF_VALIDATE=1` ab (siehe Compose).
+Bei Fehlern bricht `main.py` mit `EARNIE_STRICT_TARIFF_VALIDATE=1` ab (siehe Compose).
 
 Erzeugt standardmäßig Tags aus `version.py` (kanonisch + Legacy-Alias für Übergang):
 
@@ -155,9 +155,9 @@ docker compose pull
 docker compose up -d
 ```
 
-Der **optimizer-worker** führt beim Start automatisch Tarif-Plausibilität und `verify_loxone_setup` aus. Ergebnis steht in `runtime/earnie.log` (`Tarif-Startup-Prüfung`, `[loxone-verify]`).
+Beim Start von `main.py` (auch nach Auto-Start aus der UI) laufen automatisch Tarif-Plausibilität und `verify_loxone_setup`. Ergebnis steht in `runtime/earnie.log` (`Tarif-Startup-Prüfung`, `[loxone-verify]`).
 
-**Log-Datei nach Upgrade:** Ab Version 2.0 heißt die Worker-Logdatei `earnie.log` (früher `energy_optimizer.log`). Beim ersten Start nach dem Upgrade entsteht eine neue Datei; optional die alte manuell umbenennen oder archivieren.
+**Log-Datei nach Upgrade:** Ab Version 2.0 heißt die Daemon-Logdatei `earnie.log` (früher `energy_optimizer.log`). Beim ersten Start nach dem Upgrade entsteht eine neue Datei; optional die alte manuell umbenennen oder archivieren.
 
 Optional:
 
@@ -241,7 +241,7 @@ Von außen gibt es keinen eingebauten Reverse Proxy wie bei Synology DSM. Extern
 | MILP-Performance | langsamer als NAS akzeptabel, Log prüfen | Erwartung identischer Laufzeit wie x86-NAS |
 
 
-Vor Produktivbetrieb: Worker-Log (`runtime/earnie.log`) auf CBC-Timing und Startfehler prüfen. Optionaler Follow-up: natives `coinor-cbc` im Image für kürzere MILP-Läufe.
+Vor Produktivbetrieb: Daemon-Log (`runtime/earnie.log`) auf CBC-Timing und Startfehler prüfen. Optionaler Follow-up: natives `coinor-cbc` im Image für kürzere MILP-Läufe.
 
 ## Proxmox LXC (amd64)
 

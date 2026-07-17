@@ -122,7 +122,7 @@ Optional: [Greenfield Dev-Stack](docs/einrichtung/greenfield-dev-stack.md) (Erst
 - **Adaptation** — PV- und thermische Parameter-Anpassung über die Zeit
 - **Thermals** — Gekoppelte Haus-/Speicher-/Solar-Modelle
 - **Smartere Geräte-Empfehlungen** — adaptive Leistung und Laufzeit für Haushaltsgeräte
-- **Streamlit-Steuerung von** `main.py` — einheitlichere Bedienung im [Docker](https://www.docker.com/)-Container
+- **Streamlit-Steuerung von** `main.py` — Start/Stop/Neustart in der UI; ein Docker-Container (`earnie`) mit Auto-Start
 
 Earnie wird weitgehend mit Hilfe von [Cursor](https://cursor.com/) entwickelt.
 

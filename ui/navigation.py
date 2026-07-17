@@ -39,7 +39,13 @@ class PageSpec:
 
 
 def _planning_page_specs(*, house_config_default: bool) -> list[PageSpec]:
-    from ui.pages import page_house_config, page_live_environment, page_loxone_debug, page_scenario_editor
+    from ui.pages import (
+        page_daemon,
+        page_house_config,
+        page_live_environment,
+        page_loxone_debug,
+        page_scenario_editor,
+    )
 
     specs = [
         PageSpec(
@@ -69,6 +75,13 @@ def _planning_page_specs(*, house_config_default: bool) -> list[PageSpec]:
                 "⚡",
                 SECTION_ECHTZEIT,
                 "live-environment",
+            ),
+            PageSpec(
+                page_daemon.render,
+                "Optimierer-Dienst",
+                "🛠️",
+                SECTION_ECHTZEIT,
+                "optimizer-daemon",
             ),
             PageSpec(
                 page_loxone_debug.render,

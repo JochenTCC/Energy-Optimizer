@@ -18,8 +18,7 @@ Persistente Daten liegen nur unter `greenfield/config/` und `greenfield/runtime/
 
 | Service | Container | Host-Port |
 |---------|-----------|-----------|
-| Worker | `earnie-greenfield-worker` | — |
-| UI | `earnie-greenfield-ui` | **8502** → 8501 |
+| earnie | `earnie-greenfield` | **8502** → 8501 |
 
 Im Browser: `http://localhost:8502`
 
@@ -30,7 +29,7 @@ Im Browser: `http://localhost:8502`
 3. **Dummy-Zugangsdaten** — Für Greenfield ohne echte Miniserver-Anbindung z. B. IP `192.168.178.99`, beliebiger Benutzer/Passwort eintragen und **Speichern**.
 4. **Planungs-Konfiguration** — Navigationsabschnitte **Planung** (Hauskonfigurator, nach Freischaltung Szenarieneditor) und **Echtzeit-Umgebung** (Live-Konfiguration). Im Hauskonfigurator: **Hausprofil**, **PV-Anlage**, **Batterien**. Im Szenarieneditor: Szenarien. In der Echtzeit-Umgebung: Live-Szenario wählen (`live_scenario_id`) und Entitäts-Referenzen speichern. Sidebar zeigt fehlende Schritte. Während der Planung erscheint **kein** Config-Drift-Hinweis zu `flexible_consumers` aus `config.example.json`.
 5. **Szenario-Explorer** — Nach vollständiger Planungs-Konfiguration erscheint die Szenario-Explorer-Seite.
-6. **Worker** — `earnie-greenfield-worker` läuft weiter; Loxone-Startup-Prüfung ist deaktiviert (`EARNIE_VERIFY_LOXONE_ON_START=0`).
+6. **Daemon** — `main.py` startet mit der UI (`EARNIE_AUTO_START_MAIN=1`); Loxone-Startup-Prüfung ist deaktiviert (`EARNIE_VERIFY_LOXONE_ON_START=0`).
 
 ## Checkliste — erwartete Dateien nach erstem Start
 
@@ -55,11 +54,11 @@ Nach **Speichern** in der Ersteinrichtung:
 | Prüfung | Erwartung |
 |---------|-----------|
 | `greenfield/config/.env` | Echte IPv4 + Benutzer + Passwort (keine Platzhalter) |
-| UI | Nur Hauskonfigurator + Live-Konfiguration (Echtzeit-Umgebung); Sidebar-Hinweis zu fehlenden Schritten |
 | Worker-Log | `greenfield/runtime/earnie.log` — kein Abbruch wegen fehlender `.env` |
+| UI | Nur Hauskonfigurator + Live-Konfiguration + Optimierer-Dienst (Echtzeit-Umgebung); Sidebar-Hinweis zu fehlenden Schritten |
 
 ```powershell
-docker compose --project-directory . -f docker/compose/greenfield.yml logs -f optimizer-worker
+docker compose --project-directory . -f docker/compose/greenfield.yml logs -f earnie
 ```
 
 ## Manuelle Abnahme (1.24.e)
@@ -86,13 +85,13 @@ Ziel: Greenfield nutzt **`live_scenario_id`** + Live-Szenario in `backtesting_sc
 | 1. Config | `greenfield/config/config.json` | `live_scenario_id: live`, **kein** Block `runtime_settings` |
 | 2. Live-Szenario | `greenfield/config/backtesting_scenarios.json` → Szenario `live` | Entitäts-IDs: `battery_id`, `import_tariff_id`, `export_tariff_id`, `house_profile_id`, optional `pv_system_ids` — Geo/Zeitzone aus `house_profiles.json` |
 | 3. Entitäts-Auflösung | Echtzeit-Umgebung → Live-Konfiguration | JSON mit aufgelösten PV-, Batterie- und Tarifparametern aus `components.json`, `tariffs.json` |
-| 3. Live-Zyklus | `docker compose --project-directory . -f docker/compose/greenfield.yml logs -f optimizer-worker` | `main.py` durchläuft mindestens einen Optimierungszyklus ohne Config-Fehler |
+| 3. Live-Zyklus | `docker compose --project-directory . -f docker/compose/greenfield.yml logs -f earnie` | `main.py` durchläuft mindestens einen Optimierungszyklus ohne Config-Fehler |
 | 4. UI Sunset-2-Sunset | Seite **Cockpit** | Aufgelöste Werte (PV kWp, Batterie, Einspeisevergütung) **read-only** auf **Live-Konfiguration** — keine Sidebar-Edits |
 | 5. Szenario-Explorer-Parität | Gleiche Tarif-IDs, gleiches Zeitfenster | Import/Export-cent/kWh identisch zu Live (Detail-Paritätstest folgt in **1.26.0 P3**) |
 
 ```powershell
 docker compose --project-directory . -f docker/compose/greenfield.yml up -d --build
-docker compose --project-directory . -f docker/compose/greenfield.yml logs -f optimizer-worker
+docker compose --project-directory . -f docker/compose/greenfield.yml logs -f earnie
 ```
 
 Bei lokalem venv (Port **8511**): VS Code Compound **„main.py + Streamlit (Greenfield :8511)“** — Worker + UI mit `greenfield/config` + `greenfield/runtime`. Alternativ nur UI: „Streamlit app.py (LOKAL, Greenfield :8511)“.
@@ -146,7 +145,7 @@ Schnellerer Lauf ohne Image-Rebuild:
 .venv\Scripts\python.exe -m scripts.smoke_greenfield_docker --no-build
 ```
 
-**Erwartung bei Erfolg:** Container `earnie-greenfield-worker` und `earnie-greenfield-ui` running; Bootstrap-Dateien unter `greenfield/`; Worker-Log mit „Earnie Live-Abfrage gestartet“ (Loxone-Zugriff schlägt mit Dummy-`.env` erwartbar fehl); Streamlit antwortet auf `http://localhost:8502/`.
+**Erwartung bei Erfolg:** Container `earnie-greenfield` running; Bootstrap-Dateien unter `greenfield/`; Log mit „Earnie Live-Abfrage gestartet“ (Loxone-Zugriff schlägt mit Dummy-`.env` erwartbar fehl); Streamlit antwortet auf `http://localhost:8502/`.
 
 Hilfs-Tests (ohne Docker): `tests/test_smoke_greenfield_docker.py`.
 

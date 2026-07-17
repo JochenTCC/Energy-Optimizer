@@ -2,6 +2,44 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Streamlit app.py (:8501 lokal)",
+      "type": "python",
+      "request": "launch",
+      "module": "scripts.run_streamlit",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "EARNIE_UI_STREAMLIT_PORT": "8501",
+        "EARNIE_UI_CHART_DEBUG_CAPTURE_ENABLED": "1",
+        "EARNIE_AUTO_START_MAIN": "0"
+      },
+      "subProcess": false,
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "presentation": {
+        "group": "local",
+        "order": 1
+      }
+    },
+    {
+      "name": "Streamlit app.py (:8501 lokal, auto main)",
+      "type": "python",
+      "request": "launch",
+      "module": "scripts.run_streamlit",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "EARNIE_UI_STREAMLIT_PORT": "8501",
+        "EARNIE_UI_CHART_DEBUG_CAPTURE_ENABLED": "1",
+        "EARNIE_AUTO_START_MAIN": "1"
+      },
+      "subProcess": false,
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "presentation": {
+        "group": "local",
+        "order": 2
+      }
+    },
+    {
       "name": "Streamlit app.py (NAS :8503)",
       "type": "python",
       "request": "launch",
@@ -11,11 +49,16 @@
         "EARNIE_RUNTIME_DIR": "\\\\DS-KO-DO-2\\docker\\earnie\\runtime",
         "EARNIE_CONFIG_PATH": "\\\\DS-KO-DO-2\\docker\\earnie\\config\\config.json",
         "EARNIE_UI_STREAMLIT_PORT": "8503",
-        "EARNIE_UI_CHART_DEBUG_CAPTURE_ENABLED": "1"
+        "EARNIE_UI_CHART_DEBUG_CAPTURE_ENABLED": "1",
+        "EARNIE_AUTO_START_MAIN": "0"
       },
       "subProcess": false,
       "console": "integratedTerminal",
-      "justMyCode": false
+      "justMyCode": false,
+      "presentation": {
+        "group": "nas",
+        "order": 1
+      }
     },
     {
       "name": "main.py (Greenfield)",
@@ -44,6 +87,66 @@
       }
     },
     {
+      "name": "Streamlit app.py (LOKAL, Greenfield :8511)",
+      "type": "python",
+      "request": "launch",
+      "module": "scripts.run_streamlit",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "EARNIE_CONFIG_PATH": "${workspaceFolder}/greenfield/config/config.json",
+        "EARNIE_RUNTIME_DIR": "${workspaceFolder}/greenfield/runtime",
+        "EARNIE_DOTENV_PATH": "${workspaceFolder}/greenfield/config/.env",
+        "EARNIE_LOCAL_SETTINGS_PATH": "${workspaceFolder}/greenfield/runtime/local_settings.json",
+        "EARNIE_HOUSE_PROFILES_PATH": "${workspaceFolder}/greenfield/config/house_profiles.json",
+        "EARNIE_COMPONENTS_PATH": "${workspaceFolder}/greenfield/config/components.json",
+        "EARNIE_TARIFFS_PATH": "${workspaceFolder}/greenfield/config/tariffs.json",
+        "EARNIE_BACKTESTING_SCENARIOS_PATH": "${workspaceFolder}/greenfield/config/backtesting_scenarios.json",
+        "EARNIE_VERIFY_LOXONE_ON_START": "0",
+        "EARNIE_STRICT_TARIFF_VALIDATE": "1",
+        "EARNIE_UI_MODES": "sunset2sunset,scenario_explorer",
+        "EARNIE_UI_STREAMLIT_PORT": "8511",
+        "EARNIE_UI_CHART_DEBUG_CAPTURE_ENABLED": "1",
+        "EARNIE_AUTO_START_MAIN": "0"
+      },
+      "subProcess": false,
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "presentation": {
+        "group": "greenfield",
+        "order": 2
+      }
+    },
+    {
+      "name": "Streamlit app.py (Greenfield :8511, auto main)",
+      "type": "python",
+      "request": "launch",
+      "module": "scripts.run_streamlit",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "EARNIE_CONFIG_PATH": "${workspaceFolder}/greenfield/config/config.json",
+        "EARNIE_RUNTIME_DIR": "${workspaceFolder}/greenfield/runtime",
+        "EARNIE_DOTENV_PATH": "${workspaceFolder}/greenfield/config/.env",
+        "EARNIE_LOCAL_SETTINGS_PATH": "${workspaceFolder}/greenfield/runtime/local_settings.json",
+        "EARNIE_HOUSE_PROFILES_PATH": "${workspaceFolder}/greenfield/config/house_profiles.json",
+        "EARNIE_COMPONENTS_PATH": "${workspaceFolder}/greenfield/config/components.json",
+        "EARNIE_TARIFFS_PATH": "${workspaceFolder}/greenfield/config/tariffs.json",
+        "EARNIE_BACKTESTING_SCENARIOS_PATH": "${workspaceFolder}/greenfield/config/backtesting_scenarios.json",
+        "EARNIE_VERIFY_LOXONE_ON_START": "0",
+        "EARNIE_STRICT_TARIFF_VALIDATE": "1",
+        "EARNIE_UI_MODES": "sunset2sunset,scenario_explorer",
+        "EARNIE_UI_STREAMLIT_PORT": "8511",
+        "EARNIE_UI_CHART_DEBUG_CAPTURE_ENABLED": "1",
+        "EARNIE_AUTO_START_MAIN": "1"
+      },
+      "subProcess": false,
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "presentation": {
+        "group": "greenfield",
+        "order": 3
+      }
+    },
+    {
       "name": "main.py (Silent Migration Test)",
       "type": "python",
       "request": "launch",
@@ -65,7 +168,7 @@
       "justMyCode": false,
       "presentation": {
         "group": "silent-migration",
-        "order": 3
+        "order": 1
       }
     },
     {
@@ -86,15 +189,71 @@
         "EARNIE_STRICT_TARIFF_VALIDATE": "1",
         "EARNIE_UI_MODES": "sunset2sunset,scenario_explorer",
         "EARNIE_UI_STREAMLIT_PORT": "8512",
-        "EARNIE_UI_CHART_DEBUG_CAPTURE_ENABLED": "1"
+        "EARNIE_UI_CHART_DEBUG_CAPTURE_ENABLED": "1",
+        "EARNIE_AUTO_START_MAIN": "0"
       },
       "subProcess": false,
       "console": "integratedTerminal",
       "justMyCode": false,
       "presentation": {
         "group": "silent-migration",
-        "order": 4
+        "order": 2
       }
+    },
+    {
+      "name": "Streamlit app.py (Silent Migration :8512, auto main)",
+      "type": "python",
+      "request": "launch",
+      "module": "scripts.run_streamlit",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "EARNIE_CONFIG_PATH": "${workspaceFolder}/silent-migration-test/config/config.json",
+        "EARNIE_RUNTIME_DIR": "${workspaceFolder}/silent-migration-test/runtime",
+        "EARNIE_DOTENV_PATH": "${workspaceFolder}/silent-migration-test/config/.env",
+        "EARNIE_LOCAL_SETTINGS_PATH": "${workspaceFolder}/silent-migration-test/runtime/local_settings.json",
+        "EARNIE_HOUSE_PROFILES_PATH": "${workspaceFolder}/silent-migration-test/config/house_profiles.json",
+        "EARNIE_TARIFFS_PATH": "${workspaceFolder}/silent-migration-test/config/tariffs.json",
+        "EARNIE_BACKTESTING_SCENARIOS_PATH": "${workspaceFolder}/silent-migration-test/config/backtesting_scenarios.json",
+        "EARNIE_VERIFY_LOXONE_ON_START": "1",
+        "EARNIE_STRICT_TARIFF_VALIDATE": "1",
+        "EARNIE_UI_MODES": "sunset2sunset,scenario_explorer",
+        "EARNIE_UI_STREAMLIT_PORT": "8512",
+        "EARNIE_UI_CHART_DEBUG_CAPTURE_ENABLED": "1",
+        "EARNIE_AUTO_START_MAIN": "1"
+      },
+      "subProcess": false,
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "presentation": {
+        "group": "silent-migration",
+        "order": 3
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "main.py + Streamlit (Greenfield :8511)",
+      "configurations": [
+        "main.py (Greenfield)",
+        "Streamlit app.py (LOKAL, Greenfield :8511)"
+      ],
+      "presentation": {
+        "group": "greenfield",
+        "order": 4
+      },
+      "stopAll": true
+    },
+    {
+      "name": "main.py + Streamlit (Silent Migration :8512)",
+      "configurations": [
+        "main.py (Silent Migration Test)",
+        "Streamlit app.py (Silent Migration :8512)"
+      ],
+      "presentation": {
+        "group": "silent-migration",
+        "order": 4
+      },
+      "stopAll": true
     }
   ]
 }

@@ -1,5 +1,8 @@
 # Lokaler Dev-Stack — Build aus Repo-Root:
 #   docker compose --project-directory . -f docker/compose/dev.yml up -d --build
+#
+# Ein Container: Streamlit + auto-start von main.py (EARNIE_AUTO_START_MAIN=1).
+# Nach Änderungen an config/config.json: Container neu starten.
 version: '3.8'
 
 x-persist-volumes: &persist-volumes
@@ -10,25 +13,16 @@ x-common-env: &common-env
   TZ: Europe/Vienna
   EARNIE_CONFIG_PATH: config/config.json
   EARNIE_VERIFY_LOXONE_ON_START: "1"
+  EARNIE_AUTO_START_MAIN: "1"
 
 x-build: &build
   context: .
   dockerfile: docker/Dockerfile
 
 services:
-  optimizer-worker:
+  earnie:
     build: *build
-    container_name: earnie-optimizer-worker
-    command: python main.py
-    restart: unless-stopped
-    volumes: *persist-volumes
-    environment:
-      <<: *common-env
-
-  optimizer-ui:
-    build: *build
-    container_name: earnie-optimizer-ui
-    command: python -m scripts.run_streamlit
+    container_name: earnie
     restart: unless-stopped
     # Host-Port muss ui.streamlit_port in config/config.json entsprechen (Standard: 8501).
     ports:

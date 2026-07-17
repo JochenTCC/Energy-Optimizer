@@ -18,6 +18,8 @@ Dockerfile: `docker/Dockerfile` · Entrypoint: `docker/entrypoint.sh`
 
 ## Compose-Stacks
 
+Jeder Stack hat **einen** Service `earnie` (Streamlit + Auto-Start von `main.py` via `EARNIE_AUTO_START_MAIN=1`).
+
 Immer vom **Repo-Root** mit `--project-directory .`, damit Volume-Pfade (`./config`, `./runtime`, `./greenfield/...`) korrekt aufgelöst werden:
 
 | Stack | Datei | Port (UI) |

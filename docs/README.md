@@ -15,7 +15,7 @@ Für Entwickler (Projektstruktur, Tests, Container) siehe [DEVELOPER.md](../DEVE
    ```powershell
    python -m scripts.verify_loxone_setup
    ```
-5. **Produktivbetrieb starten:** `python main.py` (Optimierung im 15-Minuten-Takt).
+5. **Produktivbetrieb:** Docker-Container starten (UI + `main.py` Auto-Start) oder lokal `python main.py` / UI **Optimierer-Dienst**.
 6. **Monitor öffnen:** `python -m scripts.run_streamlit` (Port: `ui.streamlit_port` in config.json, Standard 8501)
 
 Parameter-Beschreibungen erscheinen in Cursor/VS Code als Hover-Hilfe, wenn in `config/config.json` `"$schema": "./config.schema.json"` gesetzt ist.

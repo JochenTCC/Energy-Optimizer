@@ -1,15 +1,21 @@
 # Betrieb
 
-## Zwei Einstiegspunkte
+## Einstiegspunkte
 
 
-| Komponente           | Befehl                            | Rolle                                                                               |
-| -------------------- | --------------------------------- | ----------------------------------------------------------------------------------- |
-| **Produktiv-Daemon** | `python main.py`                  | Liest Loxone, optimiert, schreibt Steuerwerte — läuft dauerhaft                     |
-| **Streamlit-App**    | `python -m scripts.run_streamlit` | Cockpit, Anzeige der letzten Optimierung von main.py, Debugging — optional parallel |
+| Komponente           | Befehl                            | Rolle                                                                                         |
+| -------------------- | --------------------------------- | --------------------------------------------------------------------------------------------- |
+| **Streamlit-App**    | `python -m scripts.run_streamlit` | Cockpit, Konfiguration, Analyse — und Steuerung des Optimierer-Dienstes                       |
+| **Produktiv-Daemon** | `python main.py`                  | Liest Loxone, optimiert, schreibt Steuerwerte — läuft dauerhaft (auch als Kind der Streamlit-App) |
 
 
-Nur `main.py` steuert die Anlage. Die App **zeigt** den von `main.py` berechneten 24-48 Stunden-Horizont an (persistiert in `live_optimization_debug.json`); sie überschreibt keine Loxone-Ausgänge. Konfiguration wird über die Planungs- und Echtzeit-Seiten geschrieben (Hauskonfigurator, Live-Konfiguration, Manuelle Geräte).
+Nur `main.py` steuert die Anlage (Loxone-Schreibvorgänge). Die App **zeigt** den berechneten 24–48-Stunden-Horizont (`live_optimization_debug.json`) und kann den Daemon unter **Echtzeit-Umgebung → Optimierer-Dienst** starten, stoppen und neu starten. Vor dem Start prüft Earnie `runtime/main.lock` (bereits laufende Instanz).
+
+**Docker (empfohlen):** Ein Container (`earnie`). Die UI startet `main.py` automatisch, wenn `EARNIE_AUTO_START_MAIN=1` gesetzt ist (Standard in den Compose-Dateien).
+
+**Lokal (venv / VS Code):** `main.py` und Streamlit können getrennt laufen. Auto-Start ist aus, solange `EARNIE_AUTO_START_MAIN` nicht auf `1` steht — so bleibt Debugging von `main.py` exklusiv.
+
+Konfiguration wird über die Planungs- und Echtzeit-Seiten geschrieben (Hauskonfigurator, Live-Konfiguration, Manuelle Geräte).
 
 ## Optimierungs-Takt
 
@@ -36,6 +42,7 @@ Standardverzeichnis: `runtime/` (überschreibbar mit `EARNIE_RUNTIME_DIR`, Legac
 | `cons_data_pending.json`        | Pending-Puffer für cons_data-Samples                                                         |
 | `consumption_profiles.csv`      | Berechnete Grundlast-Profile                                                                 |
 | `earnie.log`                    | Rotierendes Python-Log von main.py                                                           |
+| `main.lock` / `main.pid`        | Single-Instance-Sperre des Produktiv-Daemons (`main.lock` gehalten; PID zusätzlich in `main.pid` für Status/Stop unter Windows) |
 | `optimizer_run_state.json`      | Letzter erfolgreicher `main.py`-Durchlauf (SoC, Modus, Soll-Leistungen, Flex-Soll)           |
 | `optimization_history.jsonl`    | Historie aller Produktiv-Durchläufe (eine Zeile JSON pro Lauf)                               |
 | `live_optimization_debug.json`  | Anzeige-Snapshot des Optimierungs-Horizonts (von `main.py` geschrieben, von der App gelesen) |
@@ -72,6 +79,7 @@ Betriebsstatus der wichtigsten Log-, Historien- und Debug-Dateien (Review 2026-0
 | `EARNIE_UI_MODES`                       | Kommagetrennt: `sunset2sunset`, `scenario_explorer` — schränkt sichtbare Analyse-Seiten ein (Prod: `sunset2sunset,scenario_explorer`; siehe [Betriebsmodi](../ui/betriebsmodi.md)). Legacy-Alias: `ENERGY_OPTIMIZER_UI_MODES`. |
 | `EARNIE_UI_STREAMLIT_PORT`              | TCP-Port für Streamlit (überschreibt `ui.streamlit_port`; siehe [Streamlit-Ports](../referenz/streamlit-ports.md))                                                                                                                   |
 | `EARNIE_UI_CHART_DEBUG_CAPTURE_ENABLED` | `1` = Button „Debug-Dump speichern“ im Cockpit (überschreibt `ui.chart_debug_capture_enabled`; ZIP unter `runtime/chart_debug/`). Legacy-Alias: `ENERGY_OPTIMIZER_UI_CHART_DEBUG_CAPTURE_ENABLED`.                                  |
+| `EARNIE_AUTO_START_MAIN`                | `1` = beim Start von `scripts.run_streamlit` automatisch `main.py` starten, falls nicht schon laufend (Docker-Compose setzt das). Ohne Variable / lokal aus.                                                                              |
 
 
 Streamlit-Port-Übersicht (Stacks, Plattformen): [streamlit-ports.md](../referenz/streamlit-ports.md).

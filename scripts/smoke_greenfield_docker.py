@@ -3,7 +3,7 @@
 Greenfield Docker stack smoke test — Earnie rename / compose verification.
 
 Prepares greenfield/config + greenfield/runtime, starts docker/compose/greenfield.yml,
-and checks container names, bootstrap files, worker log, and Streamlit on :8502.
+and checks container name, bootstrap files, daemon log, and Streamlit on :8502.
 
 Usage:
   python -m scripts.smoke_greenfield_docker --prepare-only
@@ -28,8 +28,7 @@ GREENFIELD_ROOT = REPO_ROOT / "greenfield"
 CONFIG_DIR = GREENFIELD_ROOT / "config"
 RUNTIME_DIR = GREENFIELD_ROOT / "runtime"
 
-WORKER_CONTAINER = "earnie-greenfield-worker"
-UI_CONTAINER = "earnie-greenfield-ui"
+EARNIE_CONTAINER = "earnie-greenfield"
 UI_HOST_PORT = 8502
 
 REQUIRED_CONFIG_FILES = (
@@ -159,7 +158,7 @@ def wait_for_worker_healthy(
     deadline = time.monotonic() + timeout_sec
     last_log = ""
     while time.monotonic() < deadline:
-        last_log = fetch_container_logs(WORKER_CONTAINER, tail=120)
+        last_log = fetch_container_logs(EARNIE_CONTAINER, tail=120)
         healthy, detail = logs_indicate_healthy_worker(last_log)
         if healthy:
             return True, detail, last_log
@@ -232,7 +231,7 @@ def run_smoke(
     _run_compose(*up_args)
 
     still_down = wait_for_containers(
-        (WORKER_CONTAINER, UI_CONTAINER),
+        (EARNIE_CONTAINER,),
         timeout_sec=timeout_sec,
     )
     if still_down:
@@ -253,7 +252,7 @@ def run_smoke(
     healthy, log_detail, worker_log = wait_for_worker_healthy(timeout_sec=min(90.0, timeout_sec))
     if not healthy:
         print(f"FEHLER: {log_detail}", file=sys.stderr)
-        print("--- worker log (tail) ---", file=sys.stderr)
+        print("--- earnie log (tail) ---", file=sys.stderr)
         print(worker_log[-4000:], file=sys.stderr)
         return 1
     print(f"OK: {log_detail}")
@@ -267,7 +266,7 @@ def run_smoke(
     print(f"OK: Streamlit antwortet auf http://localhost:{UI_HOST_PORT}/")
 
     print(
-        f"\nGreenfield smoke test passed — {WORKER_CONTAINER}, {UI_CONTAINER}, port {UI_HOST_PORT}."
+        f"\nGreenfield smoke test passed — {EARNIE_CONTAINER}, port {UI_HOST_PORT}."
     )
     return 0
 

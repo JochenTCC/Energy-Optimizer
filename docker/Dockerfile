@@ -46,4 +46,4 @@ RUN mkdir -p share/config \
     && cp .env.example share/config/.env.example
 
 ENTRYPOINT ["/bin/sh", "docker/entrypoint.sh"]
-CMD ["python", "main.py"]
+CMD ["python", "-m", "scripts.run_streamlit"]

@@ -24,7 +24,8 @@
 #   mv earnie.log system_history_log.csv runtime/ 2>/dev/null || true
 #   In config/config.json: "path_cons_data": "runtime/cons_data_hourly.csv"
 #
-# Nach Änderungen an config/config.json: Container optimizer-worker neu starten.
+# Ein Container: Streamlit-UI startet main.py automatisch (EARNIE_AUTO_START_MAIN=1).
+# Nach Änderungen an config/config.json: Container neu starten.
 # Nach Code-Änderungen: Image bauen/pushen (docs/einrichtung/container.md), dann auf der NAS:
 #   docker compose --project-directory . -f docker/compose/synology.yml pull
 #   docker compose --project-directory . -f docker/compose/synology.yml up -d
@@ -42,24 +43,16 @@ x-persist-volumes: &persist-volumes
 x-common-env: &common-env
   TZ: Europe/Vienna
   EARNIE_CONFIG_PATH: config/config.json
-  # Tarif-Plausibilität beim Worker-Start; siehe scripts/startup_checks.py
+  # Tarif-Plausibilität beim main.py-Start; siehe scripts/startup_checks.py
   EARNIE_STRICT_TARIFF_VALIDATE: "1"
-  # Loxone-Smoke-Test beim Worker-Start (nach pull/up); siehe scripts/startup_checks.py
+  # Loxone-Smoke-Test beim main.py-Start (nach pull/up); siehe scripts/startup_checks.py
   EARNIE_VERIFY_LOXONE_ON_START: "1"
+  EARNIE_AUTO_START_MAIN: "1"
 
 services:
-  optimizer-worker:
+  earnie:
     image: ghcr.io/jochentcc/earnie-energy:latest
-    container_name: earnie-optimizer-worker
-    command: python main.py
-    restart: unless-stopped
-    volumes: *persist-volumes
-    environment:
-      <<: *common-env
-
-  optimizer-ui:
-    image: ghcr.io/jochentcc/earnie-energy:latest
-    container_name: earnie-optimizer-ui
+    container_name: earnie
     command: >
       python -m scripts.run_streamlit
       --

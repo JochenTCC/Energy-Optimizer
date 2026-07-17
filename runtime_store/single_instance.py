@@ -5,6 +5,7 @@ import atexit
 import logging
 import os
 import sys
+from dataclasses import dataclass
 from typing import IO, TextIO
 
 logger = logging.getLogger(__name__)
@@ -18,6 +19,118 @@ def _runtime_dir() -> str:
 
 class SingleInstanceError(RuntimeError):
     """Eine andere Prozessinstanz hält bereits die Sperre."""
+
+
+@dataclass(frozen=True)
+class InstanceProbe:
+    """Read-only snapshot of whether an instance lock is held."""
+
+    name: str
+    lock_path: str
+    busy: bool
+    pid: int | None
+
+
+def is_pid_alive(pid: int) -> bool:
+    """True if *pid* exists; PermissionError / access-denied counts as alive."""
+    if pid <= 0:
+        return False
+    if sys.platform == "win32":
+        return _is_pid_alive_windows(pid)
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
+def _is_pid_alive_windows(pid: int) -> bool:
+    """OpenProcess-based liveness; os.kill(pid, 0) is unreliable on Win/Py3.14+."""
+    import ctypes
+
+    # PROCESS_QUERY_LIMITED_INFORMATION
+    handle = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)
+    if handle:
+        ctypes.windll.kernel32.CloseHandle(handle)
+        return True
+    # ERROR_ACCESS_DENIED (5) → process exists but we cannot query it
+    return ctypes.windll.kernel32.GetLastError() == 5
+
+
+def lock_path_for(name: str) -> str:
+    if not name.strip():
+        raise ValueError("name darf nicht leer sein")
+    return os.path.join(_runtime_dir(), f"{name}.lock")
+
+
+def pid_path_for(name: str) -> str:
+    if not name.strip():
+        raise ValueError("name darf nicht leer sein")
+    return os.path.join(_runtime_dir(), f"{name}.pid")
+
+
+def _read_pid_from_path(path: str) -> int | None:
+    try:
+        with open(path, encoding="utf-8") as handle:
+            raw = handle.read().strip()
+            if raw.isdigit():
+                return int(raw)
+    except OSError:
+        pass
+    return None
+
+
+def _write_pid_sidecar(name: str, pid: int) -> None:
+    path = pid_path_for(name)
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(str(pid))
+        handle.flush()
+
+
+def _remove_pid_sidecar(name: str) -> None:
+    path = pid_path_for(name)
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+
+
+def probe_instance(name: str) -> InstanceProbe:
+    """Check whether another process holds the named lock (does not keep it)."""
+    path = lock_path_for(name)
+    if not os.path.exists(path):
+        return InstanceProbe(name=name, lock_path=path, busy=False, pid=None)
+
+    try:
+        lock_file = open(path, "a+", encoding="utf-8")
+    except OSError:
+        # On Windows a held msvcrt lock can deny open — treat as busy.
+        pid = _read_pid_from_path(pid_path_for(name))
+        return InstanceProbe(name=name, lock_path=path, busy=True, pid=pid)
+
+    try:
+        try:
+            _acquire_file_lock(lock_file)
+        except OSError:
+            pid = _read_pid_from_path(pid_path_for(name))
+            if pid is None:
+                pid = _read_pid_from_lock(lock_file)
+            return InstanceProbe(name=name, lock_path=path, busy=True, pid=pid)
+        try:
+            _release_file_lock(lock_file)
+        except OSError:
+            logger.debug("probe_instance: Lock-Freigabe fehlgeschlagen", exc_info=True)
+        return InstanceProbe(name=name, lock_path=path, busy=False, pid=None)
+    finally:
+        try:
+            lock_file.close()
+        except OSError:
+            pass
 
 
 def _acquire_file_lock(lock_file: IO) -> None:
@@ -99,6 +212,7 @@ class SingleInstanceLock:
         lock_file.write(str(os.getpid()))
         lock_file.flush()
         self._lock_file = lock_file
+        _write_pid_sidecar(self._name, os.getpid())
         atexit.register(self.release)
         logger.info(
             "Single-Instance-Sperre aktiv (PID %s, %s)",
@@ -112,6 +226,7 @@ class SingleInstanceLock:
         self._released = True
         lock_file = self._lock_file
         self._lock_file = None
+        _remove_pid_sidecar(self._name)
         try:
             _release_file_lock(lock_file)
         except OSError:
