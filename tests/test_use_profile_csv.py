@@ -52,6 +52,49 @@ def test_residual_baseload_subtracts_instrumented_csv(tmp_path: Path) -> None:
     assert by_c["baseload"][0] == pytest.approx(5.0 - 2.0 - float(hours) / 8760.0)
 
 
+def test_se_baseload_matches_hk_modell_metric(tmp_path: Path) -> None:
+    """SE/cons_data Basislast = HK Modell metric (baseload_kwh/8760), not meter residual."""
+    from data.cons_data_house_profile import hourly_kw_by_consumer_for_timestamps
+    from ui.consumption_display.adapters import bundle_from_modeled_profile
+
+    total = tmp_path / "total.csv"
+    cons = tmp_path / "cons.csv"
+    hours = 48
+    _hourly_csv(total, hours, 5.0)
+    _hourly_csv(cons, hours, 2.0)
+    profile = {
+        "id": "align_test",
+        "baseload_kwh": 876.0,
+        "total_profile_csv": str(total),
+        "consumers": [
+            {
+                "id": "flex_a",
+                "type": "generic",
+                "nominal_power_kw": 1.0,
+                "annual_kwh": 0.0,
+                "profile_csv": str(cons),
+                "use_profile_csv": True,
+            },
+            {
+                "id": "synth_b",
+                "type": "generic",
+                "nominal_power_kw": 1.0,
+                "annual_kwh": float(hours),
+            },
+        ],
+    }
+    hk_bundle = bundle_from_modeled_profile(profile, hours=8760)
+    timestamps = [
+        (datetime(2023, 1, 1) + timedelta(hours=i)).strftime("%Y-%m-%d %H:%M:%S")
+        for i in range(hours)
+    ]
+    se = hourly_kw_by_consumer_for_timestamps(profile, timestamps)
+    expected = 876.0 / 8760.0
+    assert hk_bundle.baseload[0] == pytest.approx(expected)
+    assert se["baseload"][0] == pytest.approx(expected)
+    assert se["baseload"][0] == pytest.approx(hk_bundle.baseload[0])
+
+
 def test_residual_aligns_consumer_csv_by_timestamp(tmp_path: Path) -> None:
     """Consumer CSV may start earlier; residual must match calendar hours."""
     total = tmp_path / "total.csv"

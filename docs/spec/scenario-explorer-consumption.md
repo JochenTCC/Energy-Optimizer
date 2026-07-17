@@ -77,11 +77,11 @@ Per-consumer historical power series live on the house profile (not live `path_h
 | Key | Effect |
 | --- | ------ |
 | `profile_csv` | Path to normalized `timestamp;power_kw` (≥12 months after import) |
-| `use_profile_csv` | `true` → use CSV load instead of synthetic schedule/model **and** subtract that series from `total_profile_csv` when residual baseload is computed |
+| `use_profile_csv` | `true` → use CSV load instead of synthetic schedule/model **and** subtract that series from `total_profile_csv` when Hauskonfigurator residual helpers compute meter residual |
 
-Scenario Explorer overlays and synthetic `cons_data` generation (`build_synthetic_dataframe_from_house_profile`, `hourly_kw_by_consumer_for_timestamps`) honor these flags the same way as the Hauskonfigurator. There is no separate SE toggle.
+Scenario Explorer overlays and synthetic `cons_data` generation (`build_synthetic_dataframe_from_house_profile`, `hourly_kw_by_consumer_for_timestamps`) use the same **metric** Basislast as Hauskonfigurator Verbrauchsprofil (Modell) and MILP `profile_spec`: `baseload_kwh / 8760`. They do **not** use meter residual from `total_profile_csv` (that CSV remains for Ist-vs-Modell validation in the house configurator).
 
-When `total_profile_csv` is set, `total_kw` comes from that series; baseload residual = total − Σ(consumers with `use_profile_csv`).
+When synthesizing `cons_data`, `total_kw` = metric baseload + Σ(consumers).
 
 ## Related modules
 

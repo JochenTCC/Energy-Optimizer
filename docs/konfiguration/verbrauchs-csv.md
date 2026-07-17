@@ -49,8 +49,10 @@ Pro Verbraucher:
 1. CSV-Pfad oder Upload
 2. Checkbox **„Aus Gesamt-CSV abziehen / echtes Profil nutzen“**
 
-- **Aktiv:** Last aus der CSV statt Synthese; Abzug von der Gesamt-CSV für die Rest-Grundlast
+- **Aktiv:** Last aus der CSV statt Synthese; Abzug von der Gesamt-CSV für die Rest-Grundlast im Hauskonfigurator
 - **Inaktiv:** synthetisches Modell/Schedule (Pfad kann gespeichert bleiben, wird aber nicht für die Modellierung genutzt)
+
+Szenario-Explorer und synthetische `cons_data_hourly.csv` nutzen dieselbe **konfigurierte** Grundlast wie Verbrauchsprofil (Modell): `baseload_kwh / 8760` (nicht den Meter-Rest aus der Gesamt-CSV).
 
 ### Digitale Ein/Aus-Signale (0/1)
 

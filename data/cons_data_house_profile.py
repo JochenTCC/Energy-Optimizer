@@ -15,7 +15,6 @@ from data.consumption_profiles import (
     csv_kw_at_datetime,
     modeled_consumer_kw_at_datetime,
 )
-from house_config.consumption_csv import consumer_uses_profile_csv
 from house_config.profiles_store import load_house_profiles_document
 from runtime_store.persist_paths import resolve_house_profiles_json_path
 from settings.flexible_consumers import normalize_consumer, runtime_consumer_id
@@ -49,35 +48,22 @@ def hourly_kw_by_consumer_for_timestamps(
     *,
     climate: ModeledClimateContext | None = None,
 ) -> dict[str, list[float]]:
-    """Stündlicher kW je Verbraucher + Basislast, kalenderbasiert wie cons_data-Synthese."""
+    """Stündlicher kW je Verbraucher + Basislast (metric flat, wie HK Modell / MILP)."""
     consumers = list(profile.get("consumers", []))
     consumer_ids = [_consumer_id(consumer, index) for index, consumer in enumerate(consumers)]
     series: dict[str, list[float]] = {cid: [] for cid in consumer_ids}
-    baseload_series: list[float] = []
-    csv_path = str(profile.get("total_profile_csv", "") or "").strip()
+    baseload_kwh = float(profile.get("baseload_kwh", 0.0) or 0.0)
+    baseload_kw = baseload_kwh / 8760.0
     for ts_raw in timestamps:
         slot_dt = _parse_hourly_timestamp(ts_raw)
-        flex_vals = {}
         for index, cid in enumerate(consumer_ids):
             kw = modeled_consumer_kw_at_datetime(
                 consumers[index],
                 slot_dt,
                 climate=climate,
             )
-            flex_vals[cid] = kw
             series[cid].append(kw)
-        if csv_path:
-            total = total_kw_at_datetime(profile, slot_dt)
-            subtract = sum(
-                flex_vals[cid]
-                for index, cid in enumerate(consumer_ids)
-                if consumer_uses_profile_csv(consumers[index])
-            )
-            baseload_series.append(max(0.0, total - subtract))
-        else:
-            baseload_kwh = float(profile.get("baseload_kwh", 0.0) or 0.0)
-            baseload_series.append(baseload_kwh / 8760.0)
-    series["baseload"] = baseload_series
+    series["baseload"] = [baseload_kw] * len(timestamps)
     return series
 
 
@@ -205,7 +191,8 @@ def build_synthetic_dataframe_from_house_profile(
     consumers = list(profile.get("consumers", []))
     consumer_ids = [_consumer_id(consumer, index) for index, consumer in enumerate(consumers)]
     timestamps = pd.date_range(start_dt, periods=hours, freq="h")
-    csv_path = str(profile.get("total_profile_csv", "") or "").strip()
+    # total_profile_csv is for HK Ist-vs-Modell only; SE/cons_data Basislast
+    # matches HK Modell + MILP profile_spec (metric flat), not meter residual.
 
     rows: list[dict] = []
     for ts in timestamps:
@@ -219,17 +206,8 @@ def build_synthetic_dataframe_from_house_profile(
             for index, cid in enumerate(consumer_ids)
         }
         flex_sum = sum(flex_vals.values())
-        if csv_path:
-            total_kw = total_kw_at_datetime(profile, slot_dt)
-            subtract = sum(
-                flex_vals[cid]
-                for index, cid in enumerate(consumer_ids)
-                if consumer_uses_profile_csv(consumers[index])
-            )
-            hour_baseload = max(0.0, total_kw - subtract)
-        else:
-            hour_baseload = default_baseload_kw
-            total_kw = hour_baseload + flex_sum
+        hour_baseload = default_baseload_kw
+        total_kw = hour_baseload + flex_sum
         if climate is not None:
             pv_kw = climate.pv_kw_at(slot_dt)
         else:
