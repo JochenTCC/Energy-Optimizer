@@ -113,6 +113,63 @@ def test_root_eauto_milp_block_rejected(tmp_path, monkeypatch):
         reinit_config()
 
 
+@pytest.mark.parametrize(
+    "block_key,block_value",
+    [
+        ("awattar", {}),
+        ("battery_wear", {"enabled": False}),
+        ("batteries", []),
+        ("pv_systems", []),
+        ("eauto_milp", {"live_modus_a_min_remaining_kwh": 1.0}),
+    ],
+)
+def test_reject_legacy_config_blocks_unit(block_key, block_value):
+    from settings.legacy_config_gates import reject_legacy_config_blocks
+
+    with pytest.raises(ValueError, match=block_key):
+        reject_legacy_config_blocks({block_key: block_value})
+
+
+def test_reject_legacy_config_blocks_allows_clean_config():
+    from settings.legacy_config_gates import reject_legacy_config_blocks
+
+    reject_legacy_config_blocks({"system": {"global_timeout": 10}})
+
+
+def test_reject_legacy_runtime_settings_block_unit():
+    from settings.legacy_config_gates import reject_legacy_runtime_settings_block
+
+    with pytest.raises(ValueError, match="runtime_settings"):
+        reject_legacy_runtime_settings_block({"runtime_settings": {"battery_id": "x"}})
+
+
+def test_reject_legacy_runtime_settings_block_allows_clean_config():
+    from settings.legacy_config_gates import reject_legacy_runtime_settings_block
+
+    reject_legacy_runtime_settings_block({"live_scenario_id": "live"})
+
+
+@pytest.mark.parametrize(
+    "block_key,block_value",
+    [
+        ("awattar", {}),
+        ("battery_wear", {"enabled": False}),
+        ("batteries", []),
+        ("pv_systems", []),
+    ],
+)
+def test_root_legacy_config_blocks_rejected(
+    tmp_path, monkeypatch, block_key, block_value
+):
+    base = json.loads(open(config.CONFIG_JSON_PATH, encoding="utf-8").read())
+    base[block_key] = block_value
+    cfg_path = tmp_path / "config.json"
+    cfg_path.write_text(json.dumps(base, indent=2), encoding="utf-8")
+    monkeypatch.setenv("ENERGY_OPTIMIZER_CONFIG_PATH", str(cfg_path))
+    with pytest.raises(ValueError, match=block_key):
+        reinit_config()
+
+
 def test_update_appliance_defaults_roundtrip(tmp_path, monkeypatch):
     from house_config.scenario_resolution import DEFAULT_LIVE_SCENARIO_ID
 

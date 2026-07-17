@@ -28,7 +28,7 @@ dev = [
     "pytest-deadfixtures>=2.2.1",
 ]
 mutation = [
-    "mutmut>=2.7.0",
+    "mutmut>=2.4.0,<3",
 ]
 
 [project.scripts]

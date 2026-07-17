@@ -16,6 +16,9 @@ Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes �
 - [x] **Legacy test / fixture audit** — removed dead `fixture_prices_df`; protected `test_loxone_integration.py`; health report skips missing test files; mock-heavy unit tests kept (manual triage)
 - [x] **KPI refactor (bounded)** — split `_load_static_params`; removed unused `spa_cfg`; gates extracted; full `config.py` file split deferred → follow-up below
 - [x] **Split `config.py` further** — extracted `settings/config_loaders.py` + `settings/live_scenario.py` (plus flex/appliance load helpers); `config.py` ~492 code LOC (was ~872; hard limit 600); public `import config` facade unchanged
+- [x] **Widen `mutmut.ini`** — added `settings/legacy_config_gates.py` + reject/unit tests; `scripts/mutmut_pytest_runner.py` normalizes pytest exit codes; pin `mutmut>=2.4,<3` (ini format); run via Linux/Docker (not a release gate)
+- [x] **Rewrite mock-heavy main() orchestration tests** — shared `tests/main_run_harness.py` (`patch_main_run` / `sample_planning_window`) aligned to current `main.py` seams (`prepare_optimization_matrix`, flex live power, thermal/savings); slimmed `tests/test_main_charging_trigger.py` + `tests/test_main_loxone_writes.py` (7 contracts preserved)
+- [x] **German user handbook** — `docs/user-manual/Benutzer-Handbuch-Earnie.md` improved (post-install user perspective)
 
 
 ### Synology UI Streamlit bind (2026-07-17)

@@ -52,6 +52,8 @@ Requires `pip install -e ".[dev]"` (`vulture`, `pytest-deadfixtures`). Manual re
 
 ## Mutation testing (optional, weekly)
 
+Requires Linux/WSL or Docker (mutmut has no native Windows support). Pin is mutmut 2.x (`pyproject.toml` `[mutation]`) so [`mutmut.ini`](mutmut.ini) is honored. Runner is `python -m scripts.mutmut_pytest_runner` (maps pytest collection errors to exit 1 so behavioral mutants are not false-survived).
+
 ```powershell
 pip install -e ".[mutation]"
 mutmut run
@@ -59,7 +61,7 @@ mutmut results
 mutmut html
 ```
 
-Scoped modules: `mutmut.ini` (`data/cons_data_house_profile.py`, `house_config/planning_flex_bridge.py`, `settings/flexible_consumers.py`).
+Scoped modules: `mutmut.ini` (`data/cons_data_house_profile.py`, `house_config/planning_flex_bridge.py`, `settings/flexible_consumers.py`, `settings/legacy_config_gates.py`).
 
 ## Agent guidance
 

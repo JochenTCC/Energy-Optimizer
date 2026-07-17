@@ -26,12 +26,6 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 ## Feature Backlog
 
 
-### Version 2.2 — Quality epic / post-migration cleanup
-
-- [ ] Add a German documentation about how to use Earnie from a user perspective (after installation is done)
-- [ ] **Follow-up (optional):** Rewrite mock-heavy `tests/test_main_charging_trigger.py` / `tests/test_main_loxone_writes.py` when `main.py` orchestration changes or a live bug proves mocks too coarse
-- [ ] **Follow-up (optional):** Widen `mutmut.ini` to one post-cleanup hotspot module (not a release gate)
-
 ### Version 2.+1
 
 - [ ] Make main.py controllable from streamlit.app (Checks must be included if main.py is runnin already, if necessary change spec / doc and put it in one container as deamon or so)
@@ -49,13 +43,14 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
   - Settings must be used correctly in Scenario Explorer (using synthetic or real profiles)
 
 
-### Version 2.+1
+### Version 2.+1 - Become Loxone agnostic
 
 - [ ] Make interface to smarthome loxone agnostic
+  - **Goal:** Get into contact with more Smarthome freaks that are willing to build connections to their specific hardware
   - Redefine Loxone Markers --> Smarthome Markers that are suitable to multiple standards like MQTT or Matter
-  - Create architecture for a connector approach that bridges a common internal Earnie interface to specific Smarthome interfaces
+  - Create architecture for a connector approach that bridges a common generic internal Earnie interface to specific Smarthome interfaces
   - Refactor existing Loxone HTTP communication to new Loxone<>Earnie-connector
-  - Create specification for other Smarthome connectors
+  - Create specification for other Smarthome connectors to internal Earnie interface
   - 
 
 
