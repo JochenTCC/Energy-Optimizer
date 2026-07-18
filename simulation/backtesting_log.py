@@ -426,6 +426,12 @@ def save_backtesting_log(
         payload["reference_by_scenario"] = period["reference_by_scenario"]
     if period.get("live_scenario_id"):
         payload["live_scenario_id"] = period["live_scenario_id"]
+    if period.get("imported_pv_scenario_ids"):
+        payload["imported_pv_scenario_ids"] = list(period["imported_pv_scenario_ids"])
+    if period.get("imported_pv_missing_scenario_ids"):
+        payload["imported_pv_missing_scenario_ids"] = list(
+            period["imported_pv_missing_scenario_ids"]
+        )
 
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, ensure_ascii=False)

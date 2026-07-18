@@ -146,6 +146,38 @@ def write_canonical_hourly_csv(path: str, rows: list[tuple[str, float]]) -> None
             writer.writerow([ts_raw, f"{power_kw:.6f}".rstrip("0").rstrip(".")])
 
 
+def import_energiemonitor_to_canonical(
+    source_path: str,
+    *,
+    verbrauch_dest: str,
+    produktion_dest: str | None = None,
+    min_hours: int = MIN_HOURS_FULL_YEAR,
+) -> dict[str, str]:
+    """Parse Energiemonitor multi-column CSV; write canonical Verbrauch (+ optional PV).
+
+    Returns paths written: ``{"total_profile_csv": ..., "pv_profile_csv": ...?}``.
+    """
+    from data.energiemonitor_csv import load_energiemonitor_hourly
+
+    series_map = load_energiemonitor_hourly(source_path)
+    verbrauch_rows = normalize_hourly_power_kw(
+        series_map["verbrauch"],
+        min_hours=min_hours,
+        source=f"{source_path}#Verbrauch",
+    )
+    write_canonical_hourly_csv(verbrauch_dest, verbrauch_rows)
+    result: dict[str, str] = {"total_profile_csv": verbrauch_dest}
+    if "produktion" in series_map and produktion_dest:
+        produktion_rows = normalize_hourly_power_kw(
+            series_map["produktion"],
+            min_hours=min_hours,
+            source=f"{source_path}#Produktion",
+        )
+        write_canonical_hourly_csv(produktion_dest, produktion_rows)
+        result["pv_profile_csv"] = produktion_dest
+    return result
+
+
 def detect_and_load_raw_series(path: str) -> pd.Series:
     """Load raw power series (any sampling); Loxone meter or timestamp;power_kw."""
     file_path = Path(path)

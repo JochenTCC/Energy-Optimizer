@@ -217,7 +217,7 @@ def build_scenario_consumption_rows(
         rows.append(
             {
                 "Szenario": label,
-                "Verbrauch ohne PV und Speicher": _format_kwh(ref_kwh),
+                "Ohne PV und Speicher [kWh]": _format_kwh(ref_kwh),
                 "Reference (Live) - ohne Optimierung [kWh]": _format_kwh(live_ref_kwh),
                 "Optimiert (kWh)": _format_kwh(optimized),
                 "Δ kWh (Ref. ohne Optimierung)": _format_delta_kwh(delta),
@@ -235,9 +235,25 @@ def build_scenario_consumption_rows(
     return rows
 
 
-def _reference_id_for_scenario(meta: dict, scenario_id: str) -> str:
-    mapping = meta.get("reference_by_scenario") or {}
-    return str(mapping.get(scenario_id) or meta.get("reference_id", HISTORICAL_REFERENCE_ID))
+def _resolve_live_scenario_id(meta: dict) -> str | None:
+    live_id = meta.get("live_scenario_id")
+    if live_id:
+        return str(live_id)
+    try:
+        return str(config.get_live_scenario_id())
+    except Exception:
+        return None
+
+
+def _live_reference_total_eur(meta: dict, totals: dict[str, float]) -> float | None:
+    """€ total of the Live scenario reference row (Referenz Live)."""
+    live_id = _resolve_live_scenario_id(meta)
+    if not live_id:
+        return None
+    live_ref = scenario_reference_id(live_id)
+    if live_ref not in totals:
+        return None
+    return float(totals[live_ref])
 
 
 def _annual_cost_row_order(meta: dict, totals: dict[str, float]) -> list[str]:
@@ -248,13 +264,8 @@ def _annual_cost_row_order(meta: dict, totals: dict[str, float]) -> list[str]:
         dict.fromkeys(scenario_ids + [sid for sid in totals if sid not in scenario_ids])
     )
 
-    live_id = meta.get("live_scenario_id")
-    if not live_id:
-        try:
-            live_id = config.get_live_scenario_id()
-        except Exception:
-            live_id = None
-    live_ref = scenario_reference_id(str(live_id)) if live_id else None
+    live_id = _resolve_live_scenario_id(meta)
+    live_ref = scenario_reference_id(live_id) if live_id else None
 
     global_refs: list[str] = []
     scenario_refs: list[str] = []
@@ -317,6 +328,7 @@ def build_annual_cost_rows(meta: dict, ref_kwh: float | None) -> list[dict]:
     labels = meta.get("labels", {})
     ref_id = meta.get("reference_id", HISTORICAL_REFERENCE_ID)
     plausibility = meta.get("plausibility", {})
+    live_ref_total = _live_reference_total_eur(meta, totals)
 
     rows: list[dict] = []
     for scenario_id in _annual_cost_row_order(meta, totals):
@@ -333,26 +345,22 @@ def build_annual_cost_rows(meta: dict, ref_kwh: float | None) -> list[dict]:
             rows.append(
                 {
                     "Szenario": label,
-                    "Jahres-kWh": kwh_cell,
-                    "Jahres-€": f"{total_eur:.2f}",
-                    "Δ vs. Referenz": _DASH,
+                    "Jahres Verbrauch [kWh]": kwh_cell,
+                    "Jahres Kosten [€]": f"{total_eur:.2f} €",
+                    "Δ vs Referenz [€]": _DASH,
                 }
             )
             continue
 
-        scenario_ref_id = _reference_id_for_scenario(meta, scenario_id)
-        ref_total = totals.get(scenario_ref_id)
-        if ref_total is None and scenario_ref_id != ref_id:
-            ref_total = totals.get(ref_id)
         delta_cell = _DASH
-        if ref_total is not None:
-            delta_cell = f"{total_eur - ref_total:+.2f} €"
+        if live_ref_total is not None:
+            delta_cell = f"{total_eur - live_ref_total:+.2f} €"
         rows.append(
             {
                 "Szenario": label,
-                "Jahres-kWh": kwh_cell,
-                "Jahres-€": f"{total_eur:.2f}",
-                "Δ vs. Referenz": delta_cell,
+                "Jahres Verbrauch [kWh]": kwh_cell,
+                "Jahres Kosten [€]": f"{total_eur:.2f} €",
+                "Δ vs Referenz [€]": delta_cell,
             }
         )
     return rows

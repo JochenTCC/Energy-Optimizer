@@ -644,7 +644,7 @@ def _render_location_fields(*, session_scope: str) -> dict:
             "PV-Default Neigung (°)",
             min_value=0,
             max_value=90,
-            help="Vorschlag für neue PV-Anlage im Tab PV-Anlage (überschreibbar).",
+            help="Vorschlag für neue PV-Anlage im Tab PV-Anlagen (überschreibbar).",
             key=_scoped_key(session_scope, "house_profile_default_pv_tilt"),
         )
     with col_d:
@@ -652,7 +652,7 @@ def _render_location_fields(*, session_scope: str) -> dict:
             "PV-Default Azimut (°)",
             min_value=-180,
             max_value=180,
-            help="0 = Süd, -90 = Ost, 90 = West. Überschreibbar im Tab PV-Anlage.",
+            help="0 = Süd, -90 = Ost, 90 = West. Überschreibbar im Tab PV-Anlagen.",
             key=_scoped_key(session_scope, "house_profile_default_pv_azimuth"),
         )
     return {
@@ -764,7 +764,12 @@ def _render_consumer_form(
     default_pv_azimuth: float = 0.0,
 ) -> dict:
     title = consumer.get("label") or f"Verbraucher {index + 1}"
-    with st.expander(f"Verbraucher {index + 1}: {title}", expanded=index == 0):
+    # Expand first consumer only when it has no saved id yet (new/empty form).
+    has_saved_data = bool(str(consumer.get("id") or "").strip())
+    with st.expander(
+        f"Verbraucher {index + 1}: {title}",
+        expanded=index == 0 and not has_saved_data,
+    ):
         cols = st.columns([5, 1])
         with cols[1]:
             if st.button("Entfernen", key=_scoped_key(session_scope, f"hc_remove_{index}")):
@@ -1131,113 +1136,15 @@ def _render_consumption_csv_section(
     resolved: list[dict],
     preview: dict,
 ) -> None:
-    from pathlib import Path
+    from ui.house_config_historical_csv import render_historical_csv_section
 
-    from house_config.consumption_csv import (
-        load_hourly_profile_csv,
-        normalize_profile_csv_file,
+    render_historical_csv_section(
+        existing=existing,
+        preview_id=preview_id,
+        annual_kwh=annual_kwh,
+        resolved=resolved,
+        preview=preview,
     )
-
-    st.subheader("Jahres-Verbrauchs-CSV (optional)")
-    st.caption(
-        "Kanonisch: `timestamp;power_kw` (stündlich, ≥12 Monate). "
-        "Loxone-CSV (Datum;Zeit oder kombiniert; Wert/Leistung) wird beim Import konvertiert. "
-        "Zum Abgleich Ist-Verbrauch vs. modellierte Konfiguration."
-    )
-
-    session_key = f"house_profile_csv_path_{preview_id}"
-    if session_key not in st.session_state:
-        st.session_state[session_key] = str(existing.get("total_profile_csv", "") or "").strip()
-
-    csv_path = labeled_text_input(
-        "CSV-Pfad",
-        value=st.session_state[session_key],
-        key=f"house_profile_csv_input_{preview_id}",
-        help="Relativer Pfad, z. B. config/uploads/mein_haushalt_verbrauch.csv",
-    )
-    st.session_state[session_key] = csv_path.strip()
-
-    upload = st.file_uploader(
-        "CSV hochladen",
-        type=["csv"],
-        key=f"house_profile_csv_upload_{preview_id}",
-    )
-    if upload is not None:
-        try:
-            saved_path = save_profile_consumption_csv(
-                preview_id,
-                upload.getvalue(),
-                upload.name,
-            )
-            st.session_state[session_key] = saved_path
-            st.success(f"CSV gespeichert und normalisiert: `{saved_path}`")
-        except (ValueError, OSError, FileNotFoundError) as exc:
-            st.error(f"CSV ungültig: {exc}")
-
-    if st.button("CSV-Zuordnung entfernen", key=f"house_profile_csv_clear_{preview_id}"):
-        st.session_state[session_key] = ""
-        st.rerun()
-
-    active_path = st.session_state[session_key]
-    if not active_path:
-        return
-    if not Path(active_path).is_file():
-        st.warning(f"Datei nicht gefunden: `{active_path}`")
-        return
-
-    try:
-        modeled_profile = {
-            "annual_kwh": annual_kwh,
-            "baseload_kwh": preview["baseload_kwh"],
-            "consumers": resolved,
-            "total_profile_csv": active_path,
-        }
-        try:
-            series = load_hourly_profile_csv(active_path)
-        except ValueError:
-            series = normalize_profile_csv_file(active_path)
-        from house_config.baseload import trim_baseload_floor_to_match_ist
-        from ui.consumption_display import ConsumptionDisplayMode, render_consumption_display
-        from ui.consumption_display.adapters import bundle_from_csv_validation
-        from ui.consumption_display.aggregation import (
-            annual_kwh_actual,
-            annual_kwh_from_bundle,
-        )
-
-        # Consumer-only model (baseload 0) → trim floor so Modell matches Ist (≥ 1 %).
-        zero_bl_profile = {**modeled_profile, "baseload_kwh": 0.0}
-        probe = bundle_from_csv_validation(series, zero_bl_profile)
-        ist_annual = annual_kwh_actual(probe)
-        model_consumers = annual_kwh_from_bundle(probe)
-        trimmed = trim_baseload_floor_to_match_ist(
-            float(annual_kwh),
-            resolved,
-            ist_annual,
-            model_consumer_kwh=model_consumers,
-        )
-        modeled_profile = {
-            **modeled_profile,
-            "baseload_kwh": trimmed["baseload_kwh"],
-        }
-        st.caption(
-            f"Grundlast an Ist angepasst: {trimmed['baseload_kwh']:.0f} kWh/a "
-            f"(Ziel Ist {trimmed['ist_annual_kwh']:.0f} kWh; "
-            f"effektive Untergrenze {100.0 * trimmed['floor_fraction']:.2f} %, "
-            f"mindestens 1 %)."
-        )
-        render_consumption_display(
-            ConsumptionDisplayMode.CSV_VALIDATION,
-            key_prefix=f"house_profile_csv_{preview_id}",
-            profile=modeled_profile,
-            csv_series=series,
-            annual_kwh=float(annual_kwh),
-            reset_token=(
-                f"{active_path}:{trimmed['baseload_kwh']:.3f}:"
-                f"{trimmed['ist_annual_kwh']:.3f}"
-            ),
-        )
-    except (ValueError, OSError) as exc:
-        st.error(f"CSV konnte nicht ausgewertet werden: {exc}")
 
 
 def _perform_house_profile_save(
@@ -1259,6 +1166,9 @@ def _perform_house_profile_save(
         profile_ids=set(profile_ids),
     )
     try:
+        from ui.house_config_historical_csv import historical_csv_save_fields
+
+        hist = historical_csv_save_fields(preview_id, existing)
         upsert_house_profile(
             {
                 "id": profile_id,
@@ -1269,10 +1179,9 @@ def _perform_house_profile_save(
                 "default_pv_tilt": location["default_pv_tilt"],
                 "default_pv_azimuth": location["default_pv_azimuth"],
                 "consumers": resolved,
-                "total_profile_csv": st.session_state.get(
-                    f"house_profile_csv_path_{preview_id}",
-                    existing.get("total_profile_csv", ""),
-                ),
+                "total_profile_csv": hist["total_profile_csv"],
+                "pv_profile_csv": hist["pv_profile_csv"],
+                "historical_csv_source": hist["historical_csv_source"],
             }
         )
     except ValueError as exc:

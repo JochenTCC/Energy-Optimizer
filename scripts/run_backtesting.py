@@ -933,6 +933,13 @@ def main(argv: list[str] | None = None):
         "reference_by_scenario": reference_by_scenario,
         "live_scenario_id": live_scenario_id,
     }
+    from simulation.engine import collect_imported_pv_scenario_meta
+
+    used_pv, missing_pv = collect_imported_pv_scenario_meta(scenarios)
+    if used_pv:
+        period_meta["imported_pv_scenario_ids"] = used_pv
+    if missing_pv:
+        period_meta["imported_pv_missing_scenario_ids"] = missing_pv
     log_path = save_backtesting_log(
         sim_results,
         labels,

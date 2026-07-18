@@ -26,23 +26,20 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 
 ## Feature Backlog
 
-
-### Version 2.+1
-
-- [ ] Reactivate possibility to link historical data to consumers as .csv-file
-  - Define column structure of csv-file for overall consumption 
-  - Add input possibility to UI für csv-file and a check if it should be substracted from overall consumption log (if not checked, the synthetic usage profil is used instead)
-  - Add a normalization function to import csv-files with fitting column structure
-    - Define Unit normalization and right sign of signal
-    - Normalize sampling rate to one/hour (by interpolation / mean calculation)
-    - Check length (at least 12 months)
-  - Define column structure of csv-file - depending on consumer-type
-    - use same normalization function as for overall consumption
-  - Change plotting respectively
-    - In the plotting area (Verbrauchsprofil) the user can decide to see all consumers at once (present mode) or each consumer solely that are instrumented with a csv-file to adopt usage profile (for scheduling in live mode)
-  - Settings must be used correctly in Scenario Explorer (using synthetic or real profiles)
-- [] When csv-File is a digital signal the normalization function automatically multiplies it with nominal power (after confirmation by user)
-  - During inspection of csv-file, the user is asked for multiplying
+### Version 2.+1 - Save / Load configurations (also needed for web-service)  
+- [ ] Move folders ./config and ./runtime into a common directory "./earnie_env" (analog to local env "greenfield" or "silent-migration-test")
+  - Change all code and existing settings accordingly
+  - Non-version relevant todo: Change local launch.json accordingly
+- [ ] Add a section in sidebar to save and load complete config data
+  - Relevant files (collected as zip-file):
+    - backtesting_scenarios.json
+    - config.json
+    - components.json
+    - deviation_rules.json
+    - house_profiles.json
+    - tariffs.json
+  - For safe import / export each json-File must have a tag to document the version of used data model in Earnie at time of saving
+  - Earnie has an internal mapping from date-model version to decide whether data model of zip file suits to current version or whether an conversion method is available (later implementations)
 
 
 ### Version 2.+1 - Become Loxone agnostic

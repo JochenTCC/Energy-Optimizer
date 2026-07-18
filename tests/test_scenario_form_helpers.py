@@ -232,6 +232,25 @@ def test_build_scenario_settings_stores_pv_system_ids():
     assert "pv_system_id" not in settings
 
 
+def test_build_scenario_settings_use_imported_pv():
+    settings = build_scenario_settings(
+        battery_id="",
+        import_tariff_id="imp",
+        export_tariff_id="exp",
+        house_profile_id="home",
+        use_imported_pv=True,
+    )
+    assert settings["use_imported_pv"] is True
+    omitted = build_scenario_settings(
+        battery_id="",
+        import_tariff_id="imp",
+        export_tariff_id="exp",
+        house_profile_id="home",
+        use_imported_pv=False,
+    )
+    assert "use_imported_pv" not in omitted
+
+
 def test_normalize_scenario_form_snapshot_legacy_pv_system_id():
     snapshot = normalize_scenario_form_snapshot(
         {

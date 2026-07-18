@@ -102,6 +102,7 @@ def with_modeled_pv_by_system(
         consumer_labels=dict(bundle.consumer_labels),
         pv_by_system=by_system,
         pv_system_labels=climate.pv_system_labels(),
+        pv_imported=bundle.pv_imported,
     )
 
 
@@ -265,6 +266,65 @@ def with_modeled_pv_from_all_scenarios(
         pv_system_labels=labels,
         pv_by_config=by_config,
         pv_config_labels=config_labels,
+        pv_imported=bundle.pv_imported,
+    )
+
+
+def _resolve_pv_profile_csv_path(
+    profile: dict | None,
+    scenarios: dict[str, dict] | None,
+) -> str:
+    if isinstance(profile, dict):
+        path = str(profile.get("pv_profile_csv", "") or "").strip()
+        if path:
+            return path
+    if scenarios:
+        for settings in scenarios.values():
+            if not isinstance(settings, dict):
+                continue
+            house = settings.get("_house_profile")
+            if isinstance(house, dict):
+                path = str(house.get("pv_profile_csv", "") or "").strip()
+                if path:
+                    return path
+    return ""
+
+
+def with_imported_pv_overlay(
+    bundle: ConsumptionSeriesBundle,
+    *,
+    profile: dict | None = None,
+    scenarios: dict[str, dict] | None = None,
+) -> ConsumptionSeriesBundle:
+    """Attach house-profile ``pv_profile_csv`` as dotted overlay (plot only)."""
+    if not bundle.timestamps:
+        return bundle
+    path = _resolve_pv_profile_csv_path(profile, scenarios)
+    if not path:
+        return bundle
+    from datetime import datetime
+    from pathlib import Path
+
+    from data.consumption_profiles import csv_kw_at_datetime
+
+    if not Path(path).is_file():
+        return bundle
+    values = [
+        float(csv_kw_at_datetime(path, datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")))
+        for ts in bundle.timestamps
+    ]
+    return ConsumptionSeriesBundle(
+        timestamps=bundle.timestamps,
+        consumer_series=bundle.consumer_series,
+        baseload=bundle.baseload,
+        pv=bundle.pv,
+        actual_total=bundle.actual_total,
+        consumer_labels=dict(bundle.consumer_labels),
+        pv_by_system=dict(bundle.pv_by_system),
+        pv_system_labels=dict(bundle.pv_system_labels),
+        pv_by_config=dict(bundle.pv_by_config),
+        pv_config_labels=dict(bundle.pv_config_labels),
+        pv_imported=values,
     )
 
 

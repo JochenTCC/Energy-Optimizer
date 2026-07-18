@@ -106,6 +106,20 @@ def stacked_monthly_chart(
                 yaxis="y",
             )
 
+    if bundle.pv_imported is not None:
+        imported_monthly = monthly_kwh_from_series(bundle.pv_imported, bundle.timestamps)
+        if imported_monthly:
+            if not months:
+                months = sorted(imported_monthly.keys())
+            fig.add_scatter(
+                name="PV importiert",
+                x=months,
+                y=[imported_monthly.get(month, 0.0) for month in months],
+                mode="lines+markers",
+                line=dict(color=_PV_COLOR, width=2, dash="dot"),
+                yaxis="y",
+            )
+
     fig.update_layout(
         barmode="stack",
         title=title,
@@ -126,7 +140,7 @@ def csv_validation_monthly_chart(
     by_month = monthly_kwh_by_consumer(bundle)
     fig = go.Figure()
     fig.add_bar(
-        name="Ist (CSV)",
+        name="Ist-Verbrauch",
         x=months,
         y=[actual_monthly.get(month, 0.0) for month in months],
         marker_color="#6b8cae",
@@ -148,6 +162,17 @@ def csv_validation_monthly_chart(
             marker_color=color,
             offsetgroup="model",
         )
+    if bundle.pv_imported is not None:
+        imported_monthly = monthly_kwh_from_series(bundle.pv_imported, bundle.timestamps)
+        if imported_monthly:
+            fig.add_scatter(
+                name="PV importiert",
+                x=months,
+                y=[imported_monthly.get(month, 0.0) for month in months],
+                mode="lines+markers",
+                line=dict(color=_PV_COLOR, width=2, dash="dot"),
+                yaxis="y",
+            )
     fig.update_layout(
         barmode="stack",
         title="Monatsverbrauch: Ist vs. Modell (kWh)",
@@ -218,9 +243,17 @@ def timeseries_chart(
             mode="lines",
             line=dict(color=_PV_COLOR, width=2),
         )
+    if bundle.pv_imported is not None:
+        fig.add_scatter(
+            name="PV importiert",
+            x=x_values,
+            y=bundle.pv_imported,
+            mode="lines",
+            line=dict(color=_PV_COLOR, width=2, dash="dot"),
+        )
     if bundle.actual_total is not None:
         fig.add_scatter(
-            name="Ist (CSV)",
+            name="Ist-Verbrauch",
             x=x_values,
             y=bundle.actual_total,
             mode="lines",

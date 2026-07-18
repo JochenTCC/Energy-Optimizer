@@ -305,7 +305,11 @@ def _normalize_profile(raw: dict, index: int) -> dict:
         raise ValueError(f"profiles[{index}]: id fehlt.")
     label = str(raw.get("label", profile_id)).strip() or profile_id
     annual_kwh = float(raw.get("annual_kwh", 0.0) or 0.0)
-    total_profile_csv = str(raw.get("total_profile_csv", "")).strip()
+    total_profile_csv = str(raw.get("total_profile_csv", "") or "").strip()
+    pv_profile_csv = str(raw.get("pv_profile_csv", "") or "").strip()
+    historical_csv_source = str(raw.get("historical_csv_source", "") or "").strip().lower()
+    if historical_csv_source not in ("separate", "energiemonitor"):
+        historical_csv_source = "separate"
     consumers_raw = raw.get("consumers", [])
     if not isinstance(consumers_raw, list):
         raise ValueError(f"profiles '{profile_id}': consumers muss ein Array sein.")
@@ -366,6 +370,8 @@ def _normalize_profile(raw: dict, index: int) -> dict:
         "default_pv_tilt": default_pv_tilt,
         "default_pv_azimuth": default_pv_azimuth,
         "total_profile_csv": total_profile_csv,
+        "pv_profile_csv": pv_profile_csv,
+        "historical_csv_source": historical_csv_source or "separate",
         "consumers": consumers,
         "baseload_kwh": baseload["baseload_kwh"],
         "consumer_kwh": baseload["consumer_kwh"],
@@ -398,6 +404,8 @@ def _serialize_profile(profile: dict) -> dict:
         "label": profile["label"],
         "annual_kwh": profile["annual_kwh"],
         "total_profile_csv": profile.get("total_profile_csv", ""),
+        "pv_profile_csv": profile.get("pv_profile_csv", ""),
+        "historical_csv_source": profile.get("historical_csv_source", "separate"),
         "consumers": [_serialize_consumer(c) for c in profile["consumers"]],
     }
     if profile.get("latitude") is not None:

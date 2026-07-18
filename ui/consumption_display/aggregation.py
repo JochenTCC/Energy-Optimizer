@@ -168,6 +168,7 @@ def _slice_bundle(bundle: ConsumptionSeriesBundle, indices: list[int]) -> Consum
             pv_system_labels=dict(bundle.pv_system_labels),
             pv_by_config={cid: [] for cid in bundle.pv_by_config},
             pv_config_labels=dict(bundle.pv_config_labels),
+            pv_imported=None if bundle.pv_imported is None else [],
         )
     return ConsumptionSeriesBundle(
         timestamps=[bundle.timestamps[i] for i in indices],
@@ -193,6 +194,11 @@ def _slice_bundle(bundle: ConsumptionSeriesBundle, indices: list[int]) -> Consum
             for cid, series in bundle.pv_by_config.items()
         },
         pv_config_labels=dict(bundle.pv_config_labels),
+        pv_imported=(
+            None
+            if bundle.pv_imported is None
+            else [bundle.pv_imported[i] for i in indices]
+        ),
     )
 
 

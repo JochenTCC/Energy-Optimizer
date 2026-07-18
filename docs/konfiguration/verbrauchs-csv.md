@@ -1,6 +1,6 @@
 # Historische Verbrauchs-CSV (Hausprofil)
 
-Im **Hauskonfigurator** können Sie Jahresverbrauchs-Zeitreihen als CSV hinterlegen — für das gesamte Haus und optional je Verbraucher.
+Im **Hauskonfigurator** können Sie Jahresverbrauchs-Zeitreihen als CSV hinterlegen — für das gesamte Haus und optional je Verbraucher. Zusätzlich kann ein **PV-Ertragsprofil** (Summe aller Anlagen) importiert werden.
 
 ## Kanonisches Format
 
@@ -13,15 +13,28 @@ timestamp;power_kw
 | ----- | --------- |
 | Trennzeichen | Semikolon (`;`) |
 | Zeitstempel | ISO-ähnlich `YYYY-MM-DD HH:MM:SS` |
-| Leistung | Verbrauch in **kW**, positiv |
+| Leistung | Verbrauch bzw. PV-Ertrag in **kW**, positiv |
 | Länge | Nach Import mindestens **8760 Stunden** (ca. 12 Monate) |
 | Abtastung | Beliebig; beim Import → stündlich (Mittelwert bei dichteren Daten, Interpolation bei lückenhaften) |
 
 Beim Upload schreibt Earnie eine normalisierte Datei unter `config/uploads/`.
 
-## Loxone-CSV
+## Importmodus (Hausprofil)
 
-Exportierte Loxone-Dateien werden beim Import erkannt und in das kanonische Format umgerechnet (inkl. stündlicher Mittelung).
+Unter **Historische Jahresprofile (CSV)** wählen Sie:
+
+| Modus | Inhalt |
+| ----- | ------ |
+| **Getrennte CSVs** | Verbrauch (für Ist-vs-Modell) und optional PV-Ertrag als eigene Dateien |
+| **Loxone Energiemonitor** | Eine Statistik-Datei; Spalten `Leistung Verbrauch [kW]` (Pflicht) und `Leistung Produktion [kW]` (optional) werden übernommen |
+
+Ignoriert beim Energiemonitor-Import: `Leistung Energieversorger`, `Leistung Batterie`, `Ladestand Batterie` (SOC wird nicht importiert) sowie Zähler-Spalten.
+
+Gespeicherte Pfade im Hausprofil: `total_profile_csv` (Verbrauch), `pv_profile_csv` (optional PV), `historical_csv_source` (`separate` / `energiemonitor`).
+
+## Loxone-CSV (Einzelserie)
+
+Exportierte Loxone-Dateien (eine Leistungsserie) werden beim Import erkannt und in das kanonische Format umgerechnet (inkl. stündlicher Mittelung).
 
 Akzeptierte Layouts:
 
@@ -34,13 +47,17 @@ Dreispaltige Digitalsignale (`Datum;Zeit;0/1`) sind zulässig; beim Verbraucher-
 
 ## Gesamt-CSV (`total_profile_csv`)
 
-Optional unter **Jahres-Verbrauchs-CSV**: Abgleich Ist vs. Modell und Grundlage für die Rest-Grundlast, wenn Verbraucher-CSVs abgezogen werden.
+Optional: Abgleich Ist vs. Modell und Grundlage für die Rest-Grundlast, wenn Verbraucher-CSVs abgezogen werden.
 
 Die Kennzahlen **Ist-Jahresverbrauch** und **Modell-Jahresverbrauch** beziehen sich auf die **letzten 8760 Stunden** der CSV (ca. 12 Monate), auch wenn die Datei länger ist. Monats- und Wochencharts nutzen weiterhin die gesamte Zeitreihe.
 
 Im Abgleich **Ist vs. Modell** ist die gestapelte Modell-Basislast die konfigurierte Grundlast (`baseload_kwh`, gleichmäßig), nicht der Meter-Rest nach Abzug der Verbraucher-CSVs.
 
 Zusätzlich wird die Grundlast so **an den Ist-Jahresverbrauch angepasst**, dass Modell ≈ Ist: Idealwert = Ist − Verbraucher-Summe (letzte 8760 h). Die Untergrenze dabei ist mindestens **1 %** des konfigurierten Jahresverbrauchs (nicht die Standard-2 %-Floor).
+
+## PV-Ertrag (`pv_profile_csv`)
+
+Optionaler Jahres-PV-Ertrag als Summe über alle PV-Anlagen. Im Szenarieneditor kann pro Szenario gewählt werden, ob der Szenario-Explorer dieses Profil statt Wetter-PV (Open-Meteo) für die Berechnung nutzt. In den Verbrauchs-Charts erscheint importiertes PV zusätzlich als **punktierte** Linie.
 
 ## Verbraucher-CSV (`profile_csv` + `use_profile_csv`)
 
@@ -64,6 +81,16 @@ Wenn die CSV nach Erkennung überwiegend nur die Werte **0** und **1** enthält 
 Die Haus-Gesamt-CSV (`total_profile_csv`) wird nicht so skaliert — dort gibt es keine einzelne Nennleistung.
 
 Im Bereich **Verbrauchsprofil (Modell)** können Sie zwischen allen Verbrauchern und nur CSV-instrumentierten Verbrauchern umschalten.
+
+## Test-Export aus Live-`cons_data`
+
+Für lokale Import-Tests kann aus der Live-System-Datei `cons_data_hourly.csv` eine **PV-Ertrag**-CSV und eine **Energiemonitor**-CSV (nur relevante Spalten) erzeugt werden:
+
+```text
+python -m scripts.export_historical_test_csvs --out-dir Historical-Data/export-test
+```
+
+Optional: `--cons-data`, `--from`, `--to`. Die Dateien sind Loxone-kompatibel und lassen sich im Hauskonfigurator (getrennte CSVs bzw. Energiemonitor) wieder einlesen. Es sind mindestens 8760 Stunden nötig.
 
 ## Abgrenzung Live-Loxone
 

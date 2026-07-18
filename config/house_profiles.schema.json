@@ -218,6 +218,15 @@
                     "description": "Vorschlag PV-Azimut für neue PV-Anlage (überschreibbar)."
                 },
                 "total_profile_csv": { "type": "string" },
+                "pv_profile_csv": {
+                    "type": "string",
+                    "description": "Optionaler Pfad zu kanonischem PV-Ertragsprofil (timestamp;power_kw)."
+                },
+                "historical_csv_source": {
+                    "type": "string",
+                    "enum": ["separate", "energiemonitor"],
+                    "description": "Importmodus: getrennte CSVs oder Loxone-Energiemonitor."
+                },
                 "consumers": {
                     "type": "array",
                     "items": { "$ref": "#/definitions/consumer" }

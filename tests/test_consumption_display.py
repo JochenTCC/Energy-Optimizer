@@ -211,7 +211,7 @@ def test_week_timeseries_chart_uses_datetime_axis_and_lines():
         assert trace.mode == "lines"
         assert getattr(trace, "stackgroup", None) is None
     trace_names = {trace.name for trace in fig.data}
-    assert "Ist (CSV)" in trace_names
+    assert "Ist-Verbrauch" in trace_names
     assert "pool" in trace_names
 
 

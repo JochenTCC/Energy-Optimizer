@@ -165,7 +165,10 @@
             "settlement_fee_cent_kwh": 1.5,
             "markup_percent": 3.0,
             "prices_include_vat": false,
-            "vat_percent": 20.0
+            "vat_percent": 20.0,
+            "fix_aufschlag_cent": 1.5,
+            "netzverlust_faktor": 1.03,
+            "mwst_austria_faktor": 1.2
         },
         {
             "id": "at_energie_ag_oberoesterreich_oekostrom_spot",

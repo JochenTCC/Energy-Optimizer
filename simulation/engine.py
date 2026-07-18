@@ -169,6 +169,9 @@ class HistoricalDataCache:
         scenario_params: dict | None = None,
     ) -> list[float]:
         if scenario_params is not None:
+            imported = _imported_pv_kw_for_slots(slot_datetimes, scenario_params)
+            if imported is not None:
+                return imported
             from data.modeled_climate import pv_kw_for_slots
 
             return pv_kw_for_slots(slot_datetimes, scenario_params)
@@ -196,6 +199,52 @@ class HistoricalDataCache:
             if label in self._consumption_df.columns:
                 present.add(consumer_id)
         return present
+
+
+def scenario_uses_imported_pv(scenario_params: dict | None) -> bool:
+    """True when scenario requests house-profile PV CSV and a path is configured."""
+    if not isinstance(scenario_params, dict):
+        return False
+    if not scenario_params.get("use_imported_pv"):
+        return False
+    profile = scenario_params.get("_house_profile")
+    if not isinstance(profile, dict):
+        return False
+    return bool(str(profile.get("pv_profile_csv", "") or "").strip())
+
+
+def _imported_pv_kw_for_slots(
+    slot_datetimes: list[datetime],
+    scenario_params: dict,
+) -> list[float] | None:
+    """Return imported PV kW series, or None to fall back to weather PV."""
+    if not scenario_params.get("use_imported_pv"):
+        return None
+    profile = scenario_params.get("_house_profile")
+    if not isinstance(profile, dict):
+        return None
+    path = str(profile.get("pv_profile_csv", "") or "").strip()
+    if not path:
+        return None
+    from data.consumption_profiles import csv_kw_at_datetime
+
+    return [round(csv_kw_at_datetime(path, slot_dt), 3) for slot_dt in slot_datetimes]
+
+
+def collect_imported_pv_scenario_meta(
+    scenarios: dict[str, dict],
+) -> tuple[list[str], list[str]]:
+    """Return (used_ids, missing_csv_ids) for scenarios with use_imported_pv."""
+    used: list[str] = []
+    missing: list[str] = []
+    for scenario_id, params in scenarios.items():
+        if not isinstance(params, dict) or not params.get("use_imported_pv"):
+            continue
+        if scenario_uses_imported_pv(params):
+            used.append(str(scenario_id))
+        else:
+            missing.append(str(scenario_id))
+    return used, missing
 
 
 def _flexible_consumers_from_scenario(scenario_params: dict | None) -> list:

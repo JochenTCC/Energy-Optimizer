@@ -3,6 +3,27 @@
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 
+### Bugfix SE / Hauskonfigurator labels (2026-07-18)
+
+- [x] **SE Gesamtkosten Δ vs Referenz Live** — delta always vs Live-Referenz row (`_live_reference_total_eur`); columns `Jahres Verbrauch [kWh]`, `Jahres Kosten [€]` (with `€`), `Δ vs Referenz [€]`
+- [x] **SE Verbrauchsvergleich (Debug)** — column 2 → `Ohne PV und Speicher [kWh]` (table title kept as Verbrauchsvergleich)
+- [x] **Hauskonfigurator tab PV-Anlagen** — tab label `"PV-Anlage"` → `"PV-Anlagen"`
+- [x] **Verbraucher 1 expander** — first consumer stays collapsed on load when it already has a saved `id`
+- [x] **Stündlicher Verlauf Ist-Verbrauch** — actual consumption series `"Ist (CSV)"` → `"Ist-Verbrauch"` (Monatsverbrauch validation bar aligned)
+
+
+### Import historical Data (2026-07-18)
+
+- [x] **Energiemonitor / PV CSV import** — Hauskonfigurator separate CSVs or Energiemonitor multi-column; SOC out of scope; per-scenario `use_imported_pv`; dotted PV overlay on charts
+- [x] **Test export script** — `scripts/export_historical_test_csvs.py` builds PV-Ertrag + Energiemonitor CSVs from Live `cons_data_hourly.csv` for import round-trip tests
+
+
+### Historical CSV profiles (2026-07-17)
+
+- [x] **Reactivate linking historical data to consumers as .csv-file** — column structure for overall consumption; UI upload + subtract-from-total checkbox (else synthetic profile); shared normalizer (unit/sign, 1h resample, ≥12 months); same pipeline per consumer type; Verbrauchsprofil all-vs-CSV-instrumented toggle; Scenario Explorer honors synthetic vs real
+- [x] **Digital CSV × nominal power** — on import inspection, confirm then multiply 0/1 signals by `nominal_power_kw`
+
+
 ### Chart 1 export tariff line (2026-07-17)
 
 - [x] **Add export tariff into Chart 1 of Monitor** — dashed orange `Einspeisepreis` HV steps on right axis `y2` (Cent/kWh, same scale as import `Preis`); column `Einspeisevergütung (Cent/kWh)`; helpers parameterized in `ui/chart_trace_segments.py`; `add_export_price_on_soc_axis_trace` in `ui/chart_soc.py`; docs `docs/ui/charts.md`; tests in `test_chart_ui_bugs.py`

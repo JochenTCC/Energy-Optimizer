@@ -76,16 +76,23 @@ def test_reference_kwh_for_period_march():
 
 
 def test_build_annual_cost_rows_reference_kwh_and_delta():
+    from simulation.engine import scenario_reference_id, scenario_reference_label
+
+    live_ref_id = scenario_reference_id("live")
+    live_ref_label = scenario_reference_label("Live")
     meta = {
         "reference_id": HISTORICAL_REFERENCE_ID,
-        "scenario_ids": [HISTORICAL_REFERENCE_ID, "live"],
+        "live_scenario_id": "live",
+        "scenario_ids": [HISTORICAL_REFERENCE_ID, live_ref_id, "live"],
         "labels": {
             HISTORICAL_REFERENCE_ID: "Historisch (ohne Optimierung)",
+            live_ref_id: live_ref_label,
             "live": "Live",
         },
         "summary": {
             "total_eur": {
                 HISTORICAL_REFERENCE_ID: 1200.0,
+                live_ref_id: 1100.0,
                 "live": 1000.0,
             },
         },
@@ -99,43 +106,66 @@ def test_build_annual_cost_rows_reference_kwh_and_delta():
         },
     }
     rows = build_annual_cost_rows(meta, ref_kwh=5000.0)
-    assert len(rows) == 2
+    assert len(rows) == 3
     ref_row = rows[0]
     assert ref_row["Szenario"] == "Historisch (ohne Optimierung)"
-    assert ref_row["Jahres-kWh"] == "5000.0"
-    assert ref_row["Jahres-€"] == "1200.00"
-    assert ref_row["Δ vs. Referenz"] == "—"
-    live_row = rows[1]
+    assert ref_row["Jahres Verbrauch [kWh]"] == "5000.0"
+    assert ref_row["Jahres Kosten [€]"] == "1200.00 €"
+    assert ref_row["Δ vs Referenz [€]"] == "—"
+    live_ref_row = rows[1]
+    assert live_ref_row["Szenario"] == live_ref_label
+    assert live_ref_row["Δ vs Referenz [€]"] == "—"
+    live_row = rows[2]
     assert live_row["Szenario"] == "Live"
-    assert live_row["Jahres-kWh"] == "4800.0"
-    assert live_row["Δ vs. Referenz"] == "-200.00 €"
+    assert live_row["Jahres Verbrauch [kWh]"] == "4800.0"
+    assert live_row["Jahres Kosten [€]"] == "1000.00 €"
+    assert live_row["Δ vs Referenz [€]"] == "-100.00 €"
 
 
-def test_build_annual_cost_rows_uses_per_scenario_reference():
+def test_build_annual_cost_rows_delta_always_vs_live_reference():
     from simulation.engine import scenario_reference_id, scenario_reference_label
 
-    ref_id = scenario_reference_id("fixed_full")
-    ref_label = scenario_reference_label("Fixed Full")
+    live_ref_id = scenario_reference_id("live")
+    live_ref_label = scenario_reference_label("Live")
+    fixed_ref_id = scenario_reference_id("fixed_full")
+    fixed_ref_label = scenario_reference_label("Fixed Full")
     meta = {
         "reference_id": HISTORICAL_REFERENCE_ID,
-        "scenario_ids": [HISTORICAL_REFERENCE_ID, ref_id, "fixed_full"],
+        "live_scenario_id": "live",
+        "scenario_ids": [
+            HISTORICAL_REFERENCE_ID,
+            live_ref_id,
+            fixed_ref_id,
+            "live",
+            "fixed_full",
+        ],
         "reference_by_scenario": {
-            "live": HISTORICAL_REFERENCE_ID,
-            "fixed_full": ref_id,
+            "live": live_ref_id,
+            "fixed_full": fixed_ref_id,
         },
         "labels": {
             HISTORICAL_REFERENCE_ID: "Historisch (ohne Optimierung)",
-            ref_id: ref_label,
+            live_ref_id: live_ref_label,
+            fixed_ref_id: fixed_ref_label,
+            "live": "Live",
             "fixed_full": "Fixed Full",
         },
         "summary": {
             "total_eur": {
                 HISTORICAL_REFERENCE_ID: 1200.0,
-                ref_id: 1100.0,
-                "fixed_full": 1050.0,
+                live_ref_id: 1100.0,
+                fixed_ref_id: 1050.0,
+                "live": 1000.0,
+                "fixed_full": 980.0,
             },
         },
         "plausibility": {
+            "live": {
+                "consumption_totals": {
+                    "historical_kwh": 5000.0,
+                    "optimized_kwh": 4800.0,
+                },
+            },
             "fixed_full": {
                 "consumption_totals": {
                     "historical_kwh": 5100.0,
@@ -145,17 +175,13 @@ def test_build_annual_cost_rows_uses_per_scenario_reference():
         },
     }
     rows = build_annual_cost_rows(meta, ref_kwh=None)
-    assert [row["Szenario"] for row in rows] == [
-        "Historisch (ohne Optimierung)",
-        ref_label,
-        "Fixed Full",
-    ]
-    ref_row = next(r for r in rows if r["Szenario"] == ref_label)
-    assert ref_row["Δ vs. Referenz"] == "—"
-    assert ref_row["Jahres-kWh"] == "5100.0"
-    fixed_row = next(r for r in rows if r["Szenario"] == "Fixed Full")
-    assert fixed_row["Δ vs. Referenz"] == "-50.00 €"
-    assert fixed_row["Jahres-kWh"] == "4950.0"
+    by_label = {row["Szenario"]: row for row in rows}
+    assert by_label[fixed_ref_label]["Δ vs Referenz [€]"] == "—"
+    assert by_label[fixed_ref_label]["Jahres Verbrauch [kWh]"] == "5100.0"
+    # Delta vs Live Referenz (1100), not vs Fixed Full's own ref (1050)
+    assert by_label["Fixed Full"]["Δ vs Referenz [€]"] == "-120.00 €"
+    assert by_label["Fixed Full"]["Jahres Verbrauch [kWh]"] == "4950.0"
+    assert by_label["Live"]["Δ vs Referenz [€]"] == "-100.00 €"
 
 
 def test_ordered_monthly_chart_labels_matches_gesamtkosten():
@@ -344,13 +370,13 @@ def test_build_scenario_consumption_rows_optimized_only_with_constant_refs():
     rows = build_scenario_consumption_rows(meta, ref_kwh=490.0)
     assert [r["Szenario"] for r in rows] == ["Live", "Fixed Full"]
     live_row = rows[0]
-    assert live_row["Verbrauch ohne PV und Speicher"] == "490.0"
+    assert live_row["Ohne PV und Speicher [kWh]"] == "490.0"
     assert live_row["Reference (Live) - ohne Optimierung [kWh]"] == "500.0"
     assert live_row["Optimiert (kWh)"] == "520.5"
     assert live_row["Δ kWh (Ref. ohne Optimierung)"] == "+20.5"
     assert live_row["Plausibilität"] == "29/31 OK"
     fixed_row = rows[1]
-    assert fixed_row["Verbrauch ohne PV und Speicher"] == "490.0"
+    assert fixed_row["Ohne PV und Speicher [kWh]"] == "490.0"
     assert fixed_row["Reference (Live) - ohne Optimierung [kWh]"] == "500.0"
     assert fixed_row["Optimiert (kWh)"] == "510.0"
     assert fixed_row["Δ kWh (Ref. ohne Optimierung)"] == "+10.0"

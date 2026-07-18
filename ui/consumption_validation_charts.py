@@ -185,7 +185,7 @@ def monthly_comparison_chart(
     actual_vals = [actual.get(month, 0.0) for month in months]
     modeled_vals = [modeled.get(month, 0.0) for month in months]
     fig = go.Figure()
-    fig.add_bar(name="Ist (CSV)", x=months, y=actual_vals)
+    fig.add_bar(name="Ist-Verbrauch", x=months, y=actual_vals)
     fig.add_bar(name="Modell", x=months, y=modeled_vals)
     fig.update_layout(
         barmode="group",
@@ -204,7 +204,7 @@ def timeseries_comparison_from_series(
     *,
     iso_year: int,
     iso_week: int,
-    actual_label: str = "Ist (CSV)",
+    actual_label: str = "Ist-Verbrauch",
 ) -> go.Figure:
     """Vergleicht Ist-Serie und Modell für eine ISO-Kalenderwoche."""
     modeled = build_modeled_hourly_kw_profile(profile, hours=len(series))

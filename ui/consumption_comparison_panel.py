@@ -28,7 +28,7 @@ def render_consumption_comparison_panel(
     key_prefix: str,
     annual_kwh: float | None = None,
     actual_total_label: str = "Ist-Jahresverbrauch (CSV)",
-    actual_series_label: str = "Ist (CSV)",
+    actual_series_label: str = "Ist-Verbrauch",
     reset_token: str | None = None,
 ) -> None:
     """Delegiert an ``render_consumption_display`` (Modus csv_validation)."""

@@ -340,6 +340,7 @@ def render_backtesting_run_controls(
                 f"für {parallel_task_count} Tasks "
                 f"({len(scenarios)} optimierte Szenarien + Referenzberechnungen)."
             )
+        _render_imported_pv_run_notice(scenarios)
     col_full, col_test = st.columns(2)
     if col_full.button(
         label,
@@ -380,6 +381,42 @@ def render_backtesting_run_controls(
     if log_stale:
         st.caption(_STALE_CAPTION)
     return horizon_stale
+
+
+def _render_imported_pv_run_notice(scenarios: dict[str, dict]) -> None:
+    from simulation.engine import collect_imported_pv_scenario_meta
+
+    used, missing = collect_imported_pv_scenario_meta(scenarios)
+    labels = scenario_labels_map()
+    if used:
+        names = ", ".join(labels.get(sid, sid) for sid in used)
+        st.info(
+            f"Hinweis: Für folgende Szenarien wird importiertes PV-Profil "
+            f"statt Wetter-PV verwendet: {names}."
+        )
+    if missing:
+        names = ", ".join(labels.get(sid, sid) for sid in missing)
+        st.warning(
+            f"Szenarien mit aktiviertem „Importiertes PV“, aber ohne "
+            f"`pv_profile_csv` im Hausprofil (Fallback Wetter-PV): {names}."
+        )
+
+
+def _render_imported_pv_results_notice(meta: dict) -> None:
+    labels = meta.get("labels") or scenario_labels_map()
+    used = meta.get("imported_pv_scenario_ids") or []
+    missing = meta.get("imported_pv_missing_scenario_ids") or []
+    if used:
+        names = ", ".join(labels.get(sid, sid) for sid in used)
+        st.info(
+            f"Dieser Lauf nutzte importiertes PV-Profil (statt Wetter-PV) für: {names}."
+        )
+    if missing:
+        names = ", ".join(labels.get(sid, sid) for sid in missing)
+        st.warning(
+            f"Szenarien wollten importiertes PV, hatten aber keine CSV "
+            f"(Wetter-PV-Fallback): {names}."
+        )
 
 
 def render_backtesting_log_caption(meta: dict) -> None:
@@ -514,6 +551,7 @@ def _deviation_labels_map(meta: dict) -> dict[str, str]:
 
 def _render_backtesting_results(meta: dict, hourly_df: pd.DataFrame) -> None:
     render_backtesting_log_caption(meta)
+    _render_imported_pv_results_notice(meta)
     render_annual_cost_table(meta)
     render_backtesting_monthly_chart(meta)
     render_scenario_consumption_table(meta, hourly_df)

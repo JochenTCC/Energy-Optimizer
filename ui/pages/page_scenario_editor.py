@@ -5,7 +5,13 @@ import streamlit as st
 
 import config
 from ui.help_hint import render_page_title_with_help
-from ui.form_layout import WIDE_LABEL_RATIOS, labeled_number_input, labeled_selectbox, labeled_text_input
+from ui.form_layout import (
+    WIDE_LABEL_RATIOS,
+    labeled_checkbox,
+    labeled_number_input,
+    labeled_selectbox,
+    labeled_text_input,
+)
 from ui.house_config_io import (
     list_batteries,
     list_export_tariffs,
@@ -118,6 +124,9 @@ def _seed_scenario_widget_state(
     )
     st.session_state[scoped_widget_key(session_scope, "scenario_netzentgelt")] = float(
         settings.get("netzentgelt_cent_kwh_override", 0.0) or 0.0
+    )
+    st.session_state[scoped_widget_key(session_scope, "scenario_use_imported_pv")] = bool(
+        settings.get("use_imported_pv")
     )
 
 
@@ -337,6 +346,21 @@ def _render_scenarios_tab() -> None:
         pv_systems,
         key=scoped_widget_key(session_scope, "scenario_pv"),
     )
+    has_pv_csv = bool(str(selected_profile.get("pv_profile_csv", "") or "").strip())
+    if has_pv_csv:
+        labeled_checkbox(
+            "Importiertes PV-Profil statt Wetter-PV nutzen",
+            key=scoped_widget_key(session_scope, "scenario_use_imported_pv"),
+            help=(
+                "Nutzt das PV-Jahresprofil aus dem Hausprofil (`pv_profile_csv`) "
+                "als Summe für die Szenario-Explorer-Berechnung statt Open-Meteo."
+            ),
+        )
+    else:
+        st.session_state[scoped_widget_key(session_scope, "scenario_use_imported_pv")] = False
+        st.caption(
+            "Kein PV-Jahresprofil im Hausprofil — Option „Importiertes PV nutzen“ nicht verfügbar."
+        )
     scenario_settings = scenario_template.get("settings") or {}
     current_import_id = str(scenario_settings.get("import_tariff_id") or "").strip() or None
     current_export_id = str(scenario_settings.get("export_tariff_id") or "").strip() or None
@@ -450,6 +474,14 @@ def _render_scenarios_tab() -> None:
                             export_tariff_id=lookup_entity_id(exp_map, exp_pick),
                             house_profile_id=lookup_entity_id(prof_map, prof_pick),
                             netzentgelt_cent_kwh_override=netzentgelt_override,
+                            use_imported_pv=bool(
+                                st.session_state.get(
+                                    scoped_widget_key(
+                                        session_scope, "scenario_use_imported_pv"
+                                    ),
+                                    False,
+                                )
+                            ),
                         ),
                     }
                 )

@@ -125,8 +125,12 @@ def save_profile_consumption_csv(
     consumer_id: str = "",
     normalize: bool = True,
     min_hours: int = 8760,
+    role: str = "",
 ) -> str:
-    """Speichert Verbrauchs-CSV unter config/uploads/; optional normalisiert."""
+    """Speichert Verbrauchs-CSV unter config/uploads/; optional normalisiert.
+
+    ``role`` (z. B. ``pv``, ``verbrauch``) wird in den Dateinamen eingefügt.
+    """
     from house_config.consumption_csv import (
         MIN_HOURS_FULL_YEAR,
         normalize_profile_csv_file,
@@ -140,6 +144,8 @@ def save_profile_consumption_csv(
     prefix = profile_id
     if consumer_id:
         prefix = f"{profile_id}_{consumer_id}"
+    if role.strip():
+        prefix = f"{prefix}_{role.strip()}"
     target = uploads_dir / f"{prefix}_{safe_name}"
     target.write_bytes(content)
     path = target.as_posix()
@@ -147,6 +153,37 @@ def save_profile_consumption_csv(
         hours = min_hours if min_hours > 0 else MIN_HOURS_FULL_YEAR
         normalize_profile_csv_file(path, min_hours=hours)
     return path
+
+
+def save_energiemonitor_profile_csvs(
+    profile_id: str,
+    content: bytes,
+    filename: str,
+    *,
+    min_hours: int = 8760,
+) -> dict[str, str]:
+    """Import Energiemonitor upload → canonical Verbrauch (+ optional PV) under config/uploads/."""
+    from house_config.consumption_csv import (
+        MIN_HOURS_FULL_YEAR,
+        import_energiemonitor_to_canonical,
+    )
+
+    uploads_dir = Path("config") / "uploads"
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    safe_name = Path(filename).name or "energiemonitor.csv"
+    if not safe_name.lower().endswith(".csv"):
+        safe_name = f"{safe_name}.csv"
+    raw_path = uploads_dir / f"{profile_id}_energiemonitor_raw_{safe_name}"
+    raw_path.write_bytes(content)
+    hours = min_hours if min_hours > 0 else MIN_HOURS_FULL_YEAR
+    verbrauch_dest = (uploads_dir / f"{profile_id}_energiemonitor_verbrauch.csv").as_posix()
+    produktion_dest = (uploads_dir / f"{profile_id}_energiemonitor_produktion.csv").as_posix()
+    return import_energiemonitor_to_canonical(
+        raw_path.as_posix(),
+        verbrauch_dest=verbrauch_dest,
+        produktion_dest=produktion_dest,
+        min_hours=hours,
+    )
 
 
 def _load_config_document() -> dict:

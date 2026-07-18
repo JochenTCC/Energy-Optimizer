@@ -1,4 +1,4 @@
-"""Hauskonfigurator: Verbraucher, Jahresverbrauch, PV-Anlage und Batterien."""
+"""Hauskonfigurator: Verbraucher, Jahresverbrauch, PV-Anlagen und Batterien."""
 from __future__ import annotations
 
 import streamlit as st
@@ -10,12 +10,12 @@ from ui.planning_battery_form import render_battery_planning_tab
 from ui.planning_pv_form import render_pv_planning_tab
 
 _HOUSE_CONFIG_TAB_KEY = "house_config_active_tab"
-_HOUSE_CONFIG_TABS = ("Hausprofil", "PV-Anlage", "Batterien")
+_HOUSE_CONFIG_TABS = ("Hausprofil", "PV-Anlagen", "Batterien")
 
 
 def _help_text() -> str:
     return (
-        "Backtesting-Planung: Hausprofil mit Verbrauchern, PV-Anlage und Batterie-Entitäten. "
+        "Backtesting-Planung: Hausprofil mit Verbrauchern, PV-Anlagen und Batterie-Entitäten. "
         "Szenarien und Live-Zuordnung (Tarife, Entitäts-Referenzen) in Szenarieneditor bzw. "
         "Echtzeit-Umgebung. "
         "Grundlast = max(2 % Jahresverbrauch, Jahresverbrauch − Summe Verbraucher)."
@@ -40,7 +40,7 @@ def render() -> None:
 
     if active == "Hausprofil":
         render_house_profile_tab()
-    elif active == "PV-Anlage":
+    elif active == "PV-Anlagen":
         render_pv_planning_tab()
     else:
         render_battery_planning_tab()

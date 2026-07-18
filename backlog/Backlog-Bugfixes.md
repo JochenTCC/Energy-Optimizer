@@ -23,3 +23,5 @@ Fix is **implemented** (code + tests + optional PATCH in `version.py`), but **pr
 
 ## New Bugs (Do not remove this chapter — even if empty)
 
+- [ ] SE - Check, why numbers in Table "Jahres-Verbrauch" column 2 differ between scenario "Historisch" and rest. M
+- [ ] Don't change order of scenario in selector on page Szenarieneditor. Sort all but Live scenarios alphabetically. Use this order everywhere (also in SE)
