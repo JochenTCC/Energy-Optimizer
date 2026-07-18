@@ -70,3 +70,23 @@ def inject_single_file_uploader_css() -> None:
         """,
         unsafe_allow_html=True,
     )
+
+
+def inject_checkbox_highlight_css() -> None:
+    """Subtle grey background on checkboxes so they stand out in dense forms."""
+    st.markdown(
+        """
+        <style>
+        [data-testid="stCheckbox"] {
+            background-color: rgba(120, 120, 120, 0.14);
+            border-radius: 0.4rem;
+            padding: 0.35rem 0.55rem;
+            margin-bottom: 0.15rem;
+        }
+        .stApp[data-theme="dark"] [data-testid="stCheckbox"] {
+            background-color: rgba(180, 180, 180, 0.16);
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )

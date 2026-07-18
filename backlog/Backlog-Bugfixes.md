@@ -21,12 +21,8 @@ Fix is **implemented** (code + tests + optional PATCH in `version.py`), but **pr
 
 ## Bugfix Verifications Pending (Do not remove this chapter — even if empty)
 
-- [ ] check behaviour of SE calculation with mixed CSV and non-CSV consumers
 
 ## New Bugs (Do not remove this chapter — even if empty)
-
-- [ ] Removing of csv-consumption-data in Hauskonfigurator is not updating the UI correctly (CSV-Pfad still shows the earlier file)
-- [ ] consumption csv file can't be imported although format is correct
 
 
 ## Organizational Changes - no bugs (but still no development issue)

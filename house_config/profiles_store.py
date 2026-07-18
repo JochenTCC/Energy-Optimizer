@@ -271,6 +271,7 @@ def _normalize_consumer(raw: dict, index: int, profile_id: str) -> dict:
         window = raw.get("thermal_flex_window")
         if isinstance(window, dict) and window:
             spec["thermal_flex_window"] = dict(window)
+        spec["min_on_quarterhours"] = max(0, int(raw.get("min_on_quarterhours", 4) or 4))
         if "max_on_quarterhours" in raw:
             spec["max_on_quarterhours"] = max(4, int(raw.get("max_on_quarterhours", 16) or 16))
         if "max_pulses_per_day" in raw:
@@ -447,8 +448,7 @@ def _serialize_consumer(consumer: dict) -> dict:
     }
     if consumer.get("profile_csv"):
         out["profile_csv"] = consumer["profile_csv"]
-    if consumer.get("use_profile_csv"):
-        out["use_profile_csv"] = True
+    out["use_profile_csv"] = bool(consumer.get("use_profile_csv", False))
     if consumer["type"] == "generic":
         out["annual_kwh"] = consumer.get("annual_kwh", 0.0)
         if consumer.get("schedule"):
@@ -478,6 +478,7 @@ def _serialize_consumer(consumer: dict) -> dict:
         thermal.pop("latitude", None)
         thermal.pop("longitude", None)
         out.update(thermal)
+        out["min_on_quarterhours"] = consumer.get("min_on_quarterhours", 4)
         if consumer.get("loxone_inputs"):
             out["loxone_inputs"] = dict(consumer["loxone_inputs"])
         if consumer.get("loxone_outputs"):

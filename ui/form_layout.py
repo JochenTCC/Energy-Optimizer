@@ -72,5 +72,11 @@ def labeled_checkbox(
     ratios: Sequence[float] = DEFAULT_RATIOS,
     **kwargs: Any,
 ) -> Any:
-    col = form_row(label, ratios=ratios)
-    return col.checkbox(label, **_with_collapsed_label(kwargs))
+    """Native checkbox with visible label (not the label|input column split).
+
+    ``ratios`` is accepted for API compatibility with other ``labeled_*`` helpers
+    but unused — collapsing the checkbox label left only a tiny square and made
+    long labels (e.g. Gesamt-CSV) hard to see.
+    """
+    del ratios  # API compat only; native checkbox keeps label beside the box
+    return st.checkbox(label, **kwargs)

@@ -34,6 +34,7 @@ from ui.navigation import build_navigation
 from ui.setup_progress import render_deferred_loxone_sidebar, render_setup_progress_notice
 from ui.config_pack import render_config_pack_sidebar
 from ui.styles import (
+    inject_checkbox_highlight_css,
     inject_compact_numeric_css,
     inject_help_hint_css,
     inject_single_file_uploader_css,
@@ -74,6 +75,7 @@ def main() -> None:
     inject_compact_numeric_css()
     inject_help_hint_css()
     inject_single_file_uploader_css()
+    inject_checkbox_highlight_css()
     _render_sidebar_version()
     render_ui_mode_env_notices()
     render_config_pack_sidebar()

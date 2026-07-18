@@ -85,7 +85,8 @@ def test_csv_thermal_rc_in_overlay_not_milp_flex(tmp_path: Path) -> None:
     flex = collect_planning_flex_consumers(profile)
     flex_ids = {c["id"] for c in flex}
     assert "swimspa" not in flex_ids
-    assert "swimspa_filter" in flex_ids
+    # CSV SwimSpa meter already includes filter; do not add bridge filter flex.
+    assert "swimspa_filter" not in flex_ids
 
     slots = [start + timedelta(hours=i) for i in range(24)]
     overlay = house_profile_baseload_overlay(

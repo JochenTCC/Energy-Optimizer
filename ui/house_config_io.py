@@ -167,6 +167,53 @@ def single_csv_upload(
     return upload
 
 
+def apply_csv_path_pending(
+    pending_key: str,
+    path_key: str,
+    input_key: str,
+    *,
+    use_key: str | None = None,
+) -> None:
+    """Apply queued path to canonical + text_input keys before widgets render."""
+    import streamlit as st
+
+    if pending_key not in st.session_state:
+        return
+    pending = str(st.session_state.pop(pending_key) or "")
+    st.session_state[path_key] = pending
+    st.session_state[input_key] = pending
+    if use_key is not None and not pending:
+        st.session_state[use_key] = False
+
+
+def queue_csv_path_update(
+    pending_key: str,
+    path: str,
+    *,
+    upload_nonce_key: str | None = None,
+    flash_key: str | None = None,
+    flash_message: str | None = None,
+) -> None:
+    """Queue path/widget sync for next run; bump uploader nonce to drop sticky file."""
+    import streamlit as st
+
+    st.session_state[pending_key] = str(path or "")
+    if upload_nonce_key is not None:
+        st.session_state[upload_nonce_key] = int(
+            st.session_state.get(upload_nonce_key, 0) or 0
+        ) + 1
+    if flash_key and flash_message:
+        st.session_state[flash_key] = flash_message
+
+
+def csv_upload_widget_key(base_key: str, nonce_key: str) -> str:
+    """Stable base key + nonce so clearing/re-upload resets Streamlit file_uploader."""
+    import streamlit as st
+
+    nonce = int(st.session_state.get(nonce_key, 0) or 0)
+    return f"{base_key}__n{nonce}"
+
+
 def save_profile_consumption_csv(
     profile_id: str,
     content: bytes,

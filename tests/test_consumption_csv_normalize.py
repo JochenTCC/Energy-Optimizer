@@ -147,6 +147,53 @@ def test_consumer_uses_profile_csv_requires_flag() -> None:
     assert not consumer_uses_profile_csv({"profile_csv": "a.csv"})
     assert not consumer_uses_profile_csv({"profile_csv": "", "use_profile_csv": True})
     assert consumer_uses_profile_csv({"profile_csv": "a.csv", "use_profile_csv": True})
+    assert not consumer_uses_profile_csv({"profile_csv": "a.csv", "use_profile_csv": False})
+
+
+def test_serialize_consumer_keeps_use_profile_csv_false() -> None:
+    from house_config.profiles_store import _serialize_consumer
+
+    for consumer_type, extra in (
+        ("generic", {"annual_kwh": 100.0, "schedule": None}),
+        (
+            "ev",
+            {
+                "min_power_kw": 1.0,
+                "min_on_quarterhours": 4,
+                "battery_capacity_kwh": 40.0,
+                "charging_schedule": {
+                    "weekday": {
+                        "car_available_from_hour": 18,
+                        "ready_by_hour": 7,
+                        "daily_rest_soc": 30.0,
+                    },
+                    "weekend": {
+                        "car_available_from_hour": 18,
+                        "ready_by_hour": 7,
+                        "daily_rest_soc": 30.0,
+                    },
+                    "target_soc_percent": 100.0,
+                    "charging_efficiency": 0.95,
+                },
+            },
+        ),
+        ("thermal_annual", {"thermal": {"living_area_m2": 100.0}}),
+        ("thermal_rc", {"thermal_rc": {"water_volume_liters": 1000.0}}),
+    ):
+        consumer = {
+            "id": f"c_{consumer_type}",
+            "label": consumer_type,
+            "type": consumer_type,
+            "nominal_power_kw": 1.0,
+            "profile_csv": "config/uploads/x.csv",
+            "use_profile_csv": False,
+            **extra,
+        }
+        out = _serialize_consumer(consumer)
+        assert "use_profile_csv" in out
+        assert out["use_profile_csv"] is False
+        consumer["use_profile_csv"] = True
+        assert _serialize_consumer(consumer)["use_profile_csv"] is True
 
 
 def test_estimate_annual_kwh_from_profile_csv_calendar_year(tmp_path: Path) -> None:

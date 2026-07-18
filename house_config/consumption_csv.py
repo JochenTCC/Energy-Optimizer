@@ -185,11 +185,14 @@ def import_energiemonitor_to_canonical(
 
 def detect_and_load_raw_series(path: str) -> pd.Series:
     """Load raw power series (any sampling); Loxone meter or timestamp;power_kw."""
-    file_path = Path(path)
+    from runtime_store.persist_paths import resolve_config_prefixed_path
+
+    resolved = resolve_config_prefixed_path(path)
+    file_path = Path(resolved)
     if not file_path.is_file():
         raise FileNotFoundError(f"Profil-CSV nicht gefunden: {path}")
     if _looks_like_loxone_meter(file_path):
-        return _load_loxone_raw_or_hourly(path)
+        return _load_loxone_raw_or_hourly(str(file_path))
     return _load_canonical_raw_series(path)
 
 

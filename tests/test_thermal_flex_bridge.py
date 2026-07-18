@@ -97,7 +97,7 @@ def test_overlay_skips_milp_flex_thermal():
     assert sum(with_overlay) > sum(without_overlay)
 
 
-def test_planning_thermal_daily_targets_sums_days(monkeypatch):
+def test_planning_thermal_daily_targets_matches_single_calendar_day(monkeypatch):
     from tests.fixtures.open_meteo_mock import install_open_meteo_climate_mock
 
     install_open_meteo_climate_mock(monkeypatch)
@@ -120,6 +120,37 @@ def test_planning_thermal_daily_targets_sums_days(monkeypatch):
         climate=climate,
     )
     assert targets["wp_heating"] == pytest.approx(round(single_day, 3), rel=1e-3)
+
+
+def test_planning_thermal_daily_targets_cross_midnight_is_slot_energy(monkeypatch):
+    """24h windows spanning two dates must not sum two full calendar days."""
+    from datetime import timedelta
+
+    from data.modeled_climate import ModeledClimateContext
+    from house_config.planning_flex_bridge import _consumer_window_kwh
+    from tests.fixtures.open_meteo_mock import install_open_meteo_climate_mock
+
+    install_open_meteo_climate_mock(monkeypatch)
+    profile = _house_profile()
+    milp = planning_thermal_to_milp(_wp_consumer())
+    window_end = datetime(2025, 3, 1, 12, 0)
+    slots = [window_end - timedelta(hours=24 - i) for i in range(24)]
+    climate = ModeledClimateContext.for_house_profile(profile, kwp=0.0)
+    targets = planning_thermal_daily_targets(
+        [milp],
+        profile,
+        slots,
+        climate=climate,
+    )
+    expected = _consumer_window_kwh(_wp_consumer(), slots, climate=climate)
+    assert targets["wp_heating"] == pytest.approx(expected, rel=1e-6)
+    dates = {slot.date() for slot in slots}
+    assert len(dates) == 2
+    full_days = sum(
+        thermal_daily_kwh_for_date(_wp_consumer(), profile, day, climate=climate)
+        for day in dates
+    )
+    assert expected < full_days * 0.75
 
 
 def test_thermal_milp_chooses_cheaper_hours():

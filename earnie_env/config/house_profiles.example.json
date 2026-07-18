@@ -17,6 +17,7 @@
                     "label": "Wärmepumpe Heizen+WW",
                     "type": "thermal_annual",
                     "nominal_power_kw": 3.5,
+                    "min_on_quarterhours": 4,
                     "living_area_m2": 120,
                     "building_class": 2,
                     "heat_pump_type": "erde",

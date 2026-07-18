@@ -26,8 +26,11 @@ from house_config.thermal_labels import (
 )
 from runtime_store.persist_paths import resolve_house_profiles_json_path
 from ui.house_config_io import (
+    apply_csv_path_pending,
+    csv_upload_widget_key,
     load_house_profiles,
     preview_baseload,
+    queue_csv_path_update,
     save_profile_consumption_csv,
     single_csv_upload,
     upsert_house_profile,
@@ -673,6 +676,13 @@ def _render_thermal_rc_fields(
 ) -> dict:
     rc = consumer.get("thermal_rc") if isinstance(consumer.get("thermal_rc"), dict) else consumer
     return {
+        "min_on_quarterhours": labeled_number_input(
+            "Mindestlaufzeit (Viertelstunden)",
+            min_value=0,
+            value=int(consumer.get("min_on_quarterhours", 8)),
+            ratios=WIDE_LABEL_RATIOS,
+            key=_scoped_key(session_scope, f"hc_rc_min_qh_{index}"),
+        ),
         "thermal_rc": {
             "water_volume_liters": labeled_number_input(
                 "Thermisches Volumen (Liter)",
@@ -820,6 +830,13 @@ def _render_consumer_form(
             item.update(_render_thermal_rc_fields(consumer, index, session_scope=session_scope))
         else:
             thermal = consumer.get("thermal") or consumer
+            item["min_on_quarterhours"] = labeled_number_input(
+                "Mindestlaufzeit (Viertelstunden)",
+                min_value=0,
+                value=int(consumer.get("min_on_quarterhours", 4)),
+                ratios=WIDE_LABEL_RATIOS,
+                key=_scoped_key(session_scope, f"hc_ta_min_qh_{index}"),
+            )
             item["living_area_m2"] = labeled_number_input(
                 "Wohnfläche (m²)",
                 min_value=0.0,
@@ -1006,17 +1023,32 @@ def _render_consumer_profile_csv_fields(
         "Digitale 0/1-Signale: beim Import optional × Nennleistung."
     )
     path_key = _scoped_key(session_scope, f"hc_profile_csv_path_{index}")
+    input_key = _scoped_key(session_scope, f"hc_profile_csv_input_{index}")
+    use_key = _scoped_key(session_scope, f"hc_use_profile_csv_{index}")
+    pending_key = _scoped_key(session_scope, f"hc_profile_csv_pending_{index}")
+    upload_base = _scoped_key(session_scope, f"hc_profile_csv_upload_{index}")
+    upload_nonce_key = _scoped_key(session_scope, f"hc_profile_csv_upload_nonce_{index}")
+    flash_key = _scoped_key(session_scope, f"hc_profile_csv_flash_{index}")
+
+    apply_csv_path_pending(pending_key, path_key, input_key, use_key=use_key)
     if path_key not in st.session_state:
         st.session_state[path_key] = str(consumer.get("profile_csv", "") or "").strip()
+    if input_key not in st.session_state:
+        st.session_state[input_key] = st.session_state[path_key]
+
+    flash = st.session_state.pop(flash_key, None)
+    if flash:
+        st.success(flash)
+
     csv_path = labeled_text_input(
         "CSV-Pfad (Verbraucher)",
         value=st.session_state[path_key],
-        key=_scoped_key(session_scope, f"hc_profile_csv_input_{index}"),
+        key=input_key,
     )
     st.session_state[path_key] = csv_path.strip()
     upload = single_csv_upload(
         "Verbraucher-CSV hochladen",
-        key=_scoped_key(session_scope, f"hc_profile_csv_upload_{index}"),
+        key=csv_upload_widget_key(upload_base, upload_nonce_key),
         help="Nur eine CSV-Datei je Verbraucher.",
     )
     consumer_slug = slug_id(str(consumer.get("id") or consumer.get("label") or f"c{index}"))
@@ -1029,17 +1061,27 @@ def _render_consumer_profile_csv_fields(
                 upload.name,
                 consumer_id=consumer_slug or f"c{index}",
             )
-            st.session_state[path_key] = saved
             decision_key = _digital_csv_decision_key(session_scope, index, saved)
             st.session_state.pop(decision_key, None)
-            st.success(f"CSV gespeichert: `{saved}`")
+            queue_csv_path_update(
+                pending_key,
+                saved,
+                upload_nonce_key=upload_nonce_key,
+                flash_key=flash_key,
+                flash_message=f"CSV gespeichert: `{saved}`",
+            )
+            st.rerun()
         except (ValueError, OSError, FileNotFoundError) as exc:
             st.error(f"CSV ungültig: {exc}")
     if st.button(
         "Verbraucher-CSV entfernen",
         key=_scoped_key(session_scope, f"hc_profile_csv_clear_{index}"),
     ):
-        st.session_state[path_key] = ""
+        queue_csv_path_update(
+            pending_key,
+            "",
+            upload_nonce_key=upload_nonce_key,
+        )
         st.rerun()
     active = st.session_state[path_key]
     if active and Path(active).is_file():
@@ -1049,15 +1091,19 @@ def _render_consumer_profile_csv_fields(
             session_scope=session_scope,
             nominal_power_kw=nominal_power_kw,
         )
-    use_csv = labeled_checkbox(
-        "Aus Gesamt-CSV abziehen / echtes Profil nutzen",
-        value=bool(consumer.get("use_profile_csv", False)),
-        key=_scoped_key(session_scope, f"hc_use_profile_csv_{index}"),
-        help="Aktiv: CSV-Last statt Synthese; Abzug von total_profile_csv für die Rest-Grundlast.",
-    )
+    if active:
+        use_csv = labeled_checkbox(
+            "Aus Gesamt-CSV abziehen / echtes Profil nutzen",
+            value=bool(consumer.get("use_profile_csv", False)),
+            key=use_key,
+            help="Aktiv: CSV-Last statt Synthese; Abzug von total_profile_csv für die Rest-Grundlast.",
+        )
+    else:
+        st.session_state[use_key] = False
+        use_csv = False
     return {
         "profile_csv": active,
-        "use_profile_csv": bool(use_csv and active),
+        "use_profile_csv": bool(use_csv),
     }
 
 

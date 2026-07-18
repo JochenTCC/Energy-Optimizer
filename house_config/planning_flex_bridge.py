@@ -288,7 +288,9 @@ def collect_planning_flex_consumers(house_profile: dict) -> list[dict]:
         for consumer in thermal_rc_rows
         if not consumer_uses_profile_csv(consumer)
     ]
-    filters = [planning_filter_to_milp()] if thermal_rc_rows else []
+    # Filter only with MILP thermal_rc. CSV thermal_rc meters (e.g. SwimSpa)
+    # already include filter power in the overlay series.
+    filters = [planning_filter_to_milp()] if thermal_rc_flex else []
     return (
         flex_generic
         + planning_ev_consumers(house_profile)
@@ -425,31 +427,26 @@ def planning_thermal_daily_targets(
     *,
     climate: ModeledClimateContext | None = None,
 ) -> dict[str, float]:
-    """Horizont-Summe (kWh) für thermal_annual-Flex im Fenster."""
-    from optimizer.thermal_flex_context import thermal_daily_kwh_for_date
+    """Window kWh for thermal_annual flex (slot-aligned, not full calendar days).
 
+    Sunset/24h windows often span two calendar dates. Summing
+    ``thermal_daily_kwh_for_date`` per touched date roughly doubles WP energy
+    vs cons_data / hourly synthesis. Always use slot-hour energy instead.
+    """
     by_id = {
         str(consumer["id"]): consumer
         for consumer in _house_thermal_consumers(house_profile)
     }
     targets: dict[str, float] = {}
-    dates = {slot_dt.date() for slot_dt in slot_datetimes}
     for milp_consumer in flex_consumers:
         if milp_consumer.get("daily_target_source") != "thermal_annual":
             continue
         source = by_id.get(milp_consumer["id"])
         if not source:
             continue
-        if consumer_uses_profile_csv(source):
-            targets[milp_consumer["id"]] = _consumer_window_kwh(
-                source, slot_datetimes, climate=climate
-            )
-            continue
-        total = sum(
-            thermal_daily_kwh_for_date(source, house_profile, day, climate=climate)
-            for day in dates
+        targets[milp_consumer["id"]] = _consumer_window_kwh(
+            source, slot_datetimes, climate=climate
         )
-        targets[milp_consumer["id"]] = round(total, 3)
     return targets
 
 

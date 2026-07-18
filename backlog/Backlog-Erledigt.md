@@ -3,6 +3,32 @@
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 
+### Bugfix min_on_quarterhours SwimSpa / Wärmepumpe (2026-07-18)
+
+- [x] **min_on_quarterhours not visible for SwimSpa / missing for Wärmepumpe** — Hauskonfigurator field for `thermal_rc` + `thermal_annual`; normalize/serialize for WP; default `4` in `house_profiles.json`; verified live
+
+
+### Bugfix CSV-Pfad (Verbraucher) UI sync (2026-07-18)
+
+- [x] **CSV-Pfad (Verbraucher) not updated after upload/removal** — Streamlit dual key (`path_key` vs text_input widget); pending sync + uploader nonce; `use_profile_csv` checkbox hidden when path empty; same pattern for Gesamt Verbrauch/PV; verified live
+
+
+### Bugfix checkbox visibility (2026-07-18)
+
+- [x] **Checkbox „Aus Gesamt-CSV abziehen / echtes Profil nutzen“ hardly visible** — `labeled_checkbox` used collapsed label in a column split (tiny square only); now native visible checkbox; grey theme-compatible highlight via `inject_checkbox_highlight_css` for all checkboxes; verified live
+
+
+### Bugfix SE mixed CSV Jahres Verbrauch gap (2026-07-18)
+
+- [x] **Historical total vs scenarios with mixed CSV/non-CSV consumers** — `planning_thermal_daily_targets` summed full calendar days for cross-midnight 24h windows (WP ~2× vs cons_data); CSV `thermal_rc` still added `swimspa_filter` flex (meter already includes filter); fix: slot-aligned window kWh + filter only for MILP thermal_rc; tests; verified live
+
+
+### Bugfix SwimSpa Verbrauchszähler CSV upload (2026-07-18)
+
+- [x] **SwimSpa Verbrauchszähler CSV upload** — failed with „Profil-CSV nicht gefunden: config/uploads/example_efh_swimspa.csv“ for `Miniserver-Gen2_VerbrauchszählerSwim-Spa_Leistung_…`; verified live
+- [x] **Consumption CSV import rejected despite correct format** — same class of Verbraucher-CSV upload failure; import works; verified live
+
+
 ### Organizational: remove silent-migration-test (2026-07-18)
 
 - [x] **Remove `silent-migration-test/`** — deleted local stack folder; launch configs / setup+deploy scripts / docs already gone (2.2 cleanup); dropped `.gitignore` entry and `LEGACY_TEST_SYMBOLS` for `setup_silent_migration` / `deploy_silent_migration`

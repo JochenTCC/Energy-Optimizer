@@ -7,6 +7,9 @@ import streamlit as st
 
 from ui.form_layout import labeled_text_input
 from ui.house_config_io import (
+    apply_csv_path_pending,
+    csv_upload_widget_key,
+    queue_csv_path_update,
     save_energiemonitor_profile_csvs,
     save_profile_consumption_csv,
     single_csv_upload,
@@ -110,16 +113,30 @@ def render_historical_csv_section(
 
 def _render_separate_mode(preview_id: str, keys: dict[str, str]) -> None:
     st.markdown("**Verbrauch (Gesamt)**")
+    verbrauch_input_key = f"house_profile_csv_input_{preview_id}"
+    verbrauch_pending = f"house_profile_csv_pending_{preview_id}"
+    verbrauch_upload_base = f"house_profile_csv_upload_{preview_id}"
+    verbrauch_nonce = f"house_profile_csv_upload_nonce_{preview_id}"
+    verbrauch_flash = f"house_profile_csv_flash_{preview_id}"
+
+    apply_csv_path_pending(verbrauch_pending, keys["verbrauch"], verbrauch_input_key)
+    if verbrauch_input_key not in st.session_state:
+        st.session_state[verbrauch_input_key] = st.session_state[keys["verbrauch"]]
+
+    flash = st.session_state.pop(verbrauch_flash, None)
+    if flash:
+        st.success(flash)
+
     path = labeled_text_input(
         "CSV-Pfad Verbrauch",
         value=st.session_state[keys["verbrauch"]],
-        key=f"house_profile_csv_input_{preview_id}",
+        key=verbrauch_input_key,
         help="Relativer Pfad, z. B. config/uploads/mein_haushalt_verbrauch.csv",
     )
     st.session_state[keys["verbrauch"]] = path.strip()
     upload = single_csv_upload(
         "Verbrauch-CSV hochladen",
-        key=f"house_profile_csv_upload_{preview_id}",
+        key=csv_upload_widget_key(verbrauch_upload_base, verbrauch_nonce),
         help="Nur eine CSV-Datei für den Gesamtverbrauch.",
     )
     if upload is not None:
@@ -130,25 +147,49 @@ def _render_separate_mode(preview_id: str, keys: dict[str, str]) -> None:
                 upload.name,
                 role="verbrauch",
             )
-            st.session_state[keys["verbrauch"]] = saved
-            st.success(f"Verbrauch gespeichert und normalisiert: `{saved}`")
+            queue_csv_path_update(
+                verbrauch_pending,
+                saved,
+                upload_nonce_key=verbrauch_nonce,
+                flash_key=verbrauch_flash,
+                flash_message=f"Verbrauch gespeichert und normalisiert: `{saved}`",
+            )
+            st.rerun()
         except (ValueError, OSError, FileNotFoundError) as exc:
             st.error(f"Verbrauch-CSV ungültig: {exc}")
     if st.button("Verbrauch-Zuordnung entfernen", key=f"house_profile_csv_clear_{preview_id}"):
-        st.session_state[keys["verbrauch"]] = ""
+        queue_csv_path_update(
+            verbrauch_pending,
+            "",
+            upload_nonce_key=verbrauch_nonce,
+        )
         st.rerun()
 
     st.markdown("**PV-Ertrag (optional, Summe aller Anlagen)**")
+    pv_input_key = f"house_profile_pv_csv_input_{preview_id}"
+    pv_pending = f"house_profile_pv_csv_pending_{preview_id}"
+    pv_upload_base = f"house_profile_pv_csv_upload_{preview_id}"
+    pv_nonce = f"house_profile_pv_csv_upload_nonce_{preview_id}"
+    pv_flash = f"house_profile_pv_csv_flash_{preview_id}"
+
+    apply_csv_path_pending(pv_pending, keys["pv"], pv_input_key)
+    if pv_input_key not in st.session_state:
+        st.session_state[pv_input_key] = st.session_state[keys["pv"]]
+
+    pv_flash_msg = st.session_state.pop(pv_flash, None)
+    if pv_flash_msg:
+        st.success(pv_flash_msg)
+
     pv_path = labeled_text_input(
         "CSV-Pfad PV-Ertrag",
         value=st.session_state[keys["pv"]],
-        key=f"house_profile_pv_csv_input_{preview_id}",
+        key=pv_input_key,
         help="Optional. Relativer Pfad zum PV-Jahresprofil.",
     )
     st.session_state[keys["pv"]] = pv_path.strip()
     pv_upload = single_csv_upload(
         "PV-Ertrag-CSV hochladen",
-        key=f"house_profile_pv_csv_upload_{preview_id}",
+        key=csv_upload_widget_key(pv_upload_base, pv_nonce),
         help="Nur eine CSV-Datei für den PV-Ertrag.",
     )
     if pv_upload is not None:
@@ -159,12 +200,18 @@ def _render_separate_mode(preview_id: str, keys: dict[str, str]) -> None:
                 pv_upload.name,
                 role="pv",
             )
-            st.session_state[keys["pv"]] = saved
-            st.success(f"PV-Ertrag gespeichert und normalisiert: `{saved}`")
+            queue_csv_path_update(
+                pv_pending,
+                saved,
+                upload_nonce_key=pv_nonce,
+                flash_key=pv_flash,
+                flash_message=f"PV-Ertrag gespeichert und normalisiert: `{saved}`",
+            )
+            st.rerun()
         except (ValueError, OSError, FileNotFoundError) as exc:
             st.error(f"PV-CSV ungültig: {exc}")
     if st.button("PV-Zuordnung entfernen", key=f"house_profile_pv_csv_clear_{preview_id}"):
-        st.session_state[keys["pv"]] = ""
+        queue_csv_path_update(pv_pending, "", upload_nonce_key=pv_nonce)
         st.rerun()
 
 
@@ -173,9 +220,19 @@ def _render_energiemonitor_mode(preview_id: str, keys: dict[str, str]) -> None:
         "Erwartete Spalten u. a.: `Leistung Verbrauch [kW]` (Pflicht), "
         "`Leistung Produktion [kW]` (optional). Andere Spalten werden ignoriert."
     )
+    em_upload_base = f"house_profile_em_csv_upload_{preview_id}"
+    em_nonce = f"house_profile_em_csv_upload_nonce_{preview_id}"
+    em_flash = f"house_profile_em_csv_flash_{preview_id}"
+    verbrauch_input_key = f"house_profile_csv_input_{preview_id}"
+    pv_input_key = f"house_profile_pv_csv_input_{preview_id}"
+
+    flash = st.session_state.pop(em_flash, None)
+    if flash:
+        st.success(flash)
+
     upload = single_csv_upload(
         "Energiemonitor-CSV hochladen",
-        key=f"house_profile_em_csv_upload_{preview_id}",
+        key=csv_upload_widget_key(em_upload_base, em_nonce),
         help="Nur eine Energiemonitor-CSV-Datei.",
     )
     if upload is not None:
@@ -185,14 +242,20 @@ def _render_energiemonitor_mode(preview_id: str, keys: dict[str, str]) -> None:
                 upload.getvalue(),
                 upload.name,
             )
-            st.session_state[keys["verbrauch"]] = result["total_profile_csv"]
-            st.session_state[keys["pv"]] = result.get("pv_profile_csv", "")
-            msg = f"Verbrauch: `{result['total_profile_csv']}`"
-            if result.get("pv_profile_csv"):
-                msg += f"; PV: `{result['pv_profile_csv']}`"
+            total = result["total_profile_csv"]
+            pv = result.get("pv_profile_csv", "")
+            st.session_state[keys["verbrauch"]] = total
+            st.session_state[verbrauch_input_key] = total
+            st.session_state[keys["pv"]] = pv
+            st.session_state[pv_input_key] = pv
+            msg = f"Verbrauch: `{total}`"
+            if pv:
+                msg += f"; PV: `{pv}`"
             else:
                 msg += " (keine Produktionsspalte — PV leer)"
-            st.success(msg)
+            st.session_state[em_flash] = msg
+            st.session_state[em_nonce] = int(st.session_state.get(em_nonce, 0) or 0) + 1
+            st.rerun()
         except (ValueError, OSError, FileNotFoundError) as exc:
             st.error(f"Energiemonitor-CSV ungültig: {exc}")
 
@@ -206,7 +269,10 @@ def _render_energiemonitor_mode(preview_id: str, keys: dict[str, str]) -> None:
         key=f"house_profile_em_csv_clear_{preview_id}",
     ):
         st.session_state[keys["verbrauch"]] = ""
+        st.session_state[verbrauch_input_key] = ""
         st.session_state[keys["pv"]] = ""
+        st.session_state[pv_input_key] = ""
+        st.session_state[em_nonce] = int(st.session_state.get(em_nonce, 0) or 0) + 1
         st.rerun()
 
 
