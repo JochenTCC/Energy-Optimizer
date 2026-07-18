@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING
 
 from settings.ev_power import merge_ev_power_conversion_fields
 from settings.flexible_consumers import CONSUMER_PALETTE_SIZE, normalize_legacy_id
-from house_config.earnie_role import is_earnie_flex, is_earnie_known
+from house_config.consumption_csv import consumer_uses_profile_csv
+from house_config.earnie_role import is_earnie_flex, is_earnie_known, is_earnie_manual
 from house_config.generic_schedule import (
     generic_daily_target_kwh_for_day,
     generic_hourly_kw_for_day,
@@ -48,11 +49,17 @@ def _house_generic_consumers(house_profile: dict) -> list[dict]:
 def split_planning_generic_consumers(
     house_profile: dict,
 ) -> tuple[list[dict], list[dict]]:
-    """Teilt generic-Verbraucher in bekannte (Grundlast) und MILP-flexible."""
+    """Split generic consumers into fixed overlay vs MILP flex.
+
+    ``known`` and ``manual`` both feed the fixed baseload overlay (SE and live
+    planning assume the user starts manuals at the recommended schedule).
+    ``earnie_role: manual`` still selects the recommendation UI only — it is not
+    MILP-flex.
+    """
     fixed: list[dict] = []
     flex: list[dict] = []
     for consumer in _house_generic_consumers(house_profile):
-        if is_earnie_known(consumer):
+        if is_earnie_known(consumer) or is_earnie_manual(consumer):
             fixed.append(consumer)
         elif is_earnie_flex(consumer):
             flex.append(planning_consumer_to_milp(consumer))
@@ -269,17 +276,42 @@ def planning_thermal_rc_consumers(house_profile: dict) -> list[dict]:
 
 
 def collect_planning_flex_consumers(house_profile: dict) -> list[dict]:
-    """Generic MILP-flex + EV + thermal_annual + thermal_rc (+ Filter bei thermal_rc)."""
+    """Generic MILP-flex + EV + thermal_annual + thermal_rc (+ Filter bei thermal_rc).
+
+    thermal_rc with use_profile_csv is not MILP-flex: CSV load goes into the
+    baseload overlay instead (historical replay, no double-counting).
+    """
     _fixed, flex_generic = split_planning_generic_consumers(house_profile)
-    thermal_rc = planning_thermal_rc_consumers(house_profile)
-    filters = [planning_filter_to_milp()] if thermal_rc else []
+    thermal_rc_rows = _house_thermal_rc_consumers(house_profile)
+    thermal_rc_flex = [
+        planning_thermal_rc_to_milp(consumer)
+        for consumer in thermal_rc_rows
+        if not consumer_uses_profile_csv(consumer)
+    ]
+    filters = [planning_filter_to_milp()] if thermal_rc_rows else []
     return (
         flex_generic
         + planning_ev_consumers(house_profile)
         + planning_thermal_consumers(house_profile)
-        + thermal_rc
+        + thermal_rc_flex
         + filters
     )
+
+
+def _consumer_window_kwh(
+    consumer: dict,
+    slot_datetimes: list[datetime],
+    *,
+    climate: ModeledClimateContext | None = None,
+) -> float:
+    """Sum modeled/CSV kW over planning slots (1 h steps → kWh)."""
+    from data.consumption_profiles import modeled_consumer_kw_at_datetime
+
+    total = sum(
+        float(modeled_consumer_kw_at_datetime(consumer, slot_dt, climate=climate) or 0.0)
+        for slot_dt in slot_datetimes
+    )
+    return round(total, 3)
 
 
 def planning_ev_daily_targets(
@@ -302,6 +334,9 @@ def planning_ev_daily_targets(
     for milp_consumer in flex_consumers:
         source = ev_by_id.get(milp_consumer["id"])
         if not source:
+            continue
+        if consumer_uses_profile_csv(source):
+            targets[milp_consumer["id"]] = _consumer_window_kwh(source, slot_datetimes)
             continue
         if window_end is not None:
             departure_day = window_end.date()
@@ -405,6 +440,11 @@ def planning_thermal_daily_targets(
         source = by_id.get(milp_consumer["id"])
         if not source:
             continue
+        if consumer_uses_profile_csv(source):
+            targets[milp_consumer["id"]] = _consumer_window_kwh(
+                source, slot_datetimes, climate=climate
+            )
+            continue
         total = sum(
             thermal_daily_kwh_for_date(source, house_profile, day, climate=climate)
             for day in dates
@@ -458,8 +498,14 @@ def thermal_hourly_overlay(
     milp_flex_thermal_ids: set[str] | None = None,
     climate: ModeledClimateContext | None = None,
 ) -> list[float]:
-    """Summiert kW thermischer Verbraucher (on/off bei nominal_power_kw) je Slot."""
-    thermal = _house_thermal_consumers(house_profile)
+    """Summiert kW thermischer Verbraucher je Slot (annual + CSV thermal_rc)."""
+    thermal_annual = _house_thermal_consumers(house_profile)
+    thermal_rc_csv = [
+        consumer
+        for consumer in _house_thermal_rc_consumers(house_profile)
+        if consumer_uses_profile_csv(consumer)
+    ]
+    thermal = list(thermal_annual) + thermal_rc_csv
     if not thermal:
         return [0.0] * len(slot_datetimes)
     from data.consumption_profiles import modeled_consumer_kw_at_datetime

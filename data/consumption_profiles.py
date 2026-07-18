@@ -82,12 +82,13 @@ def modeled_consumer_kw_at_datetime(
     climate: ModeledClimateContext | None = None,
 ) -> float:
     """kW für einen Verbraucher zum Kalenderzeitpunkt (wie Backtesting-Overlay)."""
+    # CSV wins over climate/synthetic models when use_profile_csv is set.
+    if consumer_uses_profile_csv(consumer):
+        return csv_kw_at_datetime(consumer["profile_csv"], slot_dt)
     if climate is not None and consumer.get("type") == "thermal_annual":
         return climate.thermal_consumer_kw_at(consumer, slot_dt)
     if climate is not None and consumer.get("type") == "thermal_rc":
         return climate.thermal_rc_consumer_kw_at(consumer, slot_dt)
-    if consumer_uses_profile_csv(consumer):
-        return csv_kw_at_datetime(consumer["profile_csv"], slot_dt)
     if consumer.get("type") == "ev":
         naive = slot_dt.replace(tzinfo=None) if slot_dt.tzinfo else slot_dt
         day_hourly = ev_hourly_kw_for_day(consumer, naive.date())

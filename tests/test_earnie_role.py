@@ -79,7 +79,7 @@ def test_normalize_assigns_earnie_role_known():
     assert consumer["schedule"]["start_shift_h"] == 0.0
 
 
-def test_normalize_manual_excludes_from_milp_split():
+def test_normalize_manual_in_fixed_overlay_not_milp():
     doc = normalize_house_profiles_document(
         {
             "profiles": [
@@ -123,7 +123,7 @@ def test_normalize_manual_excludes_from_milp_split():
     )
     profile = doc["profiles"]["p1"]
     fixed, flex = split_planning_generic_consumers(profile)
-    assert fixed == []
+    assert [c["id"] for c in fixed] == ["wm"]
     assert len(flex) == 1
     assert flex[0]["id"] == "flex_load"
 
@@ -162,6 +162,42 @@ def test_resolve_explicit_role():
     assert is_earnie_manual(consumer)
     assert not is_earnie_known(consumer)
     assert not is_earnie_flex(consumer)
+
+
+def test_split_planning_treats_manual_as_fixed_overlay():
+    """manual stays recommendation UI, but SE/live overlay includes schedule energy."""
+    profile = {
+        "consumers": [
+            {
+                "id": "wm",
+                "type": "generic",
+                "nominal_power_kw": 2.0,
+                "earnie_role": "manual",
+                "schedule": {
+                    "runs_per_week": 7,
+                    "duration_h": 2.0,
+                    "start_hour": 10,
+                    "start_shift_h": 4.0,
+                },
+            },
+            {
+                "id": "flex_load",
+                "type": "generic",
+                "nominal_power_kw": 1.0,
+                "earnie_role": "flex",
+                "schedule": {
+                    "runs_per_week": 3,
+                    "duration_h": 1.0,
+                    "start_hour": 12,
+                    "start_shift_h": 4.0,
+                },
+            },
+        ]
+    }
+    fixed, flex = split_planning_generic_consumers(profile)
+    assert [c["id"] for c in fixed] == ["wm"]
+    assert len(flex) == 1
+    assert flex[0]["id"] == "flex_load"
 
 
 def test_normalize_migrates_legacy_loxone_power_name_to_inputs():

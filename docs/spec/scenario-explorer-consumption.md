@@ -34,9 +34,13 @@ Profile consumers are merged into `flexible_consumers` via `_planning_flex_consu
 | -------------- | -------------- | --------------- | -------------- |
 | `generic` | `earnie_role: flex` | `planning_consumer_to_milp` | `generic_flex_window` |
 | `generic` | `earnie_role: known` | — (fixed overlay only) | — |
-| `generic` | `earnie_role: manual` | — (recommendation page + runtime schedule inject) | — |
+| `generic` | `earnie_role: manual` | — (fixed overlay like known; recommendation UI only) | — |
 | `ev` | `charging_schedule` present | `planning_ev_to_milp` | `charging_schedule` + deadline |
-| `thermal_annual` | — | — | Fixed overlay (`house_profile_baseload_overlay`) |
+| `thermal_annual` | — | MILP when not CSV; CSV → fixed overlay | `thermal_annual` targets or overlay |
+| `thermal_rc` | no `use_profile_csv` | `planning_thermal_rc_to_milp` | RC thermal control |
+| `thermal_rc` | `use_profile_csv` | — (CSV fixed overlay, not MILP) | — |
+
+`split_planning_generic_consumers` puts **both** `known` and `manual` into the fixed baseload overlay. SE / live planning assume the user starts manuals at the recommended default schedule; `earnie_role: manual` still drives **Betrieb → Manuelle Geräte** only (not MILP shift).
 
 Greenfield `config.json` keeps `flexible_consumers: []`; shiftable loads come from the house profile.
 

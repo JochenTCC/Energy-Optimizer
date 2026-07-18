@@ -23,7 +23,6 @@ Fix is **implemented** (code + tests + optional PATCH in `version.py`), but **pr
 
 ## New Bugs (Do not remove this chapter — even if empty)
 
-- [ ] Order of progress bars in SE shall not change during execution of scenario simulation — previous fix (pre-seed worker progress files + sort by canonical preferred order) does not hold; reopen from Erledigt 2026-07-16
 
 ## Organizational Changes - no bugs (but still no development issue)
 - [ ] remove silent-migration-test folder and update launch.json accordingly. Also remove any scripts that are "linked" to this folder

@@ -3,6 +3,10 @@
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 
+### Bugfix SE profile_spec Jahres Verbrauch vs Historisch (2026-07-18)
+
+- [x] **Investigate Gesamtkosten Jahres Verbrauch gap Historisch vs others** — root cause: `profile_spec` omitted CSV `thermal_rc` / used schedule targets for CSV EV·WP, and excluded `earnie_role: manual` from overlay; fix: CSV before climate, CSV thermal_rc → overlay, CSV EV/WP window targets, manuals as fixed overlay like known (recommendation UI unchanged); docs + tests; verified live (~11600 vs Historisch ~11700)
+
 ### Bugfix Hauskonfigurator CSV / SE Kosten-Legende (2026-07-18)
 
 - [x] **Single CSV upload (Verbrauch / Verbraucher)** — Hauskonfigurator: `accept_multiple_files=False` via `single_csv_upload`; stable overwrite path under `config/uploads/`; hide Streamlit „Add files“ (+) via CSS (`inject_single_file_uploader_css`); verified live
@@ -211,6 +215,7 @@ Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes �
 
 - [x] **SE baseline/reference progress bar** — reference simulations report hourly progress (`phase: reference`) via per-worker JSON snapshots; Streamlit shows per-task bars including historical reference (`scripts/run_backtesting.py` `_run_reference_worker`, `ui/backtesting.py`)
 - [x] **Run-time progress feedback** — active tasks show `current/total h` (and `Referenz` label for baseline phase) during parallel runs
+  - ETA (“time left until finished”): reopened in [Backlog.md](Backlog.md) Feature Backlog (not implemented)
 - [x] **Worker count matches all parallel tasks** — `count_backtesting_parallel_tasks` = main reference + per-scenario extra references + optimized scenarios; `auto_backtesting_workers` uses `min(task_count, cpu_count − 1)`; references run in the same `ProcessPoolExecutor` as scenarios (`ui/backtesting_runner.py`, `_run_parallel_backtesting`); test `test_count_backtesting_parallel_tasks_includes_reference`
 
 

@@ -17,7 +17,6 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
     - Loxone Deutschland
     - Loxone Bauherren
   - Contact IoBroker-Community and HomeAssistant (when Best Interface is found)
-  - Evaluate running Szenario-Explorer as "web app" in Streamlit Community Cloud — secrets, no Loxone, demo feasibility  
 - [x] Check if Loxone's Energiemonitor provides statistics to import in Earnie  
   - Energiemonitor logs statistics
   - [x] Check how data looks like -- Data is useable
@@ -30,6 +29,7 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 - [ ] Move folders ./config and ./runtime into a common directory "./earnie_env" (analog to local env "greenfield" or "silent-migration-test")
   - Change all code and existing settings accordingly
   - Non-version relevant todo: Change local launch.json accordingly
+- Auto-Save after any changes in Hauskonfigurator or Szenarieneditor
 - [ ] Add a section in sidebar to save and load complete config data
   - Relevant files (collected as zip-file):
     - backtesting_scenarios.json
@@ -40,9 +40,9 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
     - tariffs.json
   - For safe import / export each json-File must have a tag to document the version of used data model in Earnie at time of saving
   - Earnie has an internal mapping from date-model version to decide whether data model of zip file suits to current version or whether an conversion method is available (later implementations)
+- [ ] Check running Szenario-Explorer as "web app" in Streamlit Community Cloud or assess possibilities for a own server (on hosttech)
 
-
-### Version 2.+1 - Become Loxone agnostic
+### Version 2.+1 - Become Loxone agnostic and standardize communication
 
 - [ ] Make interface to smarthome loxone agnostic
   - **Goal:** Get into contact with more Smarthome "nerds" that are willing to build connections to their specific hardware
@@ -51,6 +51,9 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
   - Create architecture for a connector approach that bridges a common generic internal Earnie interface to specific Smarthome interfaces
   - Refactor existing Loxone HTTP communication to new Loxone<>Earnie-connector
   - Create specification for other Smarthome connectors to internal Earnie interface
+- [ ] Enhance json Schemas to standardized interfaces between Devices like heat-pump, battery, EV, consumers, ... in order to use them as template to build up a library of communication interfaces between smarthome system and Earnie.
+  - Build a Loxone library as suitable counterpart to that templates to be used for quick interface configuration
+  - Prepare similar thing for other standards (see above)
 - [ ] Add a Donate feature into sidebar 
 
 
@@ -71,6 +74,9 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
   - Visualize cost for each usage
   - Visualize total cost per week / month / year (validation against invoices) 
   - Visualize battery usage as sum of energy flow (maybe established charts exist?)
+- [ ] SE progress bars: show ETA (“time left until finished”) during scenario simulation
+  - Reopened from Erledigt 2026-07-16 — requested with baseline progress; only `current/total h` shipped, not ETA
+- [ ] Order of progress bars in SE shall not change during execution of scenario simulation — previous fix (pre-seed worker progress files + sort by canonical preferred order) does not hold; reopen from Erledigt 2026-07-16
 - [ ] Improve performance of Scenario Explorer (ideas?)
 
 

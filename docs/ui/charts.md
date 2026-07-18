@@ -54,7 +54,7 @@ Entladen → Last ← verbleibende Entladung
 
 **Flexible Verbraucher** (gestapelte Down-Segmente): Farbe aus fester **8er-Palette** in `ui/chart_colors.py` (`CONSUMER_PALETTE`, Hue **260→40**, S≈90, L≈50). In `config.json` je Verbraucher **`chart_color_index`** (0–7), nicht mehr freies Hex. Auflösung zentral über `consumer_chart_color()` — Chart 1 und Sankey nutzen dieselben Vollfarben.
 
-**Generic `earnie_role: known`:** In der Optimierung Teil der Grundlast-Overlay; in Chart 1 werden die geplanten Stundenleistungen **sichtbar** aus `Verbrauch-Prognose` in eigene Down-Segmente (z. B. Kochen, Fernsehen) herausgezogen — analog zu manuellen Geräten (`house_config/known_chart_display.py`).
+**Generic `earnie_role: known` and `manual`:** In der Optimierung Teil der Grundlast-Overlay; in Chart 1 werden die geplanten Stundenleistungen **sichtbar** aus `Verbrauch-Prognose` in eigene Down-Segmente herausgezogen (`house_config/known_chart_display.py`). `manual` bleibt für die Empfehlungs-UI; SE/Live rechnen die Default-Schedule mit (Nutzer startet wie empfohlen).
 
 **Zonenabhängige Sättigung (nur Chart-1-Flex-Balken):** Grauer Bereich (Vergangenheit) volle Palette-Sättigung; neutraler Bereich (laufender Plan) und grüner Bereich (Preis-Prognose) gemeinsam gedämpft (`CONSUMER_CHART_SATURATION_MUTED`, derzeit 0,6). Slot → Zone über `chart_zone_kind_for_slot_start()` / `UiChartZones`; Legende bleibt in Vollfarbe (`visible='legendonly'`). Sankey unverändert volle Sättigung.
 

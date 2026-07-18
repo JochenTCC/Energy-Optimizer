@@ -154,7 +154,7 @@ Waschmaschine, Trockner, Geschirrspüler und ähnliche Geräte als **generische*
 |-----------------|-------------------|
 | **Bekannt (known)** | Feste / geplante Zeiten fließen als Grundlast ein — Earnie verschiebt sie nicht, berücksichtigt sie aber bei der Optimierung |
 | **Flexibel (flex)** | Earnie darf den Start im erlaubten Fenster verschieben |
-| **Manuell (manual)** | Sie planen auf der Seite *Manuelle Geräte*; Earnie gibt Start-Empfehlungen |
+| **Manuell (manual)** | Sie planen auf der Seite *Manuelle Geräte*; Earnie gibt Start-Empfehlungen. In Live-Optimierung und Szenario-Explorer wird die typische Zeitplan-Last trotzdem wie bei *bekannt* mitgerechnet (Annahme: Sie starten wie empfohlen). |
 
 Leistung und typische Laufzeit angeben. Optional später ein Loxone-Leistungsmerker für Ist-Anzeige und zur Kontrolle.
 
@@ -249,7 +249,7 @@ Die Spalte zeigt **nicht überall dieselbe Datenquelle**. Deshalb kann die Zeile
 
 **Warum Historisch oft abweicht**
 
-1. **Ist vs. Modell:** Historisch spiegelt den gemessenen Hausverbrauch. Die übrigen Zeilen rechnen mit dem konfigurierten Hausprofil (Soll-Jahresverbrauch, Grundlast, Verbraucherprofile). Weichen Ist und Modell ab (unvollständige CSV, anderer Jahresverbrauch, synthetische Profile), weichen auch die kWh-Zahlen ab.  
+1. **Ist vs. Modell:** Historisch spiegelt den gemessenen Hausverbrauch. Die übrigen Zeilen rechnen mit dem konfigurierten Hausprofil (Soll-Jahresverbrauch, Grundlast, Verbraucherprofile — inkl. manueller Geräte mit ihrer Default-Schedule). Weichen Ist und Modell ab (unvollständige CSV, anderer Jahresverbrauch, synthetische Profile), weichen auch die kWh-Zahlen ab.  
 2. **Kosten und kWh der Historisch-Zeile:** Die **€-Kosten** der Historisch-Zeile werden mit der Last des Live-Hausprofils (ohne PV/Batterie) und den Live-Tarifen berechnet. Die **kWh-Spalte** derselben Zeile kommt dagegen aus `cons_data`. Stimmen Ist und Modell nicht überein, passen € und kWh in dieser einen Zeile inhaltlich nicht 1:1 zusammen.  
 3. **PV und Batterie** ändern die Spalte „Jahres Verbrauch“ nicht: gezählt wird der **Hausverbrauch** (Last), nicht Netzbezug nach Abzug von PV/Speicher.  
 4. **Kleine Differenzen** zwischen Referenz und Optimierung derselben Szenario-Familie sind normal (Lastverschiebung, Toleranz der Plausibilitätsprüfung).
