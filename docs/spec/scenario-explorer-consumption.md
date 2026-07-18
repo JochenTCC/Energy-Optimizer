@@ -37,7 +37,7 @@ Profile consumers are merged into `flexible_consumers` via `_planning_flex_consu
 | `generic` | `earnie_role: manual` | — (fixed overlay like known; recommendation UI only) | — |
 | `ev` | `charging_schedule` present | `planning_ev_to_milp` | `charging_schedule` + deadline |
 | `thermal_annual` | — | MILP when not CSV; CSV → fixed overlay | `thermal_annual` targets or overlay |
-| `thermal_rc` | no `use_profile_csv` | `planning_thermal_rc_to_milp` | RC thermal control |
+| `thermal_rc` | no `use_profile_csv` | `planning_thermal_rc_to_milp` | RC thermal control; `profile_spec` window target via modeled/climate kWh (`planning_thermal_rc_daily_targets`) |
 | `thermal_rc` | `use_profile_csv` | — (CSV fixed overlay, not MILP) | — |
 
 `split_planning_generic_consumers` puts **both** `known` and `manual` into the fixed baseload overlay. SE / live planning assume the user starts manuals at the recommended default schedule; `earnie_role: manual` still drives **Betrieb → Manuelle Geräte** only (not MILP shift).

@@ -24,6 +24,7 @@ Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes �
 ### Bugfix SE profile_spec Jahres Verbrauch vs Historisch (2026-07-18)
 
 - [x] **Investigate Gesamtkosten Jahres Verbrauch gap Historisch vs others** — root cause: `profile_spec` omitted CSV `thermal_rc` / used schedule targets for CSV EV·WP, and excluded `earnie_role: manual` from overlay; fix: CSV before climate, CSV thermal_rc → overlay, CSV EV/WP window targets, manuals as fixed overlay like known (recommendation UI unchanged); docs + tests; verified live (~11600 vs Historisch ~11700)
+- [x] **Same gap with no `use_profile_csv`** — non-CSV `thermal_rc` stayed MILP-flex but got no window target (flat override → 0); fix: `planning_thermal_rc_daily_targets` + bridge-only filter `daily_target_kwh` fallback; docs + tests; verified live
 
 ### Bugfix Hauskonfigurator CSV / SE Kosten-Legende (2026-07-18)
 

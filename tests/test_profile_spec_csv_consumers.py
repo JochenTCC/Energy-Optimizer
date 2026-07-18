@@ -157,3 +157,41 @@ def test_ev_and_thermal_targets_use_csv_window(tmp_path: Path) -> None:
     assert planning_thermal_daily_targets(flex, profile, slots)[
         "wp_heating"
     ] == pytest.approx(12.0)
+
+
+def test_non_csv_thermal_rc_in_profile_spec_targets(monkeypatch) -> None:
+    """Without use_profile_csv, thermal_rc stays MILP-flex and must get window kWh."""
+    from house_config.planning_flex_bridge import planning_thermal_rc_daily_targets
+
+    start = datetime(2025, 6, 14, 7, 0)
+    profile = {
+        "id": "home",
+        "baseload_kwh": 876.0,
+        "consumers": [
+            {
+                "id": "swimspa",
+                "type": "thermal_rc",
+                "nominal_power_kw": 2.8,
+                "use_profile_csv": False,
+                "thermal_rc": {
+                    "setpoint_c": 38.0,
+                    "tolerance_c": 1.0,
+                    "water_volume_liters": 5000.0,
+                    "heat_loss_kw_per_k": 0.05,
+                    "heating_efficiency": 1.0,
+                },
+            }
+        ],
+    }
+    slots = [start + timedelta(hours=i) for i in range(24)]
+    monkeypatch.setattr(
+        "data.consumption_profiles.modeled_consumer_kw_at_datetime",
+        lambda *_a, **_k: 1.5,
+    )
+    flex = collect_planning_flex_consumers(profile)
+    assert "swimspa" in {c["id"] for c in flex}
+    rc_targets = planning_thermal_rc_daily_targets(flex, profile, slots)
+    assert rc_targets["swimspa"] == pytest.approx(36.0)
+    targets = resolve_profile_spec_flex_targets(flex, profile, slots, window_end=slots[-1])
+    assert targets["swimspa"] == pytest.approx(36.0)
+    assert targets.get("swimspa_filter", 0.0) == pytest.approx(0.36)

@@ -42,10 +42,10 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
   - For safe import / export each json-File must have a tag to document the version of used data model in Earnie at time of saving
   - Earnie has an internal mapping from date-model version to decide whether data model of zip file suits to current version or whether an conversion method is available (later implementations)
 - [x] Update docs  
-- [ ] Check running Szenario-Explorer as "web app" in Streamlit Community Cloud or assess possibilities for a own server (on hosttech)
 
 ### Version 2.+1 - Become Loxone agnostic and standardize communication
 
+- [ ] Check running Szenario-Explorer as "web app" in Streamlit Community Cloud or assess possibilities for an own server (on hosttech)
 - [ ] Make interface to smarthome loxone agnostic
   - **Goal:** Get into contact with more Smarthome "nerds" that are willing to build connections to their specific hardware
   - Redefine Loxone Markers --> Smarthome Markers that are suitable to multiple standards like MQTT or Matter

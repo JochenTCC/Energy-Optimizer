@@ -453,6 +453,31 @@ def planning_thermal_daily_targets(
     return targets
 
 
+def planning_thermal_rc_daily_targets(
+    flex_consumers: list[dict],
+    house_profile: dict,
+    slot_datetimes: list[datetime],
+    *,
+    climate: ModeledClimateContext | None = None,
+) -> dict[str, float]:
+    """Window kWh for non-CSV thermal_rc MILP-flex (CSV thermal_rc uses overlay)."""
+    by_id = {
+        str(consumer["id"]): consumer
+        for consumer in _house_thermal_rc_consumers(house_profile)
+    }
+    targets: dict[str, float] = {}
+    for milp_consumer in flex_consumers:
+        if milp_consumer.get("daily_target_source") != "thermal":
+            continue
+        source = by_id.get(str(milp_consumer["id"]))
+        if not source or consumer_uses_profile_csv(source):
+            continue
+        targets[str(milp_consumer["id"])] = _consumer_window_kwh(
+            source, slot_datetimes, climate=climate
+        )
+    return targets
+
+
 def milp_flex_thermal_annual_ids(flex_consumers: list[dict] | None) -> set[str]:
     if not flex_consumers:
         return set()
@@ -703,12 +728,24 @@ def resolve_profile_spec_flex_targets(
             climate=climate,
         )
     )
+    targets.update(
+        planning_thermal_rc_daily_targets(
+            flex_consumers,
+            house_profile,
+            slot_datetimes,
+            climate=climate,
+        )
+    )
     cons_totals = historical_totals or {}
     for consumer in flex_consumers:
         cid = consumer["id"]
         if cid in profile_ids or cid in targets:
             continue
-        targets[cid] = round(float(cons_totals.get(cid, 0.0)), 3)
+        cons_kwh = float(cons_totals.get(cid, 0.0) or 0.0)
+        if cid in cons_totals and cons_kwh > 0.0:
+            targets[cid] = round(cons_kwh, 3)
+        else:
+            targets[cid] = round(float(consumer.get("daily_target_kwh", 0.0) or 0.0), 3)
     return targets
 
 
