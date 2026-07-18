@@ -11,6 +11,7 @@ from house_config.profiles_store import load_house_profiles_document, save_house
 from data.heating_need import specific_heating_kwh_m2
 from ui import setup_readiness
 from ui.house_config_io import (
+    delete_scenario,
     get_planning_tariff_selection,
     load_backtesting_scenarios_raw,
     save_planning_tariff_selection,
@@ -204,6 +205,65 @@ def test_upsert_scenario_appends_new_entry(tmp_path, monkeypatch):
     ohne_pv = next(item for item in saved["scenarios"] if item["id"] == "ohne_pv")
     assert ohne_pv["label"] == "Ohne PV"
     assert ohne_pv["settings"]["battery_id"] == "bat1"
+
+
+def test_delete_scenario_removes_non_live(tmp_path, monkeypatch):
+    config_dir = _bind_paths(tmp_path, monkeypatch)
+    monkeypatch.setattr("ui.house_config_io.config.reinit_config", lambda **kwargs: None)
+    config_dir.joinpath("config.json").write_text(
+        json.dumps(minimal_config_payload()),
+        encoding="utf-8",
+    )
+    config_dir.joinpath("backtesting_scenarios.json").write_text(
+        json.dumps(
+            {
+                "scenarios": [
+                    {
+                        "id": "live",
+                        "label": "Live",
+                        "settings": default_live_settings(),
+                    },
+                    {
+                        "id": "ohne_pv",
+                        "label": "Ohne PV",
+                        "settings": default_live_settings(),
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    delete_scenario("ohne_pv")
+
+    saved = load_backtesting_scenarios_raw()
+    assert {item["id"] for item in saved["scenarios"]} == {"live"}
+
+
+def test_delete_scenario_rejects_live(tmp_path, monkeypatch):
+    config_dir = _bind_paths(tmp_path, monkeypatch)
+    monkeypatch.setattr("ui.house_config_io.config.reinit_config", lambda **kwargs: None)
+    config_dir.joinpath("config.json").write_text(
+        json.dumps(minimal_config_payload()),
+        encoding="utf-8",
+    )
+    config_dir.joinpath("backtesting_scenarios.json").write_text(
+        json.dumps(
+            {
+                "scenarios": [
+                    {
+                        "id": "live",
+                        "label": "Live",
+                        "settings": default_live_settings(),
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Live-Szenario"):
+        delete_scenario("live")
 
 
 def test_save_planning_tariff_selection(tmp_path, monkeypatch):

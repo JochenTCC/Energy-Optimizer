@@ -472,6 +472,28 @@ def upsert_scenario(scenario: dict) -> None:
     save_backtesting_scenarios(doc)
 
 
+def delete_scenario(scenario_id: str) -> None:
+    """Remove a non-live scenario from backtesting_scenarios.json."""
+    target = str(scenario_id or "").strip()
+    if not target:
+        raise ValueError("Szenario-ID fehlt.")
+    live_id = str(config.get_live_scenario_id() or "").strip()
+    if live_id and target == live_id:
+        raise ValueError(
+            "Das Live-Szenario kann nicht entfernt werden. "
+            "Wähle zuerst ein anderes Live-Szenario unter Live-Konfiguration."
+        )
+    doc = load_backtesting_scenarios_raw()
+    scenarios = list(doc.get("scenarios", []))
+    remaining = [
+        item for item in scenarios if str(item.get("id", "")).strip() != target
+    ]
+    if len(remaining) == len(scenarios):
+        raise ValueError(f"Unbekanntes Szenario '{target}'.")
+    doc["scenarios"] = remaining
+    save_backtesting_scenarios(doc)
+
+
 def preview_baseload(annual_kwh: float, consumers: list[dict]) -> dict:
     return compute_baseload_kwh(annual_kwh, consumers)
 

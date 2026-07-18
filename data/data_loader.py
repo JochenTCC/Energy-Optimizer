@@ -46,6 +46,10 @@ def _monday_of_week(ts: pd.Timestamp) -> pd.Timestamp:
     return ts.normalize() - pd.Timedelta(days=int(ts.dayofweek))
 
 
+# Inclusive calendar days for last_12_months / loxone_logs (365 × 24 h = 8760).
+_SIMULATION_YEAR_DAYS = 365
+
+
 def resolve_simulation_window(
     range_mode: str,
     cons_path: str,
@@ -54,21 +58,20 @@ def resolve_simulation_window(
     """
     Ermittelt das Simulationsfenster.
 
-    - last_12_months: rollierende 12 Monate bis heute; Start = Montag der Woche
-      mit (heute − 12 Monate)
-    - loxone_logs: gleiche 12-Monats-Regel, begrenzt auf Loxone-Log-Zeitraum
+    - last_12_months: rollierende 365 Kalendertage bis heute (inkl. Endtag → 8760 h)
+    - loxone_logs: gleiche 365-Tage-Regel, begrenzt auf Loxone-Log-Zeitraum
     """
     today = pd.Timestamp.now().normalize()
+    year_span = pd.Timedelta(days=_SIMULATION_YEAR_DAYS - 1)
 
     if range_mode == "loxone_logs":
         lox_start, lox_end = get_loxone_time_bounds(cons_path, prod_path)
         end = min(lox_end.normalize(), today)
-        start = max(lox_start.normalize(), end - pd.DateOffset(months=12))
+        start = max(lox_start.normalize(), end - year_span)
     else:
         end = today
-        start = end - pd.DateOffset(months=12)
+        start = end - year_span
 
-    start = _monday_of_week(start)
     return start, end
 
 

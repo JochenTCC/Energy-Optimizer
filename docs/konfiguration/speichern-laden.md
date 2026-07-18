@@ -4,7 +4,7 @@ Earnie speichert die Haus- und Szenario-Konfiguration unter `earnie_env/config/`
 
 ## Auto-Speichern
 
-Im **Hauskonfigurator** und **Szenarieneditor** werden gültige Änderungen automatisch auf die Festplatte geschrieben (kein separater Speichern-Button). Unvollständige Formulare (z. B. leere Bezeichnung) werden nicht persistiert.
+Im **Hauskonfigurator** und **Szenarieneditor** werden gültige Änderungen automatisch auf die Festplatte geschrieben (kein separater Speichern-Button). Unvollständige Formulare (z. B. leere Bezeichnung) werden nicht persistiert. Im Szenarieneditor können gespeicherte Nicht-Live-Szenarien mit **Szenario entfernen** gelöscht werden (das aktuelle Live-Szenario ist geschützt).
 
 ## ZIP-Export / -Import (Sidebar)
 

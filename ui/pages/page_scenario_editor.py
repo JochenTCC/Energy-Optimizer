@@ -13,6 +13,7 @@ from ui.form_layout import (
     labeled_text_input,
 )
 from ui.house_config_io import (
+    delete_scenario,
     list_batteries,
     list_export_tariffs,
     list_import_tariffs,
@@ -501,6 +502,19 @@ def _render_scenarios_tab() -> None:
         save=_save_scenario,
         ready=ready,
     )
+
+    if not is_new and stable_scenario_id and stable_scenario_id != live_id:
+        if st.button("Szenario entfernen", key="scenario_delete"):
+            try:
+                delete_scenario(stable_scenario_id)
+            except ValueError as exc:
+                st.error(str(exc))
+            else:
+                st.session_state[_SESSION_SELECT_PENDING_KEY] = live_id
+                st.session_state[_SESSION_SYNC_KEY] = None
+                st.session_state[_SESSION_FILE_STAMP_KEY] = None
+                st.success("Szenario entfernt.")
+                st.rerun()
 
 
 def render() -> None:

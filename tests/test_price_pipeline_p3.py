@@ -108,15 +108,16 @@ def test_monday_of_week_snaps_to_monday():
     assert monday.date().isoformat() == "2025-07-07"
 
 
-def test_resolve_simulation_window_start_is_monday(monkeypatch):
+def test_resolve_simulation_window_is_365_inclusive_days(monkeypatch):
     monkeypatch.setattr(
         pd.Timestamp,
         "now",
         classmethod(lambda cls, tz=None: pd.Timestamp("2025-07-09")),
     )
     start, end = resolve_simulation_window("last_12_months", "", "")
-    assert start.dayofweek == 0
     assert end.normalize() == pd.Timestamp("2025-07-09")
+    assert start.normalize() == pd.Timestamp("2024-07-10")
+    assert (end.normalize() - start.normalize()).days + 1 == 365
 
 
 def test_thermal_daily_pwm_uses_nominal_or_zero():

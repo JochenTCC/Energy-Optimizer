@@ -3,6 +3,20 @@
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 
+### Organizational: remove silent-migration-test (2026-07-18)
+
+- [x] **Remove `silent-migration-test/`** — deleted local stack folder; launch configs / setup+deploy scripts / docs already gone (2.2 cleanup); dropped `.gitignore` entry and `LEGACY_TEST_SYMBOLS` for `setup_silent_migration` / `deploy_silent_migration`
+
+
+### Bugfix remove scenarios (2026-07-18)
+
+- [x] **No way to remove scenarios** — Szenarieneditor: `delete_scenario` + button **Szenario entfernen** (Live protected); tests in `test_planning_editors.py`; docs `docs/konfiguration/speichern-laden.md`; verified live
+
+
+### Bugfix SE simulation window 8760 h (2026-07-18)
+
+- [x] **SE `last_12_months` ~8800 h / ~370 Fenster** — root cause: Monday week snap + calendar `DateOffset(months=12)` inclusive span; fix: exactly 365 inclusive days (8760 h), no Monday pullback; UI time-range help + tests updated; verified live
+
 ### Bugfix config ZIP import UI / chart_color_index (2026-07-18)
 
 - [x] Config pack import left stale Hauskonfigurator/live session state when the imported profile had more consumers; Live Chart 1 crashed on discovered columns (e.g. `fernsehen`) missing `chart_color_index`. Clear editor/live session on import; allocate palette indices for discovered flex columns.

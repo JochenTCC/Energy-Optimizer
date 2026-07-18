@@ -55,8 +55,6 @@ LEGACY_TEST_SYMBOLS = (
     "resolve_legacy_runtime_settings",
     "migrate_flex_consumers",
     "patch_swimspa_filter_config",
-    "setup_silent_migration",
-    "deploy_silent_migration",
     "_raw_config.get(\"swimspa\")",
 )
 

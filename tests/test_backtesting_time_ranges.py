@@ -31,7 +31,7 @@ def test_configured_price_range_default(monkeypatch):
     )
     assert configured_price_range() == "last_12_months"
     assert describe_price_range("last_12_months") == (
-        "rollierende 12 Monate bis heute; Start = Montag der Woche mit (heute − 12 Monate)"
+        "rollierende 365 Kalendertage bis heute (8760 h; ein Fenster pro Tag)"
     )
 
 
@@ -51,7 +51,7 @@ def test_default_simulation_window_last_12_months(monkeypatch):
     )
     start, end = default_simulation_window()
     assert end == date(2026, 7, 10)
-    assert start == date(2025, 7, 7)
+    assert start == date(2025, 7, 11)
 
 
 def test_build_time_range_help_lines_without_log(monkeypatch):

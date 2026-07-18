@@ -31,7 +31,6 @@ earnie_env/runtime/*
 runtime/*
 !runtime/local_settings.example.json
 greenfield/
-silent-migration-test/
 runtime-prod/
 backtesting_log.json
 backtesting_cbc_events.jsonl

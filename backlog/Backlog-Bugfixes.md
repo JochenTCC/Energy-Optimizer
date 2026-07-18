@@ -23,8 +23,5 @@ Fix is **implemented** (code + tests + optional PATCH in `version.py`), but **pr
 
 ## New Bugs (Do not remove this chapter — even if empty)
 
-- [ ] Number of hours shall be 8760h - SE is simulating 8800h
-
 ## Organizational Changes - no bugs (but still no development issue)
 
-- [x] remove silent-migration-test folder and update launch.json accordingly. Also remove any scripts that are "linked" to this folder
