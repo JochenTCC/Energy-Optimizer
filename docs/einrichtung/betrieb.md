@@ -81,6 +81,7 @@ Betriebsstatus der wichtigsten Log-, Historien- und Debug-Dateien (Review 2026-0
 | `EARNIE_UI_STREAMLIT_PORT`              | TCP-Port für Streamlit (überschreibt `ui.streamlit_port`; siehe [Streamlit-Ports](../referenz/streamlit-ports.md))                                                                                                                   |
 | `EARNIE_UI_CHART_DEBUG_CAPTURE_ENABLED` | `1` = Button „Debug-Dump speichern“ im Cockpit (überschreibt `ui.chart_debug_capture_enabled`; ZIP unter `runtime/chart_debug/`). Legacy-Alias: `ENERGY_OPTIMIZER_UI_CHART_DEBUG_CAPTURE_ENABLED`.                                  |
 | `EARNIE_AUTO_START_MAIN`                | `1` = beim Start von `scripts.run_streamlit` automatisch `main.py` starten, falls nicht schon laufend (Docker-Compose setzt das). Ohne Variable / lokal aus.                                                                              |
+| `EARNIE_OFFLINE`                        | `1` = kein Loxone-/Live-Zwang; Bootstrap füllt leere Live-Szenario-Entitäts-IDs aus den Katalogen (sinnvoll für Streamlit Community Cloud). Legacy-Alias: `ENERGY_OPTIMIZER_OFFLINE`.                                                  |
 
 
 Streamlit-Port-Übersicht (Stacks, Plattformen): [streamlit-ports.md](../referenz/streamlit-ports.md).

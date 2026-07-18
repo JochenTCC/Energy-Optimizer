@@ -451,3 +451,8 @@ def run() -> None:
         logger.info("bootstrap: %s neue Datei(en) angelegt.", len(created))
     else:
         logger.debug("bootstrap: alle persistenten Dateien vorhanden.")
+
+    from runtime_store.offline_demo_seed import seed_offline_live_scenario
+
+    if seed_offline_live_scenario():
+        logger.info("bootstrap: offline demo live-scenario refs seeded.")

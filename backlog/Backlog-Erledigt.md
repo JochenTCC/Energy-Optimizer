@@ -3,6 +3,13 @@
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 
+### Version 2.+1 — Offline demo seed for Community Cloud (2026-07-18)
+
+- [x] `EARNIE_OFFLINE=1`: bootstrap fills empty live-scenario entity IDs from catalogs (`runtime_store/offline_demo_seed.py`); never overwrites non-empty refs
+- [x] Config load defers runtime params when offline and live refs incomplete (UI can open for house/scenario setup)
+- [x] Docs: `EARNIE_OFFLINE` in `docs/einrichtung/betrieb.md`; tests `tests/test_offline_demo_seed.py`
+
+
 ### Version 2.+1 — Save / Load configurations (2026-07-18)
 
 - [x] Move `./config` and `./runtime` into `./earnie_env` (analog greenfield); code/settings/env vars updated; Compose mounts Host-`earnie_env` → `/app/config` + `/app/runtime`
