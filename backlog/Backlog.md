@@ -25,10 +25,14 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 
 ## Feature Backlog
 
+### Version 2.2.0
+
+- [ ] Build Szenario-Explorer as "web app" in Streamlit Community Cloud
+  - Precursor (done): `EARNIE_OFFLINE` live-scenario demo seed — [Backlog-Erledigt.md](Backlog-Erledigt.md)
+- [ ] Finalize Version 2.2.0 after test usage and make a release
+
 ### Version 2.+1 - Become Loxone agnostic and standardize communication
 
-- [ ] Check running Szenario-Explorer as "web app" in Streamlit Community Cloud or assess possibilities for an own server (on hosttech)
-  - Precursor (done): `EARNIE_OFFLINE` live-scenario demo seed — [Backlog-Erledigt.md](Backlog-Erledigt.md)
 - [ ] Make interface to smarthome loxone agnostic
   - **Goal:** Get into contact with more Smarthome "nerds" that are willing to build connections to their specific hardware
   - Redefine Loxone Markers --> Smarthome Markers that are suitable to multiple standards like MQTT or Matter
