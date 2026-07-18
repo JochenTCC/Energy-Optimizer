@@ -28,8 +28,14 @@ def scenario_monthly_cost_chart(
         title="Monatliche Stromkosten je Szenario (€)",
         xaxis_title="Monat",
         yaxis_title="€",
-        height=380,
-        margin=dict(l=40, r=20, t=50, b=40),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+        height=420,
+        margin=dict(l=40, r=20, t=50, b=90),
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.22,
+            x=0.5,
+            xanchor="center",
+        ),
     )
     return fig

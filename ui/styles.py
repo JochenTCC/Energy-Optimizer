@@ -55,3 +55,18 @@ def inject_help_hint_css() -> None:
         """,
         unsafe_allow_html=True,
     )
+
+
+def inject_single_file_uploader_css() -> None:
+    """Hide Streamlit file_uploader '+' (Add files) — app only uses single-file CSV."""
+    st.markdown(
+        """
+        <style>
+        /* Streamlit 1.58+ shows "Add files" even when accept_multiple_files=False */
+        [data-testid="stFileUploader"] button[aria-label="Add files"] {
+            display: none !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )

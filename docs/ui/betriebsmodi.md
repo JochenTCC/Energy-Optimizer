@@ -109,3 +109,17 @@ Ersparnis-, Kosten-Kennzahlen und Energievergleich beziehen sich auf **Jetzt →
 
 Geplant (Dev-only): Nachrechnung eines beliebigen Kalendertags — ersetzt den früheren Modus **Historischer Tag**.
 
+### Gesamtkosten — Jahres Verbrauch
+
+Tabelle **Gesamtkosten**: Spalten `Szenario`, `Jahres Verbrauch [kWh]`, `Jahres Kosten [€]`, `Δ vs Referenz [€]` (Delta immer gegen die Live-Referenz-Zeile).
+
+**Datenquellen für `Jahres Verbrauch [kWh]`** (UI: `build_annual_cost_rows` / `_jahres_kwh_for_row`):
+
+| Zeile | kWh-Quelle |
+| ----- | ---------- |
+| `historical_reference` (Historisch) | `reference_kwh_for_period` → Summe `cons_data` `total_kw` über `meta.period` |
+| Szenario-Referenz (`ref__…`) | `plausibility[<parent>].consumption_totals.historical_kwh` (Summe der 24h-Fenster) |
+| Optimiertes Szenario | `plausibility[<id>].consumption_totals.optimized_kwh` |
+
+Mit Hausprofil ist `consumption_source` typisch `profile_spec`: Fenster-Referenz = Spec-Last (Jahresverbrauch/Zeitpläne), nicht der Zähler. Historisch bleibt bewusst am Ist-Zähler — Abweichungen zu den übrigen Zeilen sind erwartbar, wenn Ist ≠ Modell. Kurzfassung in der UI-Caption unter der Tabelle; Anwendertext: [Benutzer-Handbuch](../user-manual/Benutzer-Handbuch-Earnie.md#gesamtkosten-jahres-verbrauch-kwh).
+

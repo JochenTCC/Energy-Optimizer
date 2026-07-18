@@ -3,6 +3,22 @@
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 
+### Bugfix Hauskonfigurator CSV / SE Kosten-Legende (2026-07-18)
+
+- [x] **Single CSV upload (Verbrauch / Verbraucher)** — Hauskonfigurator: `accept_multiple_files=False` via `single_csv_upload`; stable overwrite path under `config/uploads/`; hide Streamlit „Add files“ (+) via CSS (`inject_single_file_uploader_css`); verified live
+- [x] **SE monthly cost chart legend below** — `scenario_monthly_cost_chart`: Plotly legend `y < 0` (below chart), increased bottom margin; verified live
+
+
+### Bugfix Scenario selector order (2026-07-18)
+
+- [x] **Scenario selector order (stable Live + A–Z)** — Szenarieneditor: `— neu —` → Live (`live_scenario_id`) → remaining by label (case-insensitive); same display order for SE „Konfigurierte Szenarien“ and Live-Umgebung picker via `ordered_user_scenario_ids`; JSON file order unchanged; historical/reference chart order untouched; tests in `test_scenario_form_helpers.py`; verified live
+
+
+### Bugfix SE Jahres Verbrauch Historisch vs rest (2026-07-18)
+
+- [x] **SE Gesamtkosten `Jahres Verbrauch` differs for Historisch** — intentional: Historisch = `cons_data` Ist-Summe; refs/optimized = profile_spec / MILP window sums; UI caption under Gesamtkosten; docs in Benutzer-Handbuch, `docs/ui/betriebsmodi.md`, `docs/ui/charts.md`, `docs/spec/scenario-explorer-consumption.md`
+
+
 ### Bugfix SE / Hauskonfigurator labels (2026-07-18)
 
 - [x] **SE Gesamtkosten Δ vs Referenz Live** — delta always vs Live-Referenz row (`_live_reference_total_eur`); columns `Jahres Verbrauch [kWh]`, `Jahres Kosten [€]` (with `€`), `Δ vs Referenz [€]`
@@ -111,13 +127,13 @@ Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes �
 
 ### SE progress and result order (2026-07-16)
 
-- [x] Order of progress bars in SE shall not change during execution of scenario simulation — pre-seed all worker progress files; sort by canonical preferred order
 - [x] Order of all SE results (tables, charts)
   - 1. Historisch - ohne Optimierung
   - 2. Live - Ohne Optimierung
   - 3.- Other PV-settings - Ohne Optimierung
   - x.- Repeat order from 2., 3. ... - Optimiert
   - Canonical `ordered_backtesting_result_ids` / reorder before `save_backtesting_log`; Live-first in `_annual_cost_row_order`
+  - Progress-bar order during run: reopened in `Backlog-Bugfixes.md` (fix did not hold)
 
 
 ### SE results disclaimer (2026-07-16)

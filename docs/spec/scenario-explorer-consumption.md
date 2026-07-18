@@ -9,6 +9,18 @@ Developer reference for SE / greenfield backtesting load paths.
 | **Baseline** | House profile default schedules and/or `cons_data_hourly.csv` | Reference €, SE “Referenz-Verbrauch”, UI dashed lines |
 | **Optimized** | MILP output from `simulate_horizon` | Plausibility, SE solid lines, `backtesting_hourly.csv` consumption columns |
 
+### Gesamtkosten column `Jahres Verbrauch [kWh]`
+
+UI helper `_jahres_kwh_for_row` (`ui/backtesting_results_helpers.py`) uses **asymmetric** sources on purpose:
+
+| Row | kWh source |
+| --- | ---------- |
+| `historical_reference` | Period sum of live `cons_data` `total_kw` (`reference_kwh_for_period`) |
+| Scenario reference (`ref__*`) | Sum of window `historical_kwh` from parent scenario plausibility (`profile_spec` or logged) |
+| Optimized scenario | Sum of window `optimized_kwh` |
+
+So Historisch can differ from all other rows when meter totals ≠ house-profile spec. User-facing explanation: `docs/user-manual/Benutzer-Handbuch-Earnie.md` and `docs/ui/betriebsmodi.md`.
+
 `consumption_source` on resolved scenario settings:
 
 - `profile_spec` (default when `house_profile_id` is set) — optimization uses profile spec, not cons_data replay

@@ -19,9 +19,11 @@ Fix is **implemented** (code + tests + optional PATCH in `version.py`), but **pr
 - After successful verification: remove from this chapter → `Backlog-Erledigt.md` (`### Bugfix …`) with `- [x]`.
 - If verification fails: return to open bugfix chapter or formulate follow-up; document PATCH if applicable, but do not archive as done.
 
-## Bugfix Verifications Pending
+## Bugfix Verifications Pending (Do not remove this chapter — even if empty)
 
 ## New Bugs (Do not remove this chapter — even if empty)
 
-- [ ] SE - Check, why numbers in Table "Jahres-Verbrauch" column 2 differ between scenario "Historisch" and rest. M
-- [ ] Don't change order of scenario in selector on page Szenarieneditor. Sort all but Live scenarios alphabetically. Use this order everywhere (also in SE)
+- [ ] Order of progress bars in SE shall not change during execution of scenario simulation — previous fix (pre-seed worker progress files + sort by canonical preferred order) does not hold; reopen from Erledigt 2026-07-16
+
+## Organizational Changes - no bugs (but still no development issue)
+- [ ] remove silent-migration-test folder and update launch.json accordingly. Also remove any scripts that are "linked" to this folder

@@ -117,6 +117,52 @@ def upsert_house_profile(profile: dict) -> None:
     cons_data_store.invalidate_cons_data_meta()
 
 
+def _stable_upload_csv_name(
+    profile_id: str,
+    *,
+    consumer_id: str = "",
+    role: str = "",
+) -> str:
+    """One canonical filename per profile role / consumer (overwrite on re-upload)."""
+    prefix = str(profile_id or "profile").strip() or "profile"
+    consumer = str(consumer_id or "").strip()
+    role_part = str(role or "").strip()
+    if consumer:
+        return f"{prefix}_{consumer}.csv"
+    if role_part:
+        return f"{prefix}_{role_part}.csv"
+    return f"{prefix}_verbrauch.csv"
+
+
+def single_csv_upload(
+    label: str,
+    *,
+    key: str,
+    help: str | None = None,
+):
+    """Streamlit CSV uploader that accepts exactly one file.
+
+    Returns the uploaded file, or None if empty / rejected (more than one file).
+    """
+    import streamlit as st
+
+    upload = st.file_uploader(
+        label,
+        type=["csv"],
+        accept_multiple_files=False,
+        key=key,
+        help=help or "Nur eine CSV-Datei erlaubt.",
+    )
+    if upload is None:
+        return None
+    if isinstance(upload, list):
+        if len(upload) > 1:
+            st.error("Nur eine CSV-Datei erlaubt.")
+            return None
+        return upload[0] if upload else None
+    return upload
+
+
 def save_profile_consumption_csv(
     profile_id: str,
     content: bytes,
@@ -130,6 +176,8 @@ def save_profile_consumption_csv(
     """Speichert Verbrauchs-CSV unter config/uploads/; optional normalisiert.
 
     ``role`` (z. B. ``pv``, ``verbrauch``) wird in den Dateinamen eingefügt.
+    Re-uploads overwrite the same path (one CSV per role / consumer).
+    ``filename`` is kept for API compatibility; it does not affect the target name.
     """
     from house_config.consumption_csv import (
         MIN_HOURS_FULL_YEAR,
@@ -138,15 +186,11 @@ def save_profile_consumption_csv(
 
     uploads_dir = Path("config") / "uploads"
     uploads_dir.mkdir(parents=True, exist_ok=True)
-    safe_name = Path(filename).name or "consumption.csv"
-    if not safe_name.lower().endswith(".csv"):
-        safe_name = f"{safe_name}.csv"
-    prefix = profile_id
-    if consumer_id:
-        prefix = f"{profile_id}_{consumer_id}"
-    if role.strip():
-        prefix = f"{prefix}_{role.strip()}"
-    target = uploads_dir / f"{prefix}_{safe_name}"
+    # Ignore original upload filename so re-uploads overwrite one stable path.
+    _ = filename
+    target = uploads_dir / _stable_upload_csv_name(
+        profile_id, consumer_id=consumer_id, role=role
+    )
     target.write_bytes(content)
     path = target.as_posix()
     if normalize:

@@ -36,6 +36,7 @@ from ui.backtesting_runner import (
     suggest_test_month,
 )
 from ui.backtesting_time_ranges import render_time_range_help
+from ui.scenario_form_helpers import ordered_user_scenario_ids
 from scripts.run_backtesting import BACKTESTING_YEAR, HISTORICAL_REFERENCE_LABEL
 _LEGACY_STALE_WARNING = (
     "Älterer Szenario-Explorer-Lauf ohne Konfigurations-Fingerabdruck — "
@@ -158,7 +159,11 @@ def render_configured_scenarios() -> None:
         st.error(_format_config_error(error))
         return
     labels = scenario_labels_map()
-    for scenario_id in scenarios:
+    for scenario_id in ordered_user_scenario_ids(
+        scenarios,
+        live_scenario_id=config.get_live_scenario_id(),
+        labels=labels,
+    ):
         st.write(f"- **{labels.get(scenario_id, scenario_id)}** (`{scenario_id}`)")
 
 
@@ -392,13 +397,13 @@ def _render_imported_pv_run_notice(scenarios: dict[str, dict]) -> None:
         names = ", ".join(labels.get(sid, sid) for sid in used)
         st.info(
             f"Hinweis: Für folgende Szenarien wird importiertes PV-Profil "
-            f"statt Wetter-PV verwendet: {names}."
+            f"statt PV aus Wetterdaten verwendet: {names}."
         )
     if missing:
         names = ", ".join(labels.get(sid, sid) for sid in missing)
         st.warning(
             f"Szenarien mit aktiviertem „Importiertes PV“, aber ohne "
-            f"`pv_profile_csv` im Hausprofil (Fallback Wetter-PV): {names}."
+            f"`pv_profile_csv` im Hausprofil (Fallback: PV aus Wetterdaten): {names}."
         )
 
 
@@ -409,13 +414,13 @@ def _render_imported_pv_results_notice(meta: dict) -> None:
     if used:
         names = ", ".join(labels.get(sid, sid) for sid in used)
         st.info(
-            f"Dieser Lauf nutzte importiertes PV-Profil (statt Wetter-PV) für: {names}."
+            f"Dieser Lauf nutzte importiertes PV-Profil (statt PV aus Wetterdaten) für: {names}."
         )
     if missing:
         names = ", ".join(labels.get(sid, sid) for sid in missing)
         st.warning(
             f"Szenarien wollten importiertes PV, hatten aber keine CSV "
-            f"(Wetter-PV-Fallback): {names}."
+            f"(Fallback: PV aus Wetterdaten): {names}."
         )
 
 
@@ -477,6 +482,13 @@ def render_annual_cost_table(meta: dict) -> None:
         st.info("Keine Gesamtkosten im Log.")
         return
     st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
+    st.caption(
+        "**Jahres Verbrauch:** Bei „Historisch“ Summe des Ist-Verbrauchs aus "
+        "`cons_data` (Zähler). Bei Referenz- und Optimierungszeilen Summe aus dem "
+        "Hausprofil-Modell bzw. der gelieferten Optimierungsenergie — "
+        "Abweichungen zu Historisch sind erwartbar, wenn Ist ≠ Modell. "
+        "Details: Benutzer-Handbuch → Szenario-Explorer."
+    )
 
 
 def render_scenario_consumption_table(meta: dict, hourly_df: pd.DataFrame | None = None) -> None:

@@ -17,7 +17,7 @@ timestamp;power_kw
 | Länge | Nach Import mindestens **8760 Stunden** (ca. 12 Monate) |
 | Abtastung | Beliebig; beim Import → stündlich (Mittelwert bei dichteren Daten, Interpolation bei lückenhaften) |
 
-Beim Upload schreibt Earnie eine normalisierte Datei unter `config/uploads/`.
+Beim Upload schreibt Earnie eine normalisierte Datei unter `config/uploads/`. Pro Rolle (Gesamtverbrauch, PV, je Verbraucher) gibt es **genau eine** Datei — ein erneuter Upload überschreibt denselben Pfad.
 
 ## Importmodus (Hausprofil)
 
@@ -57,7 +57,7 @@ Zusätzlich wird die Grundlast so **an den Ist-Jahresverbrauch angepasst**, dass
 
 ## PV-Ertrag (`pv_profile_csv`)
 
-Optionaler Jahres-PV-Ertrag als Summe über alle PV-Anlagen. Im Szenarieneditor kann pro Szenario gewählt werden, ob der Szenario-Explorer dieses Profil statt Wetter-PV (Open-Meteo) für die Berechnung nutzt. In den Verbrauchs-Charts erscheint importiertes PV zusätzlich als **punktierte** Linie.
+Optionaler Jahres-PV-Ertrag als Summe über alle PV-Anlagen. Im Szenarieneditor kann pro Szenario gewählt werden, ob der Szenario-Explorer dieses Profil statt PV aus Wetterdaten (Open-Meteo) für die Berechnung nutzt. In den Verbrauchs-Charts erscheint importiertes PV zusätzlich als **punktierte** Linie.
 
 ## Verbraucher-CSV (`profile_csv` + `use_profile_csv`)
 
@@ -70,6 +70,8 @@ Pro Verbraucher:
 - **Inaktiv:** synthetisches Modell/Schedule (Pfad kann gespeichert bleiben, wird aber nicht für die Modellierung genutzt)
 
 Szenario-Explorer und synthetische `cons_data_hourly.csv` nutzen dieselbe **konfigurierte** Grundlast wie Verbrauchsprofil (Modell): `baseload_kwh / 8760` (nicht den Meter-Rest aus der Gesamt-CSV).
+
+Im Szenario-Explorer (Tabelle **Gesamtkosten**) kommt die Spalte **Jahres Verbrauch** der Zeile **Historisch** aus dem Ist-Zähler (`cons_data`); die übrigen Zeilen aus dem Hausprofil-Modell. Siehe [Benutzer-Handbuch](../user-manual/Benutzer-Handbuch-Earnie.md#gesamtkosten-jahres-verbrauch-kwh).
 
 ### Digitale Ein/Aus-Signale (0/1)
 

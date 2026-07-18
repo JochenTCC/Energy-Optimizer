@@ -29,6 +29,7 @@ from ui.house_config_io import (
     load_house_profiles,
     preview_baseload,
     save_profile_consumption_csv,
+    single_csv_upload,
     upsert_house_profile,
 )
 from ui.house_config_sticky_save import sticky_save_bar
@@ -1013,10 +1014,10 @@ def _render_consumer_profile_csv_fields(
         key=_scoped_key(session_scope, f"hc_profile_csv_input_{index}"),
     )
     st.session_state[path_key] = csv_path.strip()
-    upload = st.file_uploader(
+    upload = single_csv_upload(
         "Verbraucher-CSV hochladen",
-        type=["csv"],
         key=_scoped_key(session_scope, f"hc_profile_csv_upload_{index}"),
+        help="Nur eine CSV-Datei je Verbraucher.",
     )
     consumer_slug = slug_id(str(consumer.get("id") or consumer.get("label") or f"c{index}"))
     profile_slug = slug_id(str(st.session_state.get("house_profile_select") or "profile"))

@@ -51,7 +51,7 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
   - Create architecture for a connector approach that bridges a common generic internal Earnie interface to specific Smarthome interfaces
   - Refactor existing Loxone HTTP communication to new Loxone<>Earnie-connector
   - Create specification for other Smarthome connectors to internal Earnie interface
-  - 
+- [ ] Add a Donate feature into sidebar 
 
 
 ### Version 2.+1
@@ -134,3 +134,5 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 - [ ] Better consumption optimization with temperature-control devices
   - [ ] Heat pump (Prio3) — only indirect control via setpoint adjustment via Loxone setpoint (after **Thermals P2**); distinct from **Thermals P1a** (direct enable/PWM flex from daily HDD budget)
 
+### Version 2.+1
+- [ ] Make complete Earnie available as cloud service (Online optimization and Internet communication with local smarthome / isolated devices) - similar to "Smart-Energy" (Steiermark)

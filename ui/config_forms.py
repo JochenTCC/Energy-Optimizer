@@ -25,6 +25,7 @@ from ui.form_layout import labeled_selectbox
 from ui.scenario_form_helpers import (
     lookup_entity_id,
     options_for_entities,
+    ordered_user_scenario_ids,
     render_entity_multiselect,
     render_entity_selectbox,
     render_profile_geo_caption,
@@ -250,12 +251,16 @@ def _render_live_scenario_id_picker() -> None:
         st.warning("Zuerst mindestens ein Szenario im Szenarieneditor anlegen.")
         return
 
-    scenario_ids = [str(item["id"]).strip() for item in scenarios]
     labels = {
         str(item["id"]).strip(): str(item.get("label") or item["id"]).strip()
         for item in scenarios
     }
     current = config.get_live_scenario_id()
+    scenario_ids = ordered_user_scenario_ids(
+        [str(item["id"]).strip() for item in scenarios],
+        live_scenario_id=current,
+        labels=labels,
+    )
     pick = labeled_selectbox(
         "Live-Szenario",
         options=scenario_ids,

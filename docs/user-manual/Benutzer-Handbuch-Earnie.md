@@ -230,11 +230,32 @@ Die Referenzökonomie vergleicht typischerweise „Last am gewählten Tarif **oh
 
 Auswertung u. a.:
 
-- **Kostenvergleich** Gesamt und monatlich (Referenz vs. optimierte Szenarien)  
+- **Gesamtkosten** (Tabelle: Jahres Verbrauch, Jahres Kosten, Δ vs. Live-Referenz)  
+- **Kostenvergleich** monatlich (Referenz vs. optimierte Szenarien)  
 - **Monatsverläufe** und Plausibilitätsansichten  
 - Charts zu Leistung, Verbrauch und PV je nach gewählter Ansicht  
 
 Nutzen Sie die Ergebnisse als **Entscheidungsgrundlage** (Investition, Tarif), nicht als exakte Prognose der nächsten Stromrechnung. Es wird keine Gewähr dafür übernommen, dass die Ergebnisse genau so eintreffen werden.
+
+##### Gesamtkosten: Jahres Verbrauch [kWh]
+
+Die Spalte zeigt **nicht überall dieselbe Datenquelle**. Deshalb kann die Zeile **Historisch** andere kWh-Werte haben als Referenz- und Optimierungszeilen — das ist kein Anzeigefehler, sondern Absicht.
+
+| Zeilentyp | Was die Spalte zählt | Herkunft |
+| --------- | -------------------- | -------- |
+| **Historisch (ohne Optimierung, …)** | Summe des **Ist-Verbrauchs** über den Laufzeitraum | Live-Zählerdatei `cons_data` (`total_kw`, Stundenwerte) |
+| **Referenz (…)** ohne Optimierung | Summe der **Referenzlast** aller 24h-Fenster | Hausprofil-Modell (`profile_spec`: Jahresverbrauch + Zeitpläne / Profile), sofern das Szenario ein Hausprofil hat |
+| **Optimiertes Szenario** | Summe der **gelieferten** Last (Grundlast + flexible Verbraucher) aller 24h-Fenster | MILP-Ergebnis; soll nahe an der Referenzlast liegen (Plausibilität) |
+
+**Warum Historisch oft abweicht**
+
+1. **Ist vs. Modell:** Historisch spiegelt den gemessenen Hausverbrauch. Die übrigen Zeilen rechnen mit dem konfigurierten Hausprofil (Soll-Jahresverbrauch, Grundlast, Verbraucherprofile). Weichen Ist und Modell ab (unvollständige CSV, anderer Jahresverbrauch, synthetische Profile), weichen auch die kWh-Zahlen ab.  
+2. **Kosten und kWh der Historisch-Zeile:** Die **€-Kosten** der Historisch-Zeile werden mit der Last des Live-Hausprofils (ohne PV/Batterie) und den Live-Tarifen berechnet. Die **kWh-Spalte** derselben Zeile kommt dagegen aus `cons_data`. Stimmen Ist und Modell nicht überein, passen € und kWh in dieser einen Zeile inhaltlich nicht 1:1 zusammen.  
+3. **PV und Batterie** ändern die Spalte „Jahres Verbrauch“ nicht: gezählt wird der **Hausverbrauch** (Last), nicht Netzbezug nach Abzug von PV/Speicher.  
+4. **Kleine Differenzen** zwischen Referenz und Optimierung derselben Szenario-Familie sind normal (Lastverschiebung, Toleranz der Plausibilitätsprüfung).
+
+Zum Abgleich Ist vs. Modell: Hauskonfigurator / Verbrauchs-CSV und die Debug-Tabelle **Verbrauchsvergleich** im Explorer. Technische Details: [Betriebsmodi — Szenario-Explorer](../ui/betriebsmodi.md#gesamtkosten--jahres-verbrauch), [Historische Verbrauchs-CSV](../konfiguration/verbrauchs-csv.md).
+
 
 ---
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterable, Mapping
 
 import streamlit as st
 
@@ -12,6 +13,31 @@ from ui.form_layout import labeled_multiselect, labeled_selectbox
 NONE_LABEL = "— keine —"
 EMPTY_PLACEHOLDER_PREFIX = "— noch keine"
 NEW_SCENARIO_OPTION = "— neu —"
+
+
+def ordered_user_scenario_ids(
+    scenario_ids: Iterable[str],
+    *,
+    live_scenario_id: str,
+    labels: Mapping[str, str] | None = None,
+) -> list[str]:
+    """Live first, then remaining scenarios A–Z by label (case-insensitive).
+
+    Display-order helper only — does not mutate JSON / file order.
+    """
+    unique = list(
+        dict.fromkeys(str(sid).strip() for sid in scenario_ids if str(sid).strip())
+    )
+    live = str(live_scenario_id or "").strip()
+    rest = [sid for sid in unique if sid != live]
+
+    def sort_key(sid: str) -> str:
+        return str((labels or {}).get(sid, sid) or sid).casefold()
+
+    rest_sorted = sorted(rest, key=sort_key)
+    if live and live in unique:
+        return [live, *rest_sorted]
+    return rest_sorted
 
 
 def entity_human_label(item: dict) -> str:

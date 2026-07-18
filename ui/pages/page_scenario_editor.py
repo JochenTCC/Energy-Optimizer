@@ -36,6 +36,7 @@ from ui.scenario_form_helpers import (
     clear_scoped_widget_keys,
     lookup_entity_id,
     new_scenario_template,
+    ordered_user_scenario_ids,
     options_for_entities,
     render_entity_multiselect,
     render_entity_selectbox,
@@ -265,12 +266,16 @@ def _render_scenarios_tab() -> None:
     _apply_pending_scenario_select()
     scenarios_doc = load_backtesting_scenarios_raw()
     scenarios = scenarios_doc.get("scenarios", [])
-    scenario_ids = [s.get("id", "") for s in scenarios]
     scenario_labels = {
         str(s.get("id", "")).strip(): str(s.get("label") or s.get("id") or "").strip()
         for s in scenarios
         if str(s.get("id", "")).strip()
     }
+    scenario_ids = ordered_user_scenario_ids(
+        scenario_labels.keys(),
+        live_scenario_id=live_id,
+        labels=scenario_labels,
+    )
 
     batteries = list_batteries()
     pv_systems = list_pv_systems()
@@ -349,7 +354,7 @@ def _render_scenarios_tab() -> None:
     has_pv_csv = bool(str(selected_profile.get("pv_profile_csv", "") or "").strip())
     if has_pv_csv:
         labeled_checkbox(
-            "Importiertes PV-Profil statt Wetter-PV nutzen",
+            "Importiertes PV-Profil statt PV aus Wetterdaten nutzen",
             key=scoped_widget_key(session_scope, "scenario_use_imported_pv"),
             help=(
                 "Nutzt das PV-Jahresprofil aus dem Hausprofil (`pv_profile_csv`) "

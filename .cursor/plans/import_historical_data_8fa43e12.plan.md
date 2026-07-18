@@ -93,7 +93,7 @@ In [`house_config/profiles_store.py`](house_config/profiles_store.py) (+ seriali
 ### Scenario Editor
 
 - Add checkbox near Hausprofil/PV in [`ui/pages/page_scenario_editor.py`](ui/pages/page_scenario_editor.py) (wire through [`ui/scenario_form_helpers.py`](ui/scenario_form_helpers.py) normalize/snapshot):
-  - Label e.g. “Importiertes PV-Profil statt Wetter-PV nutzen”
+  - Label e.g. “Importiertes PV-Profil statt PV aus Wetterdaten nutzen”
   - Enabled only when resolved house profile has non-empty `pv_profile_csv`; else caption that no PV CSV is configured.
 - Persist `settings.use_imported_pv` (bool, default `false`).
 - Schema: [`config/backtesting_scenarios.schema.json`](config/backtesting_scenarios.schema.json).

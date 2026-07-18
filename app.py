@@ -32,7 +32,11 @@ from ui.chunk_load_recovery import inject_chunk_load_recovery
 from ui.mode_selector import get_enabled_ui_mode_keys, render_ui_mode_env_notices
 from ui.navigation import build_navigation
 from ui.setup_progress import render_deferred_loxone_sidebar, render_setup_progress_notice
-from ui.styles import inject_compact_numeric_css, inject_help_hint_css
+from ui.styles import (
+    inject_compact_numeric_css,
+    inject_help_hint_css,
+    inject_single_file_uploader_css,
+)
 
 logger = logging.getLogger("app")
 
@@ -68,6 +72,7 @@ def main() -> None:
     inject_chunk_load_recovery()
     inject_compact_numeric_css()
     inject_help_hint_css()
+    inject_single_file_uploader_css()
     _render_sidebar_version()
     render_ui_mode_env_notices()
     render_deferred_loxone_sidebar()

@@ -9,6 +9,7 @@ from ui.form_layout import labeled_text_input
 from ui.house_config_io import (
     save_energiemonitor_profile_csvs,
     save_profile_consumption_csv,
+    single_csv_upload,
 )
 
 _SOURCE_SEPARATE = "separate"
@@ -116,10 +117,10 @@ def _render_separate_mode(preview_id: str, keys: dict[str, str]) -> None:
         help="Relativer Pfad, z. B. config/uploads/mein_haushalt_verbrauch.csv",
     )
     st.session_state[keys["verbrauch"]] = path.strip()
-    upload = st.file_uploader(
+    upload = single_csv_upload(
         "Verbrauch-CSV hochladen",
-        type=["csv"],
         key=f"house_profile_csv_upload_{preview_id}",
+        help="Nur eine CSV-Datei für den Gesamtverbrauch.",
     )
     if upload is not None:
         try:
@@ -145,10 +146,10 @@ def _render_separate_mode(preview_id: str, keys: dict[str, str]) -> None:
         help="Optional. Relativer Pfad zum PV-Jahresprofil.",
     )
     st.session_state[keys["pv"]] = pv_path.strip()
-    pv_upload = st.file_uploader(
+    pv_upload = single_csv_upload(
         "PV-Ertrag-CSV hochladen",
-        type=["csv"],
         key=f"house_profile_pv_csv_upload_{preview_id}",
+        help="Nur eine CSV-Datei für den PV-Ertrag.",
     )
     if pv_upload is not None:
         try:
@@ -172,10 +173,10 @@ def _render_energiemonitor_mode(preview_id: str, keys: dict[str, str]) -> None:
         "Erwartete Spalten u. a.: `Leistung Verbrauch [kW]` (Pflicht), "
         "`Leistung Produktion [kW]` (optional). Andere Spalten werden ignoriert."
     )
-    upload = st.file_uploader(
+    upload = single_csv_upload(
         "Energiemonitor-CSV hochladen",
-        type=["csv"],
         key=f"house_profile_em_csv_upload_{preview_id}",
+        help="Nur eine Energiemonitor-CSV-Datei.",
     )
     if upload is not None:
         try:

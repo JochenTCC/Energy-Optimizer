@@ -10,6 +10,7 @@ from ui.scenario_form_helpers import (
     new_scenario_template,
     normalize_scenario_form_snapshot,
     options_for_entities,
+    ordered_user_scenario_ids,
     read_scenario_form_snapshot,
     resolve_scenario_id,
     scenario_form_is_dirty,
@@ -287,3 +288,39 @@ def test_normalize_scenario_form_snapshot_keeps_label_and_settings():
     )
     assert snapshot == {"label": "Variante A", "settings": {"battery_id": "bat1"}}
     assert "id" not in snapshot
+
+
+def test_ordered_user_scenario_ids_live_first_then_label_alpha():
+    ordered = ordered_user_scenario_ids(
+        ["zebra", "live", "alpha"],
+        live_scenario_id="live",
+        labels={"zebra": "Zebra", "live": "Live", "alpha": "Alpha"},
+    )
+    assert ordered == ["live", "alpha", "zebra"]
+
+
+def test_ordered_user_scenario_ids_case_insensitive_by_label():
+    ordered = ordered_user_scenario_ids(
+        ["b", "a", "live"],
+        live_scenario_id="live",
+        labels={"b": "beta", "a": "Alpha", "live": "Live"},
+    )
+    assert ordered == ["live", "a", "b"]
+
+
+def test_ordered_user_scenario_ids_missing_live_still_alpha():
+    ordered = ordered_user_scenario_ids(
+        ["z", "a"],
+        live_scenario_id="live",
+        labels={"z": "Zed", "a": "Able"},
+    )
+    assert ordered == ["a", "z"]
+
+
+def test_ordered_user_scenario_ids_dedupes_and_skips_blank():
+    ordered = ordered_user_scenario_ids(
+        ["live", "", "b", "live", "a"],
+        live_scenario_id="live",
+        labels={"live": "Live", "b": "B", "a": "A"},
+    )
+    assert ordered == ["live", "a", "b"]

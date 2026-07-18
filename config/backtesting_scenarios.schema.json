@@ -95,7 +95,7 @@
             "house_profile_id": { "type": "string", "description": "Referenz auf profiles[].id in house_profiles.json." },
             "use_imported_pv": {
               "type": "boolean",
-              "description": "Wenn true: Szenario-Explorer nutzt Hausprofil-pv_profile_csv statt Wetter-PV (Open-Meteo)."
+              "description": "Wenn true: Szenario-Explorer nutzt Hausprofil-pv_profile_csv statt PV aus Wetterdaten (Open-Meteo)."
             },
             "k_push_cent": { "type": "number" },
             "feed_in_mode": {

@@ -15,6 +15,10 @@ def test_scenario_monthly_cost_chart_groups_scenarios():
     assert len(fig.data) == 2
     trace_names = {trace.name for trace in fig.data}
     assert trace_names == {"Historisch", "Runtime"}
+    legend = fig.layout.legend
+    assert legend.orientation == "h"
+    assert legend.yanchor == "top"
+    assert legend.y is not None and legend.y < 0
 
 
 def test_scenario_monthly_cost_chart_respects_scenario_order():
