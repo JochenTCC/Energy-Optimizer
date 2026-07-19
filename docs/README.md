@@ -8,7 +8,7 @@ Für Entwickler (Projektstruktur, Tests, Container) siehe [DEVELOPER.md](../DEVE
 
 ## Erste Schritte
 
-1. **Konfiguration:** `earnie_env/config/config.example.json` → `earnie_env/config/config.json` (lokal, nicht committen). Alternativ legt `python -m scripts.bootstrap_runtime` die Datei beim ersten Start an.
+1. **Konfiguration:** `share/config/config.example.json` → Bootstrap legt `earnie_env/config/config.json` an (lokal, nicht committen). Alternativ `python -m scripts.bootstrap_runtime`. Hausdaten: [Private Haus-Config](einrichtung/private-env.md).
 2. **Loxone-Zugang:** `.env.example` → `earnie_env/config/.env` mit `LOXONE_IP`, `LOXONE_USER`, `LOXONE_PASS` (Docker: Entrypoint legt `.env` im Config-Volume an).
 3. **Merker-Namen** in `earnie_env/config/config.json` unter `loxone_blocks` und in den Verbrauchern des Hausprofils (`house_profiles.json`) anpassen (siehe [Loxone-Signale](referenz/loxone-signale.md)). Legacy-`flexible_consumers` in `config.json` nur noch bei Bedarf.
 4. **Verbindung prüfen:**
@@ -35,6 +35,7 @@ Parameter-Beschreibungen erscheinen in Cursor/VS Code als Hover-Hilfe, wenn in `
 - [Container](einrichtung/container.md) — Docker/Synology/LoxBerry, Multi-Arch, Bootstrap, Migration, Config-Drift
 - [Proxmox LXC](einrichtung/proxmox-lxc.md) — Unprivileged LXC mit Docker Compose (Port 8501)
 - [Greenfield Dev-Stack](einrichtung/greenfield-dev-stack.md) — lokale Ersteinrichtung (Port 8502) für Hauskonfigurator/Backtesting
+- [Private Haus-Config](einrichtung/private-env.md) — privates Repo + Junction; öffentliche Vorlagen/Tarife unter `share/config/`
 
 ### Konfiguration (`earnie_env/config/config.json`)
 

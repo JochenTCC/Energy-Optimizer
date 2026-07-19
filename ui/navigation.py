@@ -2,13 +2,13 @@
 
 Das Env-/Config-Gating (EARNIE_UI_MODES / ENERGY_OPTIMIZER_UI_MODES,
 ui.price_forecast_page_enabled) steuert, welche Seiten registriert werden:
-Betrieb (Monitor, Manuelle Geräte) braucht ``sunset2sunset``; Szenario-Explorer
-und Preis-Prognose (Dev) folgen ihren Keys. Planungs-/Echtzeit-Seiten bleiben
-über Setup-Readiness gesteuert.
+Betrieb (Monitor, Manuelle Geräte) braucht ``sunset2sunset``; Echtzeit-Umgebung
+braucht ``live_environment``; Szenario-Explorer und Preis-Prognose (Dev) folgen
+ihren Keys. Planungs-Seiten bleiben über Setup-Readiness gesteuert.
 
 Nach Minimal-Bootstrap (Greenfield) sind bis zur vollständigen Planungs-Konfiguration
-nur Hauskonfigurator und Echtzeit-Umgebung sichtbar (Szenarieneditor nach Hausprofil).
-Danach wird Analyse freigeschaltet; Betrieb erst nach vollständiger
+nur Hauskonfigurator und ggf. Echtzeit-Umgebung sichtbar (Szenarieneditor nach
+Hausprofil). Danach wird Analyse freigeschaltet; Betrieb erst nach vollständiger
 Loxone-Merker-Konfiguration und wenn ``sunset2sunset`` in EARNIE_UI_MODES steht.
 """
 from __future__ import annotations
@@ -39,14 +39,8 @@ class PageSpec:
     default: bool = False
 
 
-def _planning_page_specs(*, house_config_default: bool) -> list[PageSpec]:
-    from ui.pages import (
-        page_daemon,
-        page_house_config,
-        page_live_environment,
-        page_loxone_debug,
-        page_scenario_editor,
-    )
+def _planung_page_specs(*, house_config_default: bool) -> list[PageSpec]:
+    from ui.pages import page_house_config, page_scenario_editor
 
     specs = [
         PageSpec(
@@ -68,42 +62,66 @@ def _planning_page_specs(*, house_config_default: bool) -> list[PageSpec]:
                 "scenario-editor",
             )
         )
-    specs.extend(
-        [
-            PageSpec(
-                page_live_environment.render,
-                "Live-Konfiguration",
-                "⚡",
-                SECTION_ECHTZEIT,
-                "live-environment",
-            ),
-            PageSpec(
-                page_daemon.render,
-                "Optimierer-Dienst",
-                "🛠️",
-                SECTION_ECHTZEIT,
-                "optimizer-daemon",
-            ),
-            PageSpec(
-                page_loxone_debug.render,
-                "Loxone-Kommunikation",
-                "🔗",
-                SECTION_ECHTZEIT,
-                "loxone-debug",
-            ),
-        ]
-    )
     return specs
 
 
-def _restricted_page_specs() -> list[PageSpec]:
-    return _planning_page_specs(house_config_default=True)
+def _echtzeit_page_specs() -> list[PageSpec]:
+    from ui.pages import page_daemon, page_live_environment, page_loxone_debug
+
+    return [
+        PageSpec(
+            page_live_environment.render,
+            "Live-Konfiguration",
+            "⚡",
+            SECTION_ECHTZEIT,
+            "live-environment",
+        ),
+        PageSpec(
+            page_daemon.render,
+            "Optimierer-Dienst",
+            "🛠️",
+            SECTION_ECHTZEIT,
+            "optimizer-daemon",
+        ),
+        PageSpec(
+            page_loxone_debug.render,
+            "Loxone-Kommunikation",
+            "🔗",
+            SECTION_ECHTZEIT,
+            "loxone-debug",
+        ),
+    ]
+
+
+def _append_planung_and_echtzeit(
+    specs: list[PageSpec],
+    enabled_mode_keys: list[str],
+    *,
+    house_config_default: bool,
+    force_echtzeit: bool = False,
+) -> None:
+    specs.extend(_planung_page_specs(house_config_default=house_config_default))
+    if force_echtzeit or "live_environment" in enabled_mode_keys:
+        specs.extend(_echtzeit_page_specs())
+
+
+def _restricted_page_specs(enabled_mode_keys: list[str]) -> list[PageSpec]:
+    # Onboarding always needs Live-Konfiguration / daemon / Loxone pages,
+    # even when EARNIE_UI_MODES is explorer-only (no live_environment key).
+    specs: list[PageSpec] = []
+    _append_planung_and_echtzeit(
+        specs,
+        enabled_mode_keys,
+        house_config_default=True,
+        force_echtzeit=True,
+    )
+    return specs
 
 
 def build_page_specs(enabled_mode_keys: list[str]) -> list[PageSpec]:
     """Liefert die zu registrierenden Seiten anhand des Modus-Gatings."""
     if is_setup_navigation_restricted():
-        return _restricted_page_specs()
+        return _restricted_page_specs(enabled_mode_keys)
 
     from ui.pages import (
         page_backtesting,
@@ -176,7 +194,9 @@ def build_page_specs(enabled_mode_keys: list[str]) -> list[PageSpec]:
             default=analyse_default,
         )
     )
-    specs.extend(_planning_page_specs(house_config_default=False))
+    _append_planung_and_echtzeit(
+        specs, enabled_mode_keys, house_config_default=False
+    )
     return specs
 
 

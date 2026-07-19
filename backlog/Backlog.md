@@ -27,8 +27,11 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 
 ### Version 2.2.0
 
-- [ ] Build Szenario-Explorer as "web app" in Streamlit Community Cloud
+- [ ] Build Szenario-Explorer as "web app" in Streamlit Community Cloud (SCC)
   - Precursor (done): `EARNIE_OFFLINE` live-scenario demo seed — [Backlog-Erledigt.md](Backlog-Erledigt.md)
+  - Site config split (done): private `Earnie-env-home` + junction; public templates/catalog in `share/config/` (incl. `tariffs.json`); see [private-env.md](../docs/einrichtung/private-env.md)
+  - New EARNIE_UI_MODES "live_environment" to enable / disable "Echtzeitumgebung"
+- [ ] Merge streamlitcloud branch with main, when app is working on SCC
 - [ ] Finalize Version 2.2.0 after test usage and make a release
 
 ### Version 2.+1 - Become Loxone agnostic and standardize communication

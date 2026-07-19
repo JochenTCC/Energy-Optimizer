@@ -107,6 +107,11 @@ def test_ensure_compatible_rejects_unknown_version() -> None:
 
 def test_config_pack_round_trip(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("EARNIE_ENV_PATH", raising=False)
+    monkeypatch.delenv("ENERGY_OPTIMIZER_ENV_PATH", raising=False)
+    monkeypatch.delenv("EARNIE_CONFIG_PATH", raising=False)
+    monkeypatch.delenv("ENERGY_OPTIMIZER_CONFIG_PATH", raising=False)
+    _clear_runtime_overrides(monkeypatch)
     cfg = tmp_path / "earnie_env" / "config"
     cfg.mkdir(parents=True)
     (tmp_path / "earnie_env" / "runtime").mkdir(parents=True)

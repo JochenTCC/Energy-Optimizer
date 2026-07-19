@@ -38,7 +38,7 @@ Umgebungsvariable in Compose: `EARNIE_CONFIG_PATH=config` (Config-Verzeichnis im
 
 ## Config-Updates nach Programm-Upgrade
 
-Neue Einträge in `earnie_env/config/config.example.json` (bzw. Image-Vorlage unter `share/config/`) werden **nicht** automatisch in die Anwender-Config geschrieben.
+Neue Einträge in `share/config/config.example.json` (Image-Vorlage) werden **nicht** automatisch in die Anwender-Config geschrieben.
 
 - Beim Start von `main.py`: Hinweis im Log
 - In der Streamlit-App: gelbes Banner mit fehlenden Pfaden und Beispielwerten
@@ -96,7 +96,7 @@ python -m scripts.build_container --target loxberry
 python -m scripts.build_container --target all --push
 ```
 
-Vor `--push` prüft der Build automatisch den gebündelten Tarifkatalog (`earnie_env/config/tariffs.json` bzw. Image-`share/config/`: Schema, Beispiel-Szenario-Referenzen, DACH-Vollständigkeit). Manuell:
+Vor `--push` prüft der Build automatisch den gebündelten Tarifkatalog (`share/config/tariffs.json`: Schema, Beispiel-Szenario-Referenzen, DACH-Vollständigkeit). Manuell:
 
 ```powershell
 python -m scripts.validate_tariffs --check-catalog
@@ -105,7 +105,7 @@ python -m scripts.validate_tariffs --check-catalog
 Auf der NAS vor dem ersten Prod-Cutover (Backlog **2.0 P6**) die produktive Sidecar-Datei prüfen:
 
 ```powershell
-python -m scripts.validate_tariffs --tariffs earnie_env/config/tariffs.json --check-catalog
+python -m scripts.validate_tariffs --tariffs share/config/tariffs.json --check-catalog
 ```
 
 Bei Fehlern bricht `main.py` mit `EARNIE_STRICT_TARIFF_VALIDATE=1` ab (siehe Compose).
