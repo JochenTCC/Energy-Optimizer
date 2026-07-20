@@ -73,8 +73,10 @@ def step_slot_datetimes(anchor: datetime, timezone_name: str) -> list[datetime]:
     return slots
 
 
-def effective_sunrise_soc_min_index(sunrise_soc_min_index: int) -> int | None:
+def effective_sunrise_soc_min_index(sunrise_soc_min_index: int | None) -> int | None:
     """SOC_min am Sonnenaufgang nur, wenn der Anker innerhalb des 24h-Output-Schritts liegt."""
+    if sunrise_soc_min_index is None:
+        return None
     if sunrise_soc_min_index >= BACKTESTING_STEP_HOURS:
         return None
     return sunrise_soc_min_index

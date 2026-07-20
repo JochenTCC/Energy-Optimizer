@@ -9,6 +9,7 @@ import pytest
 
 from simulation.backtesting_horizon import (
     compute_sunrise_planning_at_anchor,
+    effective_sunrise_soc_min_index,
     overlay_step_consumption_on_matrix,
     truncate_matrix_for_step_simulation,
 )
@@ -49,6 +50,25 @@ class TestParseHorizonMode:
     def test_rejects_unknown_mode(self):
         with pytest.raises(ValueError, match="Ungültiger horizon_mode"):
             parse_horizon_mode("rolling_24h")
+
+
+class TestEffectiveSunriseSocMinIndex:
+    def test_within_step_passthrough(self):
+        assert effective_sunrise_soc_min_index(0) == 0
+        assert effective_sunrise_soc_min_index(23) == 23
+
+    def test_at_or_beyond_step_returns_none(self):
+        assert effective_sunrise_soc_min_index(BACKTESTING_STEP_HOURS) is None
+        assert effective_sunrise_soc_min_index(BACKTESTING_STEP_HOURS + 1) is None
+
+    def test_none_idempotent(self):
+        assert effective_sunrise_soc_min_index(None) is None
+        assert (
+            effective_sunrise_soc_min_index(
+                effective_sunrise_soc_min_index(BACKTESTING_STEP_HOURS)
+            )
+            is None
+        )
 
 
 class TestSunriseBacktestingRun:

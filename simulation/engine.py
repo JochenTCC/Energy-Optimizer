@@ -693,11 +693,10 @@ def _simulate_anchor_step(
     int | None,
 ]:
     """Ein Backtesting-Schritt (24h Output) für fixed_24h oder sunrise_window."""
-    sunrise_index = None
     sunrise_soc_min_index = None
     matrix_full: list[dict] | None = None
     if horizon_mode == SUNRISE_WINDOW:
-        matrix, meta, sunrise_index, matrix_full = build_sunrise_window_matrix(
+        matrix, meta, sunrise_soc_min_index, matrix_full = build_sunrise_window_matrix(
             anchor,
             cache,
             prices_df,
@@ -705,7 +704,6 @@ def _simulate_anchor_step(
             feed_in_settings,
             price_resources=price_resources,
         )
-        sunrise_soc_min_index = effective_sunrise_soc_min_index(sunrise_index)
     else:
         matrix, meta = build_historical_window_matrix(
             anchor,

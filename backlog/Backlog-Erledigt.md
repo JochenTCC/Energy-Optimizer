@@ -3,6 +3,11 @@
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 
+### Bugfix SE sunrise_window TypeError (2026-07-20)
+
+- [x] **SE `sunrise_window`: `TypeError` on `effective_sunrise_soc_min_index(None)`** — `_simulate_anchor_step` no longer re-applies `effective_*` on the already-effective index from `build_sunrise_window_matrix`; `effective_sunrise_soc_min_index` is idempotent for `None`. Unit: `TestEffectiveSunriseSocMinIndex`; verified live (full-year / Sep-2025 `sunrise_window` backtesting)
+
+
 ### Research Loxone Energiemonitor statistics (2026-07-20)
 
 - [x] Check if Loxone's Energiemonitor provides statistics to import in Earnie

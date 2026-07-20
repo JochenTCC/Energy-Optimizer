@@ -75,4 +75,5 @@ Parameter-Beschreibungen erscheinen in Cursor/VS Code als Hover-Hilfe, wenn in `
 ### Entwickler-Specs (Englisch/technisch)
 
 - [Spec Soll-Ist](spec/soll-ist-abweichung.md) — Regelwerk, Szenarien, Pflegehinweis
+- [Backtesting: fixed_24h vs sunrise_window](spec/backtesting-horizon-fixed24h-vs-sunrise.md) — Jahresvergleich Nutzen (€) und Rechenlast (CBC / strict_slow)
 
