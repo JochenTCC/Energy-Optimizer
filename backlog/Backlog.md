@@ -17,7 +17,9 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
     - Loxone Deutschland --> done
     - Loxone Bauherren
   - Photovoltaik-Forum --> done (more to follow)  
-  - Contact IoBroker-Community and HomeAssistant (when Best Interface is found)
+    - Last post (Communication\Post-Photovoltaik-Forum_Optimale-Erweiterung.md) was moved to "Bezugsstrom, Stromanbieter, Stromvergleich" --> create a different post with similar content but better title
+    - Creat a post with comparison of different tariffs (SPOT; fixed; monthly)
+  - Contact IoBroker-Community and HomeAssistant (when Best Interface is found — after **2.4.a** / connector spec)
 - [ ] Add a predictive model for Grundlast with logged Grundlast from the past. Research for Models (AI?). Take date / average temperature / week day / and other factors into account
 
 
@@ -52,48 +54,69 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
   - LoxForum
 - [x] Perform a SE for posts
 - [x] Add a link to Manual in Info
-- [ ] Test if sunset2set-Mode is working in SE
+- [x] Test if sunset2set-Mode is working in SE brings better results than fixed_24h
+- [ ] Define SE overall horizon not on current day, but on the recent month (and then backwards)
 - [ ] Finalize Version 2.2.0 after test usage and make a release
   - Update German Docs
 
 
-### Version 2.+1 — Become Loxone agnostic and standardize communication
+### Version 2.3 — Enhance consumer visualization and cost analysis - sharpen tariffs handling
 
-- [ ] Make interface to smarthome loxone agnostic
-  - **Goal:** Get into contact with more Smarthome "nerds" that are willing to build connections to their specific hardware
-  - Redefine Loxone Markers --> Smarthome Markers that are suitable to multiple standards like MQTT or Matter
-  - Make proper assignments to already used Marker to consumers, inverter, heating etc. in data model and make it editable in UI
-  - Create architecture for a connector approach that bridges a common generic internal Earnie interface to specific Smarthome interfaces
-  - Refactor existing Loxone HTTP communication to new Loxone<>Earnie-connector
-  - Create specification for other Smarthome connectors to internal Earnie interface
-- [ ] Enhance json Schemas to standardized interfaces between Devices like heat-pump, battery, EV, consumers, ... in order to use them as template to build up a library of communication interfaces between smarthome system and Earnie.
-  - Build a Loxone library as suitable counterpart to that templates to be used for quick interface configuration
-  - Prepare similar thing for other standards (see above)
-- [ ] Add a Donate feature into sidebar 
+Year-1 product depth (trust / What-If / churn). **Good-enough €** for SE and demos — invoice-grade bill reconciliation is explicitly out of scope (nice-to-have later). Includes a thin marker/data-model prep for later SAM work (`2.4`), not the connector rewrite.
 
-
-### Version 2.+1 — Enhance consumer visualization and cost analysis - sharpen tariffs handling
-
-- [ ] Make appropriate information accessible to user about where differences between optimized SOC and BL SOC Ziel come from to give him explanation (prove plausability)
-  - One reason is moved consumption from "standard" EV charging
-  - are there other reasons?
-  - Idea for visualization: Draw "ghost bars" for scheduled EV charging as not color filled bars (just thick edges)
-- [ ] Check if removing constraint for SOC at end of horizon changes simulation results in backtesting
-- [ ] Check if there is a special issue on weekends, when time-to-be ready is set to 12:00 (Start/ End-SOC constraints) ind SE optimization
-- [ ] Find EPEX API to have provider independent tariff calculation
-- [ ] Review current tariffs - use https://www.e-control.at/referenzmarktwert and docs\referenz\.~lock.Oeko_RefMrktPr.csv# as anchor point
-- [ ] Remove usage of "oemag_monthly_feed_in_rates" in backtesting_scenarios.json for monthly export tariffs. They must own their own complete data. Consider thac as design change if needed. Add data of "oemag_monthly_feed_in_rates" as sample in tariffs.json. Remove entry "oemag_monthly_feed_in_rates" in backtesting_scenarios.json.
-- [ ] Improve cost calculation by adding monthly fees etc.
-- [ ] Enhance page "Verbraucheranalyse" to "Analyse Verbrauch & Kosten"
-  - Visualize usage of consumers on a weekly basis compared to historical price and PV 
+- [ ] **2.3.a — Tariff hygiene (good-enough €)**
+  - Find EPEX API to have provider independent tariff calculation
+  - Review current tariffs - use https://www.e-control.at/referenzmarktwert and `docs/referenz/` OeMAG/RefMrkt anchors
+  - Remove usage of `oemag_monthly_feed_in_rates` in `backtesting_scenarios.json` for monthly export tariffs. They must own their own complete data. Consider that as design change if needed. Add data of `oemag_monthly_feed_in_rates` as sample in `tariffs.json`. Remove entry `oemag_monthly_feed_in_rates` in `backtesting_scenarios.json`.
+- [ ] **2.3.b — Approximate cost model (monthly fees)**
+  - Improve cost calculation by adding monthly fees etc.
+  - Label fees as approximate where needed; no requirement to match real invoices
+- [ ] **2.3.c — Plan / SOC plausibility**
+  - Make appropriate information accessible to user about where differences between optimized SOC and BL SOC Ziel come from (prove plausibility)
+    - One reason is moved consumption from "standard" EV charging
+    - Are there other reasons?
+    - Idea for visualization: Draw "ghost bars" for scheduled EV charging as not color-filled bars (just thick edges)
+  - Check if removing constraint for SOC at end of horizon changes simulation results in backtesting
+  - Check if there is a special issue on weekends, when time-to-be-ready is set to 12:00 (Start/End-SOC constraints) in SE optimization
+- [ ] **2.3.d — Verbraucheranalyse → Analyse Verbrauch & Kosten**
+  - Visualize usage of consumers on a weekly basis compared to historical price and PV
   - Show if power came from PV, battery or grid
   - Visualize cost for each usage
-  - Visualize total cost per week / month / year (validation against invoices) 
+  - Visualize total cost per week / month / year (**rough totals for trust** — not validation against invoices)
   - Visualize battery usage as sum of energy flow (maybe established charts exist?)
-- [ ] SE progress bars: show ETA (“time left until finished”) during scenario simulation
-  - Reopened from Erledigt 2026-07-16 — requested with baseline progress; only `current/total h` shipped, not ETA
-- [ ] Order of progress bars in SE shall not change during execution of scenario simulation — previous fix (pre-seed worker progress files + sort by canonical preferred order) does not hold; reopen from Erledigt 2026-07-16
-- [ ] Improve performance of Scenario Explorer (ideas?)
+- [ ] **2.3.e — Scenario Explorer polish**
+  - SE progress bars: show ETA (“time left until finished”) during scenario simulation
+    - Reopened from Erledigt 2026-07-16 — requested with baseline progress; only `current/total h` shipped, not ETA
+  - Order of progress bars in SE shall not change during execution of scenario simulation — previous fix (pre-seed worker progress files + sort by canonical preferred order) does not hold; reopen from Erledigt 2026-07-16
+  - Improve performance of Scenario Explorer (ideas?)
+- [ ] **2.3.f — Thin marker / data-model prep (SAM optionality)**
+  - **Goal:** Cheap prep for `2.4` without connector framework, MQTT/Matter, or Loxone HTTP rewrite
+  - Clarify marker ↔ role assignments (consumers, inverter, heating, battery, EV, …) in data model / schema naming toward generic “smarthome markers” (docs + structure; keep Loxone as sole live backend)
+  - Make existing marker→entity assignments editable in UI where already used
+  - **Out of scope here:** connector architecture, Loxone HTTP extraction, third-party connector spec, device-template library (→ `2.4`); full nested structures (→ nested-models `2.+1`)
+- [ ] **2.3.0 — Release**
+  - Finalize after test usage; update German docs as needed
+
+
+### Version 2.4 — Become Loxone agnostic and standardize communication (SAM expansion)
+
+Year-2+ SAM expansion (KNX / Home Assistant / IoBroker when a second connector is real). Depends on thin prep in **2.3.f**. Do not start the full rewrite until Loxone path is stable and a non-Loxone pilot volunteer exists.
+
+- [ ] **2.4.a — Earnie ↔ smarthome internal interface**
+  - **Goal:** Reach more smarthome “nerds” willing to build connections to their specific hardware
+  - Redefine Loxone Markers → Smarthome Markers suitable for multiple standards (e.g. MQTT or Matter)
+  - Create architecture for a connector approach that bridges a common generic internal Earnie interface to specific smarthome interfaces
+  - Create specification for other smarthome connectors to the internal Earnie interface
+- [ ] **2.4.b — Loxone connector extraction**
+  - Refactor existing Loxone HTTP communication to a Loxone↔Earnie connector behind the internal interface
+- [ ] **2.4.c — Device interface schemas & libraries**
+  - Enhance JSON schemas to standardized interfaces between devices (heat pump, battery, EV, consumers, …) as templates for a library of communication interfaces between smarthome system and Earnie
+  - Build a Loxone library as counterpart to those templates for quick interface configuration
+  - Prepare similar templates for other standards (see above)
+- [ ] **2.4.d — Donate**
+  - Add a Donate feature into sidebar
+- [ ] **2.4.0 — Release**
+  - First non-Loxone pilot only when a volunteer connector exists; update docs / CONTRIBUTING for connector authors
 
 
 ### Version 2.+1 — Improve "security" against violating License agreements
@@ -107,6 +130,7 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 
 - [ ] Enhance data model to nested structures. E.g. pool can consist of multiple "inner" consumers or house consists also of multiple "inner" consumers
   - Move Loxone markers to data model - remove flat definition in config.json where possible
+  - **Note:** Thin marker↔role prep and UI editability are in **2.3.f**; full connector extraction in **2.4**. This chapter owns nesting / structure, not the SAM interface rewrite.
 - [ ] **Recommendation mode smart/adaptive devices** (follow-up to recommendation mode manual devices)
   - Adaptive re runtime/energy per run; smart devices instead of manual input
   - Adaptation algo maintains `appliance_recommendation.default_power_kw` from Loxone power markers (`loxone_inputs.power_name`) on house-profile generics — reserved so far, no live use
