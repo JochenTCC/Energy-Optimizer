@@ -16,7 +16,7 @@ Für Entwickler (Projektstruktur, Tests, Container) siehe [DEVELOPER.md](../DEVE
    python -m scripts.verify_loxone_setup
    ```
 5. **Produktivbetrieb:** Docker-Container starten (UI + `main.py` Auto-Start) oder lokal `python main.py` / UI **Optimierer-Dienst**.
-6. **Monitor öffnen:** `python -m scripts.run_streamlit` (Port: `ui.streamlit_port` in config.json, Standard 8501)
+6. **Monitor öffnen:** `python -m scripts.run_streamlit` (Port: `ui.streamlit_port` / `EARNIE_UI_STREAMLIT_PORT`; lokal venv typisch **8531**, siehe [Streamlit-Ports](referenz/streamlit-ports.md))
 
 Parameter-Beschreibungen erscheinen in Cursor/VS Code als Hover-Hilfe, wenn in `config.json` `"$schema": "./config.schema.json"` gesetzt ist.
 
@@ -54,7 +54,7 @@ Parameter-Beschreibungen erscheinen in Cursor/VS Code als Hover-Hilfe, wenn in `
 
 ### Referenz
 
-- [Streamlit-Ports](referenz/streamlit-ports.md) — Port pro Stack/Plattform (8501 Prod, 8502 Greenfield, 8503 lokal gegen NAS)
+- [Streamlit-Ports](referenz/streamlit-ports.md) — Port pro Stack/Plattform (8501 Prod, 8521/8531 lokal, 8502/8532 Greenfield, 8503 lokal gegen NAS)
 - [Loxone-Signale](referenz/loxone-signale.md) — Tabelle aller Lesen-/Schreib-Signale
 
 ### Entwickler-Specs (Englisch/technisch)

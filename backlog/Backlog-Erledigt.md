@@ -3,6 +3,14 @@
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 
+### Docker compose Alpha / Productive + Streamlit ports (2026-07-20)
+
+- [x] Split host compose into `*_productive.yml` (`earnie-productive`, :8501) and `*-alpha.yml` (`earnie-alpha`, :8511, `earnie_env_alpha/`)
+- [x] Align ports scheme B: local Docker :8521, local venv :8531, greenfield venv :8532 (`docs/referenz/streamlit-ports.md`, `dev.yml`, `.vscode/launch.json`)
+- [x] Docs/README/proxmox bootstrap updated; session-abschluss Alpha compose sync rule
+- [x] `.gitignore` for `earnie_env_alpha` config/runtime
+
+
 ### Bugfix config import page jump to SE (2026-07-20)
 
 - [x] **After „Importieren und neu laden“ (and other cases) app jumped to SE** — live verification: current page preserved after import (no auto-switch to Szenario-Explorer)

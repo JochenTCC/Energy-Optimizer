@@ -2,13 +2,13 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Streamlit app.py (:8501 lokal)",
+      "name": "Streamlit app.py (:8531 lokal)",
       "type": "python",
       "request": "launch",
       "module": "scripts.run_streamlit",
       "cwd": "${workspaceFolder}",
       "env": {
-        "EARNIE_UI_STREAMLIT_PORT": "8501",
+        "EARNIE_UI_STREAMLIT_PORT": "8531",
         "EARNIE_UI_CHART_DEBUG_CAPTURE_ENABLED": "1",
         "EARNIE_AUTO_START_MAIN": "0",
         "EARNIE_ENV_PATH": "earnie_env",
@@ -26,15 +26,15 @@
       }
     },
     {
-      "name": "Streamlit app.py (:8501 lokal, auto main)",
+      "name": "Streamlit app.py (:8531 lokal, auto main)",
       "type": "python",
       "request": "launch",
       "module": "scripts.run_streamlit",
       "cwd": "${workspaceFolder}",
       "env": {
-        "EARNIE_UI_STREAMLIT_PORT": "8501",
+        "EARNIE_UI_STREAMLIT_PORT": "8531",
         "EARNIE_UI_CHART_DEBUG_CAPTURE_ENABLED": "1",
-        "EARNIE_AUTO_START_MAIN": "1",
+        "EARNIE_AUTO_START_MAIN": "1"
       },
       "subProcess": false,
       "console": "integratedTerminal",
@@ -81,7 +81,7 @@
         "EARNIE_LOCAL_SETTINGS_PATH": "${workspaceFolder}/greenfield/runtime/local_settings.json",
         "EARNIE_VERIFY_LOXONE_ON_START": "0",
         "EARNIE_STRICT_TARIFF_VALIDATE": "1",
-        "EARNIE_UI_STREAMLIT_PORT": "8511"
+        "EARNIE_UI_STREAMLIT_PORT": "8532"
       },
       "justMyCode": false,
       "presentation": {
@@ -90,7 +90,7 @@
       }
     },
     {
-      "name": "Streamlit app.py (Greenfield :8511)",
+      "name": "Streamlit app.py (Greenfield :8532)",
       "type": "python",
       "request": "launch",
       "module": "scripts.run_streamlit",
@@ -104,7 +104,7 @@
         "EARNIE_VERIFY_LOXONE_ON_START": "0",
         "EARNIE_STRICT_TARIFF_VALIDATE": "1",
         "EARNIE_UI_MODES": "sunset2sunset,scenario_explorer,live_environment",
-        "EARNIE_UI_STREAMLIT_PORT": "8511",
+        "EARNIE_UI_STREAMLIT_PORT": "8532",
         "EARNIE_UI_CHART_DEBUG_CAPTURE_ENABLED": "1",
         "EARNIE_AUTO_START_MAIN": "0"
       },
@@ -117,7 +117,7 @@
       }
     },
     {
-      "name": "Streamlit app.py (Greenfield :8511, auto main)",
+      "name": "Streamlit app.py (Greenfield :8532, auto main)",
       "type": "python",
       "request": "launch",
       "module": "scripts.run_streamlit",
@@ -131,7 +131,7 @@
         "EARNIE_VERIFY_LOXONE_ON_START": "0",
         "EARNIE_STRICT_TARIFF_VALIDATE": "1",
         "EARNIE_UI_MODES": "sunset2sunset,scenario_explorer,live_environment",
-        "EARNIE_UI_STREAMLIT_PORT": "8511",
+        "EARNIE_UI_STREAMLIT_PORT": "8532",
         "EARNIE_UI_CHART_DEBUG_CAPTURE_ENABLED": "1",
         "EARNIE_AUTO_START_MAIN": "1"
       },

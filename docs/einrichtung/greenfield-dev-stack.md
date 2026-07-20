@@ -94,7 +94,7 @@ docker compose --project-directory . -f docker/compose/greenfield.yml up -d --bu
 docker compose --project-directory . -f docker/compose/greenfield.yml logs -f earnie
 ```
 
-Bei lokalem venv (Port **8511**): VS Code Compound **„main.py + Streamlit (Greenfield :8511)“** — Worker + UI mit `greenfield/config` + `greenfield/runtime`. Alternativ nur UI: „Streamlit app.py (LOKAL, Greenfield :8511)“.
+Bei lokalem venv (Port **8532**): VS Code **„main.py (Greenfield)“** + **„Streamlit app.py (Greenfield :8532)“** — Worker + UI mit `greenfield/config` + `greenfield/runtime`. Alternativ nur UI: „Streamlit app.py (Greenfield :8532)“ (oder „… auto main“).
 
 ## Stack zurücksetzen
 
@@ -155,7 +155,7 @@ Port-Übersicht aller Stacks: [streamlit-ports.md](../referenz/streamlit-ports.m
 
 | Stack | Zweck |
 |-------|--------|
-| **Greenfield** (diese Datei) | Ersteinrichtung, leere Volumes, Port 8502 |
-| `docker/compose/dev.yml` | Lokaler Dev mit `./earnie_env/config` + `./earnie_env/runtime` |
+| **Greenfield** (diese Datei) | Ersteinrichtung, leere Volumes, Host-Port **8502** (Docker) / **8532** (venv) |
+| `docker/compose/dev.yml` | Lokaler Dev mit `./earnie_env/…`, Host-Port **8521** |
 | **7g Silent** | Prod-Loxone lesen, `loxone_silent_mode` |
 | **7g Simuliert** | Synthetisches Haus (nach Loxone-Simulator) |
