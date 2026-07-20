@@ -6,31 +6,30 @@ Die Streamlit-App nutzt **`st.navigation`** mit Seiten in Abschnitten — **kein
 EARNIE_UI_MODES=sunset2sunset,scenario_explorer,live_environment
 ```
 
-Ohne diese Variable stehen in der Entwicklung **Sunset-2-Sunset** (Seite **Monitor**), **Szenario-Explorer** und **Echtzeit-Umgebung** zur Verfügung (optional **Preis-Prognose (Dev)**). Gültige Keys: `sunset2sunset`, `scenario_explorer`, `live_environment`, `price_forecast` — **kein** Alias `live` oder `historical`. Frühere Keys `backtesting` und `scenario_exploration` sind umbenannt; bei alter Env-Konfiguration erscheint ein Sidebar-Hinweis. Details zum Deployment: [Betrieb](../einrichtung/betrieb.md).
+Ohne diese Variable stehen in der Entwicklung **Sunset-2-Sunset** (Seite **Monitor**), **Szenario-Explorer** und **Daemon Control** zur Verfügung (optional **Preis-Prognose (Dev)**). Gültige Keys: `sunset2sunset`, `scenario_explorer`, `live_environment`, `price_forecast` — **kein** Alias `live` oder `historical`. Frühere Keys `backtesting` und `scenario_exploration` sind umbenannt; bei alter Env-Konfiguration erscheint ein Sidebar-Hinweis. Details zum Deployment: [Betrieb](../einrichtung/betrieb.md).
 
 | Key | Seite | Abschnitt | Produktion |
 |-----|-------|-----------|------------|
-| `sunset2sunset` | **Monitor**, **Manuelle Geräte** | Betrieb | ja (Hauptansicht; ohne Key kein Betrieb-Abschnitt) |
-| `scenario_explorer` | **Szenario-Explorer** | Analyse | optional (Dev / Community Cloud) |
-| `live_environment` | **Live-Konfiguration**, **Optimierer-Dienst**, **Loxone-Kommunikation** | Echtzeit-Umgebung | ja (Prod; ohne Key kein Echtzeit-Abschnitt) |
-| `price_forecast` | **Preis-Prognose (Dev)** | Analyse | Dev-only |
+| `sunset2sunset` | **Monitor**, **Manuelle Geräte** | Live-Cockpit | ja (Hauptansicht; ohne Key kein Live-Cockpit-Abschnitt) |
+| `scenario_explorer` | **Szenario-Explorer** | Konfiguration | optional (Dev / Community Cloud) |
+| `live_environment` | **Live-Konfiguration** (Konfiguration), **Optimierer-Dienst**, **Loxone-Kommunikation**, **Verbraucheranalyse** (Live-Cockpit) | Konfiguration / Daemon Control / Live-Cockpit | ja (Prod; ohne Key kein Live-/Daemon-Anteil) |
+| `price_forecast` | **Preis-Prognose (Dev)** | Live-Cockpit | Dev-only |
 
-Beispiel Community Cloud (nur Analyse): `EARNIE_UI_MODES=scenario_explorer` — Betrieb und Echtzeit-Umgebung entfallen.
+Beispiel Community Cloud (nur Szenario-Explorer): `EARNIE_UI_MODES=scenario_explorer` — Live-Cockpit und Daemon Control entfallen.
 
-Weitere Seiten (nicht über `EARNIE_UI_MODES` gesteuert): **Hauskonfigurator**, **Szenarieneditor**, **Verbraucheranalyse** — Freischaltung abhängig vom Setup-Fortschritt (`ui/setup_readiness.py`).
+Weitere Seiten (nicht über `EARNIE_UI_MODES` gesteuert): **Hauskonfigurator**, **Szenarieneditor** — Freischaltung abhängig vom Setup-Fortschritt (`ui/setup_readiness.py`). **Verbraucheranalyse** erscheint nur mit `live_environment` und nur im Abschnitt Live-Cockpit; ohne Live-Verbindung zur Smarthome-Steuerung zeigt die Seite einen Hinweis statt der Analyse.
 
-In der Sidebar: App-Version, Setup-Hinweise und **„Konfiguration speichern / laden“** (ZIP-Export/Import der Config-Sidecars und `uploads/` — siehe [Speichern / Laden](../konfiguration/speichern-laden.md)).
+In der Sidebar (unten): Abschnitt **Info / About** (Banner der Wahrheit, Version, Kontaktformular an `mail@techcreacon.com` — ZIP sammeln und der E-Mail manuell anhängen), oben Setup-Hinweise und **„Konfiguration speichern / laden“** (ZIP-Export/Import der Config-Sidecars und `uploads/` — siehe [Speichern / Laden](../konfiguration/speichern-laden.md)).
 
 ### Navigationsabschnitte (nach vollständiger Einrichtung)
 
 | Abschnitt | Seiten |
 |-----------|--------|
-| **Betrieb** | Monitor, Manuelle Geräte |
-| **Analyse** | Szenario-Explorer (wenn freigeschaltet), Preis-Prognose (Dev), Verbraucheranalyse |
-| **Planung** | Hauskonfigurator, Szenarieneditor |
-| **Echtzeit-Umgebung** | Live-Konfiguration, Optimierer-Dienst, Loxone-Kommunikation |
+| **Live-Cockpit** | Monitor, Manuelle Geräte, Verbraucheranalyse (bei `live_environment`), Preis-Prognose (Dev) |
+| **Konfiguration** | Hauskonfigurator, Szenarieneditor, Szenario-Explorer (wenn freigeschaltet), Live-Konfiguration (bei `live_environment`) |
+| **Daemon Control** | Optimierer-Dienst, Loxone-Kommunikation |
 
-Während der Greenfield-Ersteinrichtung sind zunächst nur **Planung** und **Echtzeit-Umgebung** sichtbar.
+Während der Greenfield-Ersteinrichtung sind zunächst nur **Konfiguration** und **Daemon Control** sichtbar (Live-Konfiguration wird für die Ersteinrichtung auch ohne `live_environment` in der Env erzwungen).
 
 Spezifikation: [UI Sunset-2-Sunset](../spec/ui-sunset2sunset.md) (v0.6.2). Chart- und Panel-Details: [Charts & Panels](charts.md).
 

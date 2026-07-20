@@ -24,6 +24,7 @@ Fix is **implemented** (code + tests + optional PATCH in `version.py`), but **pr
 
 ## New Bugs (Do not remove this chapter — even if empty)
 
+- [ ] "chart_debug_review\debug_dump_20260720_094034"
 
 ## Organizational Changes - no bugs (but still no development issue)
 

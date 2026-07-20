@@ -38,7 +38,7 @@ def _render_resolved_snapshot(resolved: dict) -> None:
     st.markdown("#### Aufgelöste Parameter (nur Anzeige)")
     st.caption(
         "Technische Werte aus components.json (batteries[], pv_systems[]), tariffs.json und Hausprofil. "
-        "Bearbeiten im Hauskonfigurator, Szenarieneditor oder Echtzeit-Umgebung."
+        "Bearbeiten im Hauskonfigurator, Szenarieneditor oder Live-Konfiguration."
     )
 
     geo_cols = st.columns(3)

@@ -17,7 +17,7 @@ def test_default_modes_exclude_historical_and_price_forecast(monkeypatch):
     assert modes == [
         "Sunset-2-Sunset",
         "Szenario-Explorer",
-        "Echtzeit-Umgebung",
+        "Daemon Control",
     ]
     assert "Historischer Tag" not in modes
     assert "Preis-Prognose (Dev)" not in modes
@@ -33,7 +33,7 @@ def test_price_forecast_mode_when_config_enabled(monkeypatch):
     assert get_enabled_ui_modes() == [
         "Sunset-2-Sunset",
         "Szenario-Explorer",
-        "Echtzeit-Umgebung",
+        "Daemon Control",
         "Preis-Prognose (Dev)",
     ]
 
@@ -46,7 +46,7 @@ def test_prod_modes_from_env(monkeypatch):
     assert get_enabled_ui_modes() == [
         "Sunset-2-Sunset",
         "Szenario-Explorer",
-        "Echtzeit-Umgebung",
+        "Daemon Control",
     ]
 
 
@@ -60,7 +60,7 @@ def test_historical_in_env_is_ignored(monkeypatch):
     assert modes == [
         "Sunset-2-Sunset",
         "Szenario-Explorer",
-        "Echtzeit-Umgebung",
+        "Daemon Control",
     ]
 
 

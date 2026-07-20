@@ -12,6 +12,7 @@ PROFILE_IDS = (
     "ev_power_capped",
     "ev_power_ok",
     "thermal_overnight",
+    "thermal_pulse_tight",
     "known_plus_manual",
     "greenfield_like",
     "mixed_csv_thermal",

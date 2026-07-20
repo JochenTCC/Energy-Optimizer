@@ -14,7 +14,7 @@ UI_MODE_KEYS = (
 UI_MODE_LABELS = {
     "sunset2sunset": "Sunset-2-Sunset",
     "scenario_explorer": "Szenario-Explorer",
-    "live_environment": "Echtzeit-Umgebung",
+    "live_environment": "Daemon Control",
     "price_forecast": "Preis-Prognose (Dev)",
 }
 
@@ -30,7 +30,7 @@ def get_enabled_ui_mode_keys() -> list[str]:
     Aktivierte UI-Modus-Schlüssel aus EARNIE_UI_MODES
     (kommagetrennt: sunset2sunset,scenario_explorer,live_environment,price_forecast).
 
-    Ohne Env-Variable: Sunset-2-Sunset, Szenario-Explorer und Echtzeit-Umgebung;
+    Ohne Env-Variable: Sunset-2-Sunset, Szenario-Explorer und Daemon Control;
     Preis-Prognose nur wenn ui.price_forecast_page_enabled in config.json true ist
     (Standard: false).
     """

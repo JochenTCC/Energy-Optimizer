@@ -150,7 +150,7 @@
       "module": "scripts.run_streamlit",
       "cwd": "${workspaceFolder}",
       "env": {
-        "EARNIE_CONFIG_PATH": "chart_debug_review/earnie_config_20260719_050759",
+        "EARNIE_CONFIG_PATH": "chart_debug_review/earnie_config_20260719_081454",
         "EARNIE_RUNTIME_PATH": "${workspaceFolder}/chart_debug_review/runtime",
         "EARNIE_LOCAL_SETTINGS_PATH": "${workspaceFolder}/chart_debug_review/runtime/local_settings.json",
         "EARNIE_UI_STREAMLIT_PORT": "8502",

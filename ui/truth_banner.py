@@ -79,8 +79,8 @@ def _unofficial_message() -> str:
     )
 
 
-def render_truth_banner(*, where: Literal["sidebar", "main"]) -> None:
-    """Render attribution in sidebar or main area."""
+def render_truth_banner(*, where: Literal["sidebar", "main", "inline"]) -> None:
+    """Render attribution in sidebar root, main area, or current container."""
     unofficial = is_unofficial_origin(resolve_build_origin())
     if where == "sidebar":
         target = st.sidebar
@@ -89,6 +89,7 @@ def render_truth_banner(*, where: Literal["sidebar", "main"]) -> None:
         else:
             target.caption(_attribution_line())
         return
+    # "main" and "inline" use the active Streamlit container (page or expander).
     if unofficial:
         st.warning(_unofficial_message())
     else:

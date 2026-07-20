@@ -116,6 +116,9 @@ def _battery_by_id() -> dict[str, dict]:
 
 
 def render_battery_planning_tab() -> None:
+    st.caption(
+        "Nicht optional, da ansonsten identisch mit Nicht optimierter Referenz."
+    )
     _apply_pending_battery_select()
     battery_map = _battery_by_id()
     battery_ids = sorted(battery_map.keys())

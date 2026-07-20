@@ -38,7 +38,10 @@ def test_is_unofficial_origin_detects_other_repo() -> None:
 
 
 def test_app_py_calls_render_truth_banner() -> None:
-    app_src = Path(__file__).resolve().parents[1] / "app.py"
-    text = app_src.read_text(encoding="utf-8")
-    assert "from ui.truth_banner import render_truth_banner" in text
-    assert text.count("render_truth_banner(") >= 2
+    root = Path(__file__).resolve().parents[1]
+    app_src = (root / "app.py").read_text(encoding="utf-8")
+    info_src = (root / "ui" / "info_sidebar.py").read_text(encoding="utf-8")
+    assert "from ui.info_sidebar import render_info_sidebar" in app_src
+    assert "render_info_sidebar()" in app_src
+    assert "render_truth_banner(where=\"main\")" in app_src
+    assert "render_truth_banner(where=\"inline\")" in info_src

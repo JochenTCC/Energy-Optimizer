@@ -120,3 +120,122 @@ def test_ev_power_capped_is_below_uncapped_soc() -> None:
     soc = ev_daily_kwh(ev, _ANCHOR.date())
     assert modeled == pytest.approx(13.0)
     assert modeled < soc
+
+
+def test_thermal_pulse_tight_prorates_below_full_calendar_sum(monkeypatch) -> None:
+    """Tight-pulse fixture: prorated MILP day energy << sum of two full HDD days."""
+    from data.modeled_climate import ModeledClimateContext
+    from house_config.planning_flex_bridge import planning_thermal_to_milp
+    from optimizer.thermal_flex_context import (
+        _prorate_thermal_day_target_kwh,
+        resolve_thermal_flex_contexts,
+    )
+
+    install_open_meteo_climate_mock(monkeypatch)
+    profile = load_se_consumption_profile("thermal_pulse_tight")
+    haus = next(c for c in profile["consumers"] if c["id"] == "haus")
+    milp = planning_thermal_to_milp(haus)
+    slots = window_slot_datetimes(_ANCHOR)
+    matrix = [
+        {
+            "hour": slot.hour,
+            "date": slot.date(),
+            "slot_datetime": slot,
+            "k_act": 10.0,
+            "price_buy": 0.10,
+            "expected_p_act": 0.5,
+            "expected_p_pv": 0.0,
+            "consumption_mode": "profile_spec",
+        }
+        for slot in slots
+    ]
+    climate = ModeledClimateContext.for_house_profile(profile, kwp=0.0)
+    daily = resolve_thermal_flex_contexts(
+        matrix, [milp], profile, climate=climate
+    )["haus"]["daily_targets"]
+    assert len(daily) == 2
+    full_sum = sum(float(v) for v in daily.values())
+    prorated_sum = sum(
+        _prorate_thermal_day_target_kwh(
+            float(target),
+            sum(1 for row in matrix if row["date"] == day),
+        )
+        for day, target in daily.items()
+    )
+    assert prorated_sum < full_sum * 0.9
+    assert prorated_sum > 0.0
+
+
+def test_thermal_pulse_tight_milp_feasible_with_ev(monkeypatch) -> None:
+    """Regression dump shape: 1 kW Haus (max_on=16) + EV overnight stays Optimal."""
+    from data.modeled_climate import ModeledClimateContext
+    from house_config.planning_flex_bridge import (
+        collect_planning_flex_consumers,
+        resolve_profile_spec_flex_targets,
+    )
+    from optimizer.cbc_solver import solve_with_strict_fallback
+    from optimizer.charging_context import resolve_charging_contexts
+    from optimizer.milp import _add_milp_objective
+    from optimizer.milp_consumers import (
+        _add_consumer_delivery_constraints,
+        filter_feasible_consumers,
+    )
+    from optimizer.milp_horizon import _build_milp_model
+    from optimizer.thermal_flex_context import (
+        add_thermal_flex_constraints,
+        resolve_thermal_flex_contexts,
+    )
+
+    install_open_meteo_climate_mock(monkeypatch)
+    profile = load_se_consumption_profile("thermal_pulse_tight")
+    flex = collect_planning_flex_consumers(profile)
+    assert {c["id"] for c in flex} == {"haus", "ev"}
+    haus = next(c for c in flex if c["id"] == "haus")
+    assert int(haus.get("max_on_quarterhours") or 0) == 16
+    assert float(haus["nominal_power_kw"]) == pytest.approx(1.0)
+
+    slots = window_slot_datetimes(_ANCHOR)
+    climate = ModeledClimateContext.for_house_profile(profile, kwp=0.0)
+    targets = resolve_profile_spec_flex_targets(
+        flex, profile, slots, window_end=_ANCHOR, climate=climate
+    )
+    matrix = [
+        {
+            "hour": slot.hour,
+            "date": slot.date(),
+            "slot_datetime": slot,
+            "k_act": 10.0 if slot.hour >= 18 or slot.hour < 7 else 30.0,
+            "price_buy": 0.10 if slot.hour >= 18 or slot.hour < 7 else 0.30,
+            "expected_p_act": 0.5,
+            "expected_p_pv": 0.0,
+            "consumption_mode": "profile_spec",
+            "charging_anchor": _ANCHOR,
+        }
+        for slot in slots
+    ]
+    contexts = resolve_charging_contexts(matrix, targets, consumers=flex)
+    thermal_contexts = resolve_thermal_flex_contexts(
+        matrix, flex, profile, climate=climate
+    )
+    remaining = {cid: float(targets.get(cid, 0.0)) for cid in ("haus", "ev")}
+    battery = {
+        "min_soc": 10.0,
+        "max_soc": 100.0,
+        "max_power_kw": 5.0,
+        "battery_capacity_kwh": 5.0,
+        "efficiency": 0.95,
+    }
+    planned = filter_feasible_consumers(
+        flex, remaining, matrix, list(range(24)), False, contexts, {}
+    )
+    model = _build_milp_model(
+        matrix, 24, battery, 50.0, planned, 0.0, remaining, {}
+    )
+    _add_milp_objective(model, matrix, 3.5, {}, wear_cent_per_kwh=0.0)
+    _add_consumer_delivery_constraints(
+        model, matrix, remaining, list(range(24)), contexts, False
+    )
+    add_thermal_flex_constraints(
+        model, matrix, list(range(24)), thermal_contexts
+    )
+    assert solve_with_strict_fallback(model.prob, msg=False) == "Optimal"

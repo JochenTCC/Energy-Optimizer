@@ -25,6 +25,7 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 
 ## Feature Backlog
 
+
 ### Version 2.2.0
 
 - [x] Build Szenario-Explorer as "web app" in Streamlit Community Cloud (SCC)
@@ -33,8 +34,21 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
   - New EARNIE_UI_MODES "live_environment" to enable / disable "Echtzeitumgebung"
 - [x] Remove any references to DS-KO-DOLS (`DS-KO-DO-2`) in all files and replace it by dummies
 - [x] Implement a first version of "Banner der Wahrheit", that can't be removed in a fork
+- [x] Add a hint "Nicht optional, da ansonsten identisch mit Nicht optimierter Referenz" on subpage Batterien
+- [x] Add a warning at SE at Verbrauchsvergleich, when overall consumptions differ more than 5% that there might be some issues during simulation with hint to send a config dump to TechCreaCon (me) for further investigations with contacting feature in info section (see below).
+- [x] Reorder sidebar
+    - Deactivate "Verbraucheranalyse" when there is no live connection to smarthome (stub page notice)
+    - Hide "Verbraucheranalyse" when EARNIE_UI_MODES does not include "live_environment"
+    - Move "Verbraucheranalyse" into "Live-Cockpit" (at the bottom)
+    - Rename section "Planung" into "Konfiguration"
+    - Move Szenario-Explorer into section "Konfiguration" (above Live-Konfiguration)
+    - Remove section "Analyse"
+    - Move "Live-Konfiguration" into section "Konfiguration"; hide when `live_environment` not in modes (always usable when shown)
+    - Rename section "Betrieb" into "Live-Cockpit"
+- [x] Make a complete info section in sidebar (including version and Banner der Wahrheit + contacting formular with Topic, Description and attachments to mail@techcreacon.com)
 - [ ] Merge streamlitcloud branch with main, when app is working on SCC
 - [ ] Finalize Version 2.2.0 after test usage and make a release
+  - Update German Docs
 
 ### Version 2.+1
 

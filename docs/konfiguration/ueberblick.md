@@ -62,7 +62,7 @@ Details zu Preisen: [Preise & aWATTar](preise.md).
 
 ## Seite Live-Konfiguration
 
-Im Abschnitt **Echtzeit-Umgebung** wählt die Seite **Live-Konfiguration** (Komfort-Ansicht Live-Szenario) Entitäten per Dropdown (`battery_id`, PV, Tarife, Hausprofil). Vor den Tarif-Dropdowns gibt es einen gemeinsamen Filter **Land** (`land`: AT/DE/CH) für Bezug und Einspeise sowie getrennte **Typ**-Filter; dasselbe gilt im **Szenarieneditor**. Ein Regionsfilter ist noch nicht verfügbar. Aufgelöste Werte (kWp, Kapazität, Vergütung) sind **read-only**; gespeichert werden nur IDs im Live-Szenario in `backtesting_scenarios.json`.
+Im Abschnitt **Konfiguration** wählt die Seite **Live-Konfiguration** (Komfort-Ansicht Live-Szenario) Entitäten per Dropdown (`battery_id`, PV, Tarife, Hausprofil). Vor den Tarif-Dropdowns gibt es einen gemeinsamen Filter **Land** (`land`: AT/DE/CH) für Bezug und Einspeise sowie getrennte **Typ**-Filter; dasselbe gilt im **Szenarieneditor**. Ein Regionsfilter ist noch nicht verfügbar. Aufgelöste Werte (kWp, Kapazität, Vergütung) sind **read-only**; gespeichert werden nur IDs im Live-Szenario in `backtesting_scenarios.json`.
 
 ## Weiterführend
 
