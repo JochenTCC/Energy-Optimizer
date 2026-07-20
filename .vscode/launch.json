@@ -90,7 +90,7 @@
       }
     },
     {
-      "name": "Streamlit app.py (LOKAL, Greenfield :8511)",
+      "name": "Streamlit app.py (Greenfield :8511)",
       "type": "python",
       "request": "launch",
       "module": "scripts.run_streamlit",
@@ -165,20 +165,6 @@
         "group": "chart_debug",
         "order": 1
       }
-    }
-  ],
-  "compounds": [
-    {
-      "name": "main.py + Streamlit (Greenfield :8511)",
-      "configurations": [
-        "main.py (Greenfield)",
-        "Streamlit app.py (LOKAL, Greenfield :8511)"
-      ],
-      "presentation": {
-        "group": "greenfield",
-        "order": 4
-      },
-      "stopAll": true
     }
   ]
 }

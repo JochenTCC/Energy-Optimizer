@@ -247,14 +247,16 @@ Die Zeile **Historisch** rechnet die Last am Live-Tarif **ohne** PV und **ohne**
 
 Auswertung u. a.:
 
-- **Gesamtkosten** (Tabelle: Jahres Verbrauch, Jahres Kosten, Δ vs. Live-Referenz)  
+- **Gesamtkosten und -Verbrauch** (Tabelle: Jahres Verbrauch, Jahres Kosten, Δ vs. Live-Referenz, Hinweis)  
 - **Kostenvergleich** monatlich (Referenz vs. optimierte Szenarien)  
 - **Monatsverläufe** und Plausibilitätsansichten  
 - Charts zu Leistung, Verbrauch und PV je nach gewählter Ansicht  
 
 Nutzen Sie die Ergebnisse als **Entscheidungsgrundlage** (Investition, Tarif), nicht als exakte Prognose der nächsten Stromrechnung. Es wird keine Gewähr dafür übernommen, dass die Ergebnisse genau so eintreffen werden.
 
-##### Gesamtkosten: Jahres Verbrauch [kWh]
+<a id="gesamtkosten-jahres-verbrauch-kwh"></a>
+
+##### Gesamtkosten und -Verbrauch: Jahres Verbrauch [kWh]
 
 Die Spalte zeigt **nicht überall dieselbe Datenquelle**. Deshalb kann die Zeile **Historisch** andere kWh-Werte haben als Referenz- und Optimierungszeilen — das ist kein Anzeigefehler, sondern Absicht.
 
@@ -271,7 +273,7 @@ Die Spalte zeigt **nicht überall dieselbe Datenquelle**. Deshalb kann die Zeile
 3. **PV und Batterie** ändern die Spalte „Jahres Verbrauch“ nicht: gezählt wird der **Hausverbrauch** (Last), nicht Netzbezug nach Abzug von PV/Speicher.  
 4. **Kleine Differenzen** zwischen Referenz und Optimierung derselben Szenario-Familie sind normal (Lastverschiebung, Toleranz der Plausibilitätsprüfung).
 
-Zum Abgleich Ist vs. Modell: Hauskonfigurator / Verbrauchs-CSV und die Debug-Tabelle **Verbrauchsvergleich** im Explorer. Technische Details: [Betriebsmodi — Szenario-Explorer](../ui/betriebsmodi.md#gesamtkosten--jahres-verbrauch), [Historische Verbrauchs-CSV](../konfiguration/verbrauchs-csv.md).
+Zum Abgleich Ist vs. Modell: Hauskonfigurator / Verbrauchs-CSV und die Tabellen **Gesamtkosten und -Verbrauch** sowie **Verbrauchsvergleich** im Explorer. Weicht der Jahresverbrauch einer Zeile um **mehr als 5%** von der **Live-Referenz** ab, erscheint in der Spalte **Hinweis** eine Warnung — dann Config-Dump über **Info / About → Kontakt** an TechCreaCon senden. Technische Details: [Betriebsmodi — Szenario-Explorer](../ui/betriebsmodi.md#gesamtkosten-und--verbrauch), [Historische Verbrauchs-CSV](../konfiguration/verbrauchs-csv.md).
 
 
 ---

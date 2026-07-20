@@ -153,4 +153,4 @@ Sankey aus **aktuellen Loxone-Leistungswerten**; Produktiv-Overlay aus `runtime/
 
 Eigene Charts und Monatsauswertung aus `runtime/backtesting_log.json` — ohne S-2-Navigation und ohne Produktiv-Log-Merge. UI-Seite: **Szenario-Explorer** (`scenario_explorer`).
 
-**Gesamtkosten — Jahres Verbrauch:** Die Spalte mischt Ist-Zähler (`cons_data`) für die Historisch-Zeile und Modell-/Optimierungssummen für alle anderen Zeilen. Erklärung: [Betriebsmodi](betriebsmodi.md#gesamtkosten--jahres-verbrauch), [Benutzer-Handbuch](../user-manual/Benutzer-Handbuch-Earnie.md#gesamtkosten-jahres-verbrauch-kwh).
+**Gesamtkosten und -Verbrauch — Jahres Verbrauch:** Die Spalte mischt Ist-Zähler (`cons_data`) für die Historisch-Zeile und Modell-/Optimierungssummen für alle anderen Zeilen. Erklärung: [Betriebsmodi](betriebsmodi.md#gesamtkosten-und--verbrauch), [Benutzer-Handbuch](../user-manual/Benutzer-Handbuch-Earnie.md#gesamtkosten-jahres-verbrauch-kwh).

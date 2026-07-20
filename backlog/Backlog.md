@@ -35,7 +35,7 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 - [x] Remove any references to DS-KO-DOLS (`DS-KO-DO-2`) in all files and replace it by dummies
 - [x] Implement a first version of "Banner der Wahrheit", that can't be removed in a fork
 - [x] Add a hint "Nicht optional, da ansonsten identisch mit Nicht optimierter Referenz" on subpage Batterien
-- [x] Add a warning at SE at Verbrauchsvergleich, when overall consumptions differ more than 5% that there might be some issues during simulation with hint to send a config dump to TechCreaCon (me) for further investigations with contacting feature in info section (see below).
+- [x] Add a warning at SE at Gesamtkosten und -Verbrauch, when overall consumptions differ more than 5% from Live-Referenz (Hinweis column) with hint to send a config dump to TechCreaCon via Info / About contact.
 - [x] Reorder sidebar
     - Deactivate "Verbraucheranalyse" when there is no live connection to smarthome (stub page notice)
     - Hide "Verbraucheranalyse" when EARNIE_UI_MODES does not include "live_environment"

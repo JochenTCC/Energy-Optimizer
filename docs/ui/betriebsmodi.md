@@ -113,9 +113,9 @@ Ersparnis-, Kosten-Kennzahlen und Energievergleich beziehen sich auf **Jetzt →
 
 Geplant (Dev-only): Nachrechnung eines beliebigen Kalendertags — ersetzt den früheren Modus **Historischer Tag**.
 
-### Gesamtkosten — Jahres Verbrauch
+### Gesamtkosten und -Verbrauch
 
-Tabelle **Gesamtkosten**: Spalten `Szenario`, `Jahres Verbrauch [kWh]`, `Jahres Kosten [€]`, `Δ vs Referenz [€]` (Delta immer gegen die Live-Referenz-Zeile).
+Tabelle **Gesamtkosten und -Verbrauch**: Spalten `Szenario`, `Jahres Verbrauch [kWh]`, `Jahres Kosten [€]`, `Δ vs Referenz [€]`, `Hinweis` (Delta immer gegen die Live-Referenz-Zeile).
 
 **Datenquellen für `Jahres Verbrauch [kWh]`** (UI: `build_annual_cost_rows` / `_jahres_kwh_for_row`):
 
@@ -126,4 +126,10 @@ Tabelle **Gesamtkosten**: Spalten `Szenario`, `Jahres Verbrauch [kWh]`, `Jahres 
 | Optimiertes Szenario | `plausibility[<id>].consumption_totals.optimized_kwh` |
 
 Mit Hausprofil ist `consumption_source` typisch `profile_spec`: Fenster-Referenz = Spec-Last (Jahresverbrauch/Zeitpläne), nicht der Zähler. Historisch bleibt bewusst am Ist-Zähler — Abweichungen zu den übrigen Zeilen sind erwartbar, wenn Ist ≠ Modell. Kurzfassung in der UI-Caption unter der Tabelle; Anwendertext: [Benutzer-Handbuch](../user-manual/Benutzer-Handbuch-Earnie.md#gesamtkosten-jahres-verbrauch-kwh).
+
+Weicht der Jahresverbrauch einer Zeile relativ um **mehr als 5%** (`CONSUMPTION_TOLERANCE_REL`) von der **Live-Referenz** ab, erscheint in der Spalte **Hinweis** eine Warnung mit Verweis auf **Info / About → Kontakt** (Config-Dump an TechCreaCon). Die Live-Referenz-Zeile selbst bleibt ohne Warnung.
+
+### Verbrauchsvergleich (Debug)
+
+Tabelle unter den Gesamtkosten: Summe der gelieferten kWh über alle 24h-Fenster je optimiertem Szenario. Δ gegen Live-Referenz; Spalte **Hinweis** nur für zeitliche Lastverschiebung bei gleicher Spec-Energie.
 
