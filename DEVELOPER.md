@@ -1,6 +1,6 @@
 # Earnie — Entwickler-Dokumentation
 
-Technische Referenz für Entwickler und Mitwirkende. Produktüberblick und Anwender-Einstieg: **[README.md](README.md)** · **[docs/README.md](docs/README.md)**
+Technische Referenz für Entwickler und Mitwirkende. Produktüberblick und Anwender-Einstieg: **[README.md](README.md)** · **[docs/README.md](docs/README.md)** · Mitwirken: **[CONTRIBUTING.md](CONTRIBUTING.md)**
 
 ## Projektstruktur
 
@@ -75,6 +75,7 @@ git push origin vX.Y.Z-alpha.N
 - Official: GitHub Latest Release; images `:<version>` and `:latest` (+ legacy aliases).
 - Pre-release (`-` in version): GitHub Pre-release (not Latest); images `:<version>` only (no `:latest`).
 - Publish from `main`; leave the pre-release string on `main` until the next approved bump.
+- Parallel feature work + urgent fix for an already tagged build: [docs/spec/branching-hotfix-playbook.md](docs/spec/branching-hotfix-playbook.md) (`main` + tags; short-lived `hotfix/…` only when needed).
 - **GHCR auth for Actions:** store a classic PAT with `write:packages` (and `read:packages`) as repo secret `GHCR_TOKEN`. Without it, `GITHUB_TOKEN` only works if each package (`earnie-energy`, `ernie-energy`) grants this repository **Write** under Package settings → Manage Actions access. Also set packages **Public** if anonymous `docker pull` is required.
 
 **Fallback** (CI down / emergency): local multi-arch push:
