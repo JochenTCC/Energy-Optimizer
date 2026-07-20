@@ -50,11 +50,53 @@ PROFILE_OPTIONAL: dict[str, tuple[str, ...]] = {
 }
 
 
+def _history_path_candidates() -> list[str]:
+    """
+    Candidate paths for optimization_history.jsonl.
+
+    Docker mounts host runtime at ``/app/runtime``, while ``runtime_dir()`` may
+    prefer a baked-in empty ``earnie_env/runtime``. Writers use HISTORY_FILE
+    (default ``runtime/…``). When RUNTIME_PATH is unset, fall back to writer
+    paths that actually exist.
+    """
+    from runtime_store.env_vars import read_runtime_path
+
+    primary = runtime_path(optimization_history.HISTORY_FILENAME)
+    ordered: list[str] = [primary]
+    if read_runtime_path():
+        return ordered
+    for path in (
+        optimization_history.history_file_path(),
+        os.path.join("runtime", optimization_history.HISTORY_FILENAME),
+    ):
+        if path and path not in ordered:
+            ordered.append(path)
+    return ordered
+
+
+def resolve_history_src() -> str:
+    """Return the first existing history path, or the primary candidate if none."""
+    candidates = _history_path_candidates()
+    for path in candidates:
+        if os.path.isfile(path):
+            return path
+    return candidates[0]
+
+
+def _dump_runtime_base(history_src: str) -> str:
+    parent = os.path.dirname(history_src)
+    return parent if parent else runtime_dir()
+
+
 def resolve_output_dir() -> str:
     """Absolute path for debug-dump ZIPs (config key chart_debug_capture_dir)."""
     configured = config.get_ui_chart_debug_capture_dir()
     if os.path.isabs(configured):
         return configured
+    # Prefer directory that holds the live history (volume mount in Docker).
+    history_src = resolve_history_src()
+    if os.path.isfile(history_src):
+        return os.path.join(_dump_runtime_base(history_src), configured)
     return os.path.join(runtime_dir(), configured)
 
 
@@ -72,9 +114,12 @@ def _read_app_version() -> str:
 
 
 def _copy_runtime_file_if_present(
-    archive: zipfile.ZipFile, filename: str
+    archive: zipfile.ZipFile,
+    filename: str,
+    *,
+    runtime_base: str,
 ) -> str | None:
-    path = runtime_path(filename)
+    path = os.path.join(runtime_base, filename)
     if not os.path.isfile(path):
         return None
     arcname = f"runtime/{filename}"
@@ -134,12 +179,93 @@ def write_debug_dump_zip(
     if moment.tzinfo is not None:
         moment = moment.replace(tzinfo=None)
 
-    history_src = runtime_path(optimization_history.HISTORY_FILENAME)
+    history_src = resolve_history_src()
+    # #region agent log
+    try:
+        import time as _agent_time
+
+        _hist_module = getattr(optimization_history, "HISTORY_FILE", None)
+        _legacy_csv = None
+        try:
+            from runtime_store.persist_paths import legacy_history_csv_file
+
+            _legacy_csv = legacy_history_csv_file()
+        except Exception:
+            _legacy_csv = None
+        _rt = runtime_dir()
+        _all_candidates = _history_path_candidates()
+        _exists = {p: os.path.isfile(p) for p in _all_candidates}
+        if _hist_module:
+            _exists["HISTORY_FILE"] = os.path.isfile(_hist_module)
+        if _legacy_csv:
+            _exists["legacy_csv"] = os.path.isfile(_legacy_csv)
+        _listing = []
+        if os.path.isdir(_rt):
+            try:
+                _listing = sorted(os.listdir(_rt))[:40]
+            except OSError as _list_exc:
+                _listing = [f"<listdir error: {_list_exc}>"]
+        _payload = json.dumps(
+            {
+                "sessionId": "595326",
+                "runId": "post-fix",
+                "hypothesisId": "A",
+                "location": "debug_dump_archive.py:write_debug_dump_zip",
+                "message": "history path check before dump",
+                "data": {
+                    "cwd": os.getcwd(),
+                    "runtime_dir": _rt,
+                    "candidates": _all_candidates,
+                    "exists": _exists,
+                    "resolved_history_src": history_src,
+                    "env_RUNTIME_PATH": os.environ.get("EARNIE_RUNTIME_PATH")
+                    or os.environ.get("ENERGY_OPTIMIZER_RUNTIME_PATH"),
+                    "env_ENV_PATH": os.environ.get("EARNIE_ENV_PATH")
+                    or os.environ.get("ENERGY_OPTIMIZER_ENV_PATH"),
+                    "runtime_listing": _listing,
+                    "will_abort": not os.path.isfile(history_src),
+                    "app_runtime_hist_exists": os.path.isfile(
+                        os.path.join("runtime", optimization_history.HISTORY_FILENAME)
+                    ),
+                    "earnie_env_runtime_hist_exists": os.path.isfile(
+                        os.path.join(
+                            "earnie_env",
+                            "runtime",
+                            optimization_history.HISTORY_FILENAME,
+                        )
+                    ),
+                },
+                "timestamp": int(_agent_time.time() * 1000),
+            },
+            ensure_ascii=False,
+        )
+        # Dual-write: workspace log + mounted /app/runtime (NAS-visible)
+        _log_paths = [
+            os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                "debug-595326.log",
+            ),
+            os.path.join("runtime", "debug-595326.log"),
+            os.path.join("/app/runtime", "debug-595326.log"),
+        ]
+        for _log_path in _log_paths:
+            try:
+                _parent = os.path.dirname(_log_path)
+                if _parent and not os.path.isdir(_parent):
+                    continue
+                with open(_log_path, "a", encoding="utf-8") as _dbg:
+                    _dbg.write(_payload + "\n")
+            except OSError:
+                pass
+    except Exception:
+        pass
+    # #endregion
     if not os.path.isfile(history_src):
         raise FileNotFoundError(
             f"{optimization_history.HISTORY_FILENAME} fehlt – Debug-Dump abgebrochen"
         )
 
+    runtime_base = _dump_runtime_base(history_src)
     output_dir = resolve_output_dir()
     os.makedirs(output_dir, exist_ok=True)
     zip_name = f"debug_dump_{_zip_timestamp(moment)}.zip"
@@ -165,7 +291,9 @@ def write_debug_dump_zip(
         archive.write(history_src, arcname="runtime/optimization_history.jsonl")
         required_present.append("runtime/optimization_history.jsonl")
         for filename in _OPTIONAL_RUNTIME:
-            written = _copy_runtime_file_if_present(archive, filename)
+            written = _copy_runtime_file_if_present(
+                archive, filename, runtime_base=runtime_base
+            )
             if written:
                 optional_present.append(written)
 

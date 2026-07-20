@@ -14,12 +14,10 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
   - Facebook groups
     - Loxone Konfigurationsbereich
     - Loxone D-A-CH --> done
-    - Loxone Deutschland
+    - Loxone Deutschland --> done
     - Loxone Bauherren
+  - Photovoltaik-Forum --> done (more to follow)  
   - Contact IoBroker-Community and HomeAssistant (when Best Interface is found)
-- [x] Check if Loxone's Energiemonitor provides statistics to import in Earnie  
-  - Energiemonitor logs statistics
-  - [x] Check how data looks like -- Data is useable
 - [ ] Add a predictive model for Grundlast with logged Grundlast from the past. Research for Models (AI?). Take date / average temperature / week day / and other factors into account
 
 
@@ -47,17 +45,19 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
     - Rename section "Betrieb" into "Live-Cockpit"
 - [x] Make a complete info section in sidebar (including version and Banner der Wahrheit + contacting formular with Topic, Description and attachments to mail@techcreacon.com)
 - [x] Merge streamlitcloud branch with main, when app is working on SCC
+- [x] Add a CONTRIBUTING.md document in German
+- [x] Add [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://earnie.streamlit.app) into README.md
+- [ ] Add link to Streamlit in Posts
+  - Photovoltaik-Forum - Done
+  - LoxForum
+- [x] Perform a SE for posts
+- [x] Add a link to Manual in Info
+- [ ] Test if sunset2set-Mode is working in SE
 - [ ] Finalize Version 2.2.0 after test usage and make a release
   - Update German Docs
 
-### Version 2.+1
 
-- [ ] Clarify how user could get a one-time registry that is bound to their hardware
-  - What are the technical prerequisites to make that running?
-- [ ] **Banner der Wahrheit — Layer C (deferred):** signed official builds / GHCR attestation + startup verifier; tie to hardware registry. Enforces attribution on *official* distribution only — not source forks. See plan outline (A + light B shipped in 2.2.0).
-- [ ] Insert a secured 
-
-### Version 2.+1 - Become Loxone agnostic and standardize communication
+### Version 2.+1 — Become Loxone agnostic and standardize communication
 
 - [ ] Make interface to smarthome loxone agnostic
   - **Goal:** Get into contact with more Smarthome "nerds" that are willing to build connections to their specific hardware
@@ -72,14 +72,14 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 - [ ] Add a Donate feature into sidebar 
 
 
-### Version 2.+1
+### Version 2.+1 — Enhance consumer visualization and cost analysis - sharpen tariffs handling
 
 - [ ] Make appropriate information accessible to user about where differences between optimized SOC and BL SOC Ziel come from to give him explanation (prove plausability)
   - One reason is moved consumption from "standard" EV charging
   - are there other reasons?
   - Idea for visualization: Draw "ghost bars" for scheduled EV charging as not color filled bars (just thick edges)
 - [ ] Check if removing constraint for SOC at end of horizon changes simulation results in backtesting
-- [ ] Check if there is a special issue on weekends, when time-to-be ready is set to 12:00 (Start/ End-SOC constraints)
+- [ ] Check if there is a special issue on weekends, when time-to-be ready is set to 12:00 (Start/ End-SOC constraints) ind SE optimization
 - [ ] Find EPEX API to have provider independent tariff calculation
 - [ ] Review current tariffs - use https://www.e-control.at/referenzmarktwert and docs\referenz\.~lock.Oeko_RefMrktPr.csv# as anchor point
 - [ ] Remove usage of "oemag_monthly_feed_in_rates" in backtesting_scenarios.json for monthly export tariffs. They must own their own complete data. Consider thac as design change if needed. Add data of "oemag_monthly_feed_in_rates" as sample in tariffs.json. Remove entry "oemag_monthly_feed_in_rates" in backtesting_scenarios.json.
@@ -96,14 +96,17 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 - [ ] Improve performance of Scenario Explorer (ideas?)
 
 
-### Version 2.+1
+### Version 2.+1 — Improve "security" against violating License agreements
+
+- [ ] Clarify how user could get a one-time registry that is bound to their hardware
+  - What are the technical prerequisites to make that running?
+- [ ] **Banner der Wahrheit — Layer C (deferred):** signed official builds / GHCR attestation + startup verifier; tie to hardware registry. Enforces attribution on *official* distribution only — not source forks. See plan outline (A + light B shipped in 2.2.0).
+
+
+### Version 2.+1 — Introducing nested data models
 
 - [ ] Enhance data model to nested structures. E.g. pool can consist of multiple "inner" consumers or house consists also of multiple "inner" consumers
   - Move Loxone markers to data model - remove flat definition in config.json where possible
-
-
-### Version 2.+1
-
 - [ ] **Recommendation mode smart/adaptive devices** (follow-up to recommendation mode manual devices)
   - Adaptive re runtime/energy per run; smart devices instead of manual input
   - Adaptation algo maintains `appliance_recommendation.default_power_kw` from Loxone power markers (`loxone_inputs.power_name`) on house-profile generics — reserved so far, no live use
@@ -120,29 +123,17 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
     - Start parameters from `config.json`; adaptation history **separate**; correct live parameters only when needed (rhythm oriented to horizon)
   - Target models (connect later): PV yield, thermal models, solar collector
   - **Precursor (done):** *Unified Open-Meteo solar* — shared archive bundle ([Backlog-Erledigt.md](Backlog-Erledigt.md))
-
-
-### Version 2.+1
-
 - [ ] **Adaptation P2** — PV adaptation (new approach) — first pilot on Adaptation P1
   - Sidebar PV tuning removed (UI S-2 P1 + 2026-07-15 code path) → [Backlog-Erledigt.md](Backlog-Erledigt.md) § PV tuning removal; see `runtime/pv_accuracy_log.csv`
   - Replace or integrate old `pv_tuner` path into Adaptation P1 (`pv_tuner.py` counter delta only)
 - [ ] **Adaptation P3** — Adaptation algorithm (PV pilot)
   - Concrete update loop on Adaptation P2; thermal models remain **linear** (thermal adaptation only in Thermals P3)
-
-
-### Version 2.+1
-
 - [ ] **Thermals P2** — Coupled single-node models
   - House ↔ heat storage ↔ solar system
   - House parameters from energy certificate (`EXAMPLE:/local/reference/energy-certificate.pdf` — not in repo)
   - Prepare air conditioning as thermal consumer
 - [ ] **Thermals P3** — Thermal parameter adaptation (on Adaptation P1)
   - `heat_loss_kw_per_k` and further linear model parameters; horizon per consumer (24 h / 1 year)
-
-
-### Version 2.+1
-
 - [ ] **Adaptation P4** — UI visualization adaptation algos (after Adaptation P3 and Thermals P3)
 
 
@@ -156,5 +147,5 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 - [ ] Better consumption optimization with temperature-control devices
   - [ ] Heat pump (Prio3) — only indirect control via setpoint adjustment via Loxone setpoint (after **Thermals P2**); distinct from **Thermals P1a** (direct enable/PWM flex from daily HDD budget)
 
-### Version 2.+1
+### Version 3.0
 - [ ] Make complete Earnie available as cloud service (Online optimization and Internet communication with local smarthome / isolated devices) - similar to "Smart-Energy" (Steiermark)

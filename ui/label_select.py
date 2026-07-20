@@ -55,13 +55,16 @@ def align_label_select_session(
             st.session_state[selected_id_key] = mapped
         return
 
-    selected_id = st.session_state.get(selected_id_key)
-    if selected_id in entity_ids:
-        st.session_state[select_key] = entity_display_label(entity_map, str(selected_id))
-        return
+    # Pending select may store a stable entity id (not a Bezeichnung). Prefer that
+    # over selected_id_key, which can still point at the previously edited entity.
     if current is not None and str(current) in entity_ids:
         st.session_state[selected_id_key] = str(current)
         st.session_state[select_key] = entity_display_label(entity_map, str(current))
+        return
+
+    selected_id = st.session_state.get(selected_id_key)
+    if selected_id in entity_ids:
+        st.session_state[select_key] = entity_display_label(entity_map, str(selected_id))
 
 
 def refresh_label_select_display(

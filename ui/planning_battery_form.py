@@ -7,8 +7,13 @@ import streamlit as st
 
 from house_config.id_slug import slug_id
 from runtime_store.persist_paths import resolve_config_json_path
-from ui.house_config_io import get_runtime_scenario_refs, list_batteries, upsert_battery
-from ui.auto_persist import auto_persist
+from ui.house_config_io import (
+    delete_battery,
+    get_runtime_scenario_refs,
+    list_batteries,
+    upsert_battery,
+)
+from ui.auto_persist import auto_persist, payload_fingerprint
 from ui.form_layout import (
     WIDE_LABEL_RATIOS,
     labeled_number_input,
@@ -26,6 +31,7 @@ _SESSION_SYNC_KEY = "planning_battery_sync_id"
 _SESSION_FILE_STAMP_KEY = "planning_battery_file_stamp"
 _SESSION_SELECT_PENDING_KEY = "planning_battery_select_pending"
 _SESSION_SELECTED_ID_KEY = "planning_battery_selected_id"
+_SESSION_SUPPRESS_AUTOPERSIST_KEY = "planning_battery_suppress_autopersist"
 
 
 def _scoped_key(session_scope: str, base: str) -> str:
@@ -238,11 +244,43 @@ def render_battery_planning_tab() -> None:
             st.session_state[_SESSION_SYNC_KEY] = None
             st.rerun()
 
-    wrote = auto_persist(
-        state_key=f"planning_battery::{entity_id}",
-        payload=payload,
-        save=_save_battery,
-        ready=ready,
-    )
+    persist_key = f"planning_battery::{entity_id}"
+    suppress = bool(st.session_state.pop(_SESSION_SUPPRESS_AUTOPERSIST_KEY, False))
+    if suppress and ready:
+        # Mark draft as clean without writing so delete-of-last is not undone.
+        st.session_state[f"_auto_persist_fp::{persist_key}"] = payload_fingerprint(
+            payload
+        )
+        wrote = False
+    else:
+        wrote = auto_persist(
+            state_key=persist_key,
+            payload=payload,
+            save=_save_battery,
+            ready=ready,
+        )
     if wrote:
         st.rerun()
+
+    if not is_new and stable_id:
+        if st.button("Batterie entfernen", key="planning_battery_delete"):
+            try:
+                delete_battery(stable_id)
+            except ValueError as exc:
+                st.error(str(exc))
+            else:
+                remaining_ids = sorted(_battery_by_id().keys())
+                fallback = remaining_ids[0] if remaining_ids else NEW_OPTION
+                _clear_scoped_widget_keys(stable_id)
+                _clear_scoped_widget_keys("__new__")
+                st.session_state.pop(_SESSION_SELECTED_ID_KEY, None)
+                st.session_state.pop(
+                    f"_auto_persist_fp::planning_battery::{stable_id}", None
+                )
+                st.session_state[_SESSION_SELECT_PENDING_KEY] = fallback
+                st.session_state[_SESSION_FILE_STAMP_KEY] = _config_file_stamp()
+                st.session_state[_SESSION_SYNC_KEY] = None
+                if fallback == NEW_OPTION:
+                    st.session_state[_SESSION_SUPPRESS_AUTOPERSIST_KEY] = True
+                st.success("Batterie entfernt.")
+                st.rerun()

@@ -102,3 +102,51 @@ def test_chart_known_generics_allocate_colors():
     consumers = chart_known_generics(_PROFILE, used_color_indices={0, 1})
     assert {c["id"] for c in consumers} == {"kochen", "fernsehen"}
     assert all(c["chart_color_index"] is not None for c in consumers)
+
+
+def test_manual_schedule_not_peeled_into_named_bars():
+    """Assumed weekly manuals must not invent Chart-1 bars (appliance_schedules only)."""
+    profile = {
+        "baseload_kwh": 4500.0,
+        "consumers": [
+            {
+                "id": "waschmaschine",
+                "label": "Waschmaschine",
+                "type": "generic",
+                "nominal_power_kw": 0.6,
+                "earnie_role": "manual",
+                "schedule": {
+                    "runs_per_week": 7,
+                    "duration_h": 3.0,
+                    "start_hour": 17,
+                    "start_shift_h": 4.0,
+                },
+            },
+            {
+                "id": "fernsehen",
+                "label": "Fernsehen",
+                "type": "generic",
+                "nominal_power_kw": 0.2,
+                "earnie_role": "known",
+                "schedule": {
+                    "runs_per_week": 7,
+                    "duration_h": 1.0,
+                    "start_hour": 17,
+                    "start_shift_h": 0.0,
+                },
+            },
+        ],
+    }
+    slot = datetime(2026, 7, 20, 17, 15, tzinfo=_TZ)
+    chart_rows = [
+        {
+            "slot_datetime": slot,
+            "Verbrauch-Prognose (kW)": 0.396,
+            "PV-Prognose (kW)": 2.65,
+        }
+    ]
+    apply_known_generic_to_chart_rows(chart_rows, house_profile=profile)
+    assert "Waschmaschine (kW)" not in chart_rows[0]
+    assert chart_rows[0]["Fernsehen (kW)"] == 0.2
+    assert chart_rows[0]["Verbrauch-Prognose (kW)"] == 0.196
+    assert chart_known_generics(profile)[0]["id"] == "fernsehen"

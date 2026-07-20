@@ -110,10 +110,14 @@ def test_baseload_overlay_skipped_when_haus_column_zero_in_cons_data(monkeypatch
         climate=climate,
     )
     df["haus_kw"] = 0.0
+    # Profile may only synthesize haus_kw; ensure expected flex columns exist.
+    for cid in consumer_ids:
+        col = f"{cid}_kw"
+        if col not in df.columns:
+            df[col] = 0.0
     df["total_kw"] = (
         df["baseload_kw"].astype(float)
-        + df["ev_kw"].astype(float)
-        + df["rest_kw"].astype(float)
+        + sum(df[f"{cid}_kw"].astype(float) for cid in consumer_ids if cid != "haus")
     ).round(3)
 
     anchor = datetime(2025, 1, 15, 0, 0)

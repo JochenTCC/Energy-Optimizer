@@ -11,6 +11,7 @@ from house_config.profiles_store import load_house_profiles_document, save_house
 from data.heating_need import specific_heating_kwh_m2
 from ui import setup_readiness
 from ui.house_config_io import (
+    delete_battery,
     delete_scenario,
     get_planning_tariff_selection,
     load_backtesting_scenarios_raw,
@@ -134,6 +135,76 @@ def test_upsert_pv_and_battery_persist(tmp_path, monkeypatch):
     components_payload = json.loads(config_dir.joinpath("components.json").read_text(encoding="utf-8"))
     assert components_payload["pv_systems"][0]["id"] == "dach_sued"
     assert components_payload["batteries"][0]["battery_capacity_kwh"] == 5.0
+
+
+def test_delete_battery_removes_entity_and_scrubs_scenarios(tmp_path, monkeypatch):
+    config_dir = _bind_paths(tmp_path, monkeypatch)
+    monkeypatch.setattr("ui.house_config_io.config.reinit_config", lambda **kwargs: None)
+    config_dir.joinpath("components.json").write_text(
+        json.dumps(
+            {
+                "batteries": [
+                    {
+                        "id": "bat1",
+                        "label": "Speicher 1",
+                        "battery_capacity_kwh": 5.0,
+                        "battery_max_power_kw": 2.5,
+                        "battery_efficiency": 0.97,
+                        "battery_min_soc": 10.0,
+                        "battery_max_soc": 100.0,
+                        "threshold_power": 0.05,
+                        "battery_wear": {"enabled": False},
+                    },
+                    {
+                        "id": "bat2",
+                        "label": "Speicher 2",
+                        "battery_capacity_kwh": 10.0,
+                        "battery_max_power_kw": 5.0,
+                        "battery_efficiency": 0.97,
+                        "battery_min_soc": 10.0,
+                        "battery_max_soc": 100.0,
+                        "threshold_power": 0.05,
+                        "battery_wear": {"enabled": False},
+                    },
+                ],
+                "pv_systems": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    config_dir.joinpath("backtesting_scenarios.json").write_text(
+        json.dumps(
+            {
+                "scenarios": [
+                    {
+                        "id": "live",
+                        "label": "Live",
+                        "settings": {"battery_id": "bat1", "house_profile_id": "home"},
+                    },
+                    {
+                        "id": "alt",
+                        "label": "Alt",
+                        "settings": {"battery_id": "bat2", "house_profile_id": "home"},
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    delete_battery("bat1")
+
+    components_payload = json.loads(
+        config_dir.joinpath("components.json").read_text(encoding="utf-8")
+    )
+    assert [b["id"] for b in components_payload["batteries"]] == ["bat2"]
+    scenarios = load_backtesting_scenarios_raw()["scenarios"]
+    by_id = {s["id"]: s for s in scenarios}
+    assert by_id["live"]["settings"]["battery_id"] == ""
+    assert by_id["alt"]["settings"]["battery_id"] == "bat2"
+
+    with pytest.raises(ValueError, match="Unbekannte Batterie"):
+        delete_battery("bat1")
 
 
 def test_upsert_pv_rejects_duplicate_label(tmp_path, monkeypatch):

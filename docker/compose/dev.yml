@@ -12,6 +12,8 @@ x-persist-volumes: &persist-volumes
 x-common-env: &common-env
   TZ: Europe/Vienna
   EARNIE_CONFIG_PATH: config
+  # Volume is ./earnie_env/runtime:/app/runtime — must match writers (not baked earnie_env/runtime).
+  EARNIE_RUNTIME_PATH: runtime
   EARNIE_VERIFY_LOXONE_ON_START: "1"
   EARNIE_AUTO_START_MAIN: "1"
 

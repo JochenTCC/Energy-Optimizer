@@ -6,12 +6,24 @@ from typing import Any
 
 import pandas as pd
 
+from house_config.earnie_role import is_earnie_known
 from house_config.generic_schedule import generic_hourly_kw_for_day
 from house_config.planning_flex_bridge import (
     _allocate_chart_color_index,
     _used_chart_color_indices,
     split_planning_generic_consumers,
 )
+
+
+def _known_fixed_for_chart(house_profile: dict) -> list[dict]:
+    """Fixed overlay consumers that get named Chart-1 peel (known only).
+
+    ``earnie_role: manual`` stays in the planning baseload overlay for SE/live
+    energy totals, but named bars come only from ``appliance_schedules.json``
+    (user-planned runs) — not from the assumed weekly default schedule.
+    """
+    fixed, _flex = split_planning_generic_consumers(house_profile)
+    return [consumer for consumer in fixed if is_earnie_known(consumer)]
 
 
 def _resolve_house_profile(house_profile: dict | None) -> dict:
@@ -59,7 +71,7 @@ def chart_known_generics(
 ) -> list[dict]:
     """Known generics as Chart consumers with allocated palette indices."""
     profile = _resolve_house_profile(house_profile)
-    fixed, _flex = split_planning_generic_consumers(profile)
+    fixed = _known_fixed_for_chart(profile)
     if not fixed:
         return []
     used = set(used_color_indices or ())
@@ -93,13 +105,13 @@ def apply_known_generic_to_chart_rows(
     """
     Split known schedule power out of Verbrauch-Prognose into named kW columns.
 
-    Optimization still treats known as Grundlast; this is display-only (like
-    ``apply_appliance_schedules_to_chart_rows``).
+    Optimization still treats known as Grundlast; this is display-only.
+    Manuals are not peeled here — use ``apply_appliance_schedules_to_chart_rows``.
     """
     if not chart_rows:
         return
     profile = _resolve_house_profile(house_profile)
-    fixed, _flex = split_planning_generic_consumers(profile)
+    fixed = _known_fixed_for_chart(profile)
     if not fixed:
         return
 

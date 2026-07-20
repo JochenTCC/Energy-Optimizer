@@ -21,7 +21,8 @@ Fix is **implemented** (code + tests + optional PATCH in `version.py`), but **pr
 
 ## Bugfix Verifications Pending (Do not remove this chapter — even if empty)
 
-- [ ] **EV charge while unplugged (config path)** — house-profile EV (`daily_target_source=config`) sent `Ernie_EAuto_Ziel_kW` > 0 with `eauto_plugged_in: false`; config path now sets `anticipated`/`plugged_in` like Loxone path (`optimizer/charging_context.py::_config_path_with_plugged_in`). Dump: `chart_debug_review/debug_dump_20260720_094034`. Dump repro OK — live acceptance pending.
+- [ ] **Debug-Dump ZIP: `optimization_history.jsonl` fehlt (NAS/Docker)** — dump used baked `earnie_env/runtime` while history lives on volume `/app/runtime`; fixed via `resolve_history_src()` fallback + `EARNIE_RUNTIME_PATH: runtime` in compose. Compose workaround verified on NAS; code/image acceptance pending.
+- [ ] **Manual WM/Trockner phantom Chart-1 bars** — `apply_known_generic_to_chart_rows` peeled assumed weekly `earnie_role: manual` schedules into named bars (`phantom_kw` when live baseload lacked that energy). Fix: peel only `known`; manuals via `appliance_schedules.json` only (`house_config/known_chart_display.py`). Dump: `chart_debug_review/debug_dump_20260720_171718`. Dump repro OK — live acceptance pending.
 
 ## New Bugs (Do not remove this chapter — even if empty)
 

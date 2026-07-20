@@ -14,7 +14,7 @@ from ui.house_config_io import (
     load_house_profiles,
     upsert_pv_system,
 )
-from ui.auto_persist import auto_persist
+from ui.auto_persist import auto_persist, payload_fingerprint
 from ui.form_layout import labeled_number_input, labeled_selectbox, labeled_text_input
 from ui.label_select import (
     NEW_OPTION,
@@ -27,6 +27,7 @@ _SESSION_SYNC_KEY = "planning_pv_sync_id"
 _SESSION_FILE_STAMP_KEY = "planning_pv_file_stamp"
 _SESSION_SELECT_PENDING_KEY = "planning_pv_select_pending"
 _SESSION_SELECTED_ID_KEY = "planning_pv_selected_id"
+_SESSION_SUPPRESS_AUTOPERSIST_KEY = "planning_pv_suppress_autopersist"
 
 
 def _scoped_key(session_scope: str, base: str) -> str:
@@ -298,12 +299,21 @@ def render_pv_planning_tab() -> None:
             st.session_state[_SESSION_SYNC_KEY] = None
             st.rerun()
 
-    wrote = auto_persist(
-        state_key=f"planning_pv::{entity_id}",
-        payload=payload,
-        save=_save_pv,
-        ready=ready,
-    )
+    persist_key = f"planning_pv::{entity_id}"
+    suppress = bool(st.session_state.pop(_SESSION_SUPPRESS_AUTOPERSIST_KEY, False))
+    if suppress and ready:
+        # Mark draft as clean without writing so delete-of-last is not undone.
+        st.session_state[f"_auto_persist_fp::{persist_key}"] = payload_fingerprint(
+            payload
+        )
+        wrote = False
+    else:
+        wrote = auto_persist(
+            state_key=persist_key,
+            payload=payload,
+            save=_save_pv,
+            ready=ready,
+        )
     if wrote:
         st.rerun()
 
@@ -314,8 +324,16 @@ def render_pv_planning_tab() -> None:
             except ValueError as exc:
                 st.error(str(exc))
             else:
-                st.session_state[_SESSION_SELECT_PENDING_KEY] = NEW_OPTION
+                remaining_ids = sorted(_pv_by_id().keys())
+                fallback = remaining_ids[0] if remaining_ids else NEW_OPTION
+                _clear_scoped_widget_keys(stable_id)
+                _clear_scoped_widget_keys("__new__")
+                st.session_state.pop(_SESSION_SELECTED_ID_KEY, None)
+                st.session_state.pop(f"_auto_persist_fp::planning_pv::{stable_id}", None)
+                st.session_state[_SESSION_SELECT_PENDING_KEY] = fallback
                 st.session_state[_SESSION_FILE_STAMP_KEY] = _config_file_stamp()
                 st.session_state[_SESSION_SYNC_KEY] = None
+                if fallback == NEW_OPTION:
+                    st.session_state[_SESSION_SUPPRESS_AUTOPERSIST_KEY] = True
                 st.success("PV-Anlage entfernt.")
                 st.rerun()

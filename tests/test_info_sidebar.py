@@ -5,7 +5,20 @@ import io
 import zipfile
 from types import SimpleNamespace
 
-from ui.info_sidebar import SUPPORT_EMAIL, build_contact_bundle_bytes, build_mailto_url
+from ui.info_sidebar import (
+    MANUAL_URL,
+    SUPPORT_EMAIL,
+    build_contact_bundle_bytes,
+    build_mailto_url,
+)
+from ui.truth_banner import OFFICIAL_REPO_URL
+
+
+def test_manual_url_points_to_github_handbook():
+    assert MANUAL_URL.startswith(OFFICIAL_REPO_URL)
+    assert MANUAL_URL.endswith(
+        "/blob/main/docs/user-manual/Benutzer-Handbuch-Earnie.md"
+    )
 
 
 def test_build_mailto_url_encodes_topic_and_description():

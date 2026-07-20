@@ -3,6 +3,33 @@
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 
+### Research Loxone Energiemonitor statistics (2026-07-20)
+
+- [x] Check if Loxone's Energiemonitor provides statistics to import in Earnie
+  - Energiemonitor logs statistics
+  - [x] Check how data looks like — data is usable
+
+
+### Bugfix Battery remove button missing (2026-07-20)
+
+- [x] **Battery: no remove button in UI** — added `delete_battery` (scrubs scenario `battery_id`) + **Batterie entfernen** with same pending/fallback + suppress-autopersist-on-last-delete pattern as PV (`ui/house_config_io.py`, `ui/planning_battery_form.py`); verified live
+
+
+### Bugfix PV remove still shows removed params (2026-07-20)
+
+- [x] **After removing a PV-Anlage the editor still showed its parameters** — delete always selected `— neu —` (ghost draft / same slug); now pending falls back to a remaining PV, clears scoped keys + selected id + auto_persist fingerprint, and suppresses one auto_persist when deleting the last PV (`ui/planning_pv_form.py`); verified live
+
+
+### Bugfix EV charge while unplugged config path (2026-07-20)
+
+- [x] **EV charge while unplugged (config path)** — house-profile EV (`daily_target_source=config`) sent `Ernie_EAuto_Ziel_kW` > 0 with `eauto_plugged_in: false`; config path now sets `anticipated`/`plugged_in` like Loxone path (`optimizer/charging_context.py::_config_path_with_plugged_in`). Dump: `chart_debug_review/debug_dump_20260720_094034`; verified live
+
+
+### Bugfix Hauskonfigurator second PV select jump (2026-07-20)
+
+- [x] **After adding a second PV-Anlage the editor jumped back to the first** — pending select stored entity id; `align_label_select_session` preferred stale `selected_id` over that id; fix: prefer current value when it is already a known entity id (`ui/label_select.py`); verified greenfield
+
+
 ### Version 2.2.0 — Merge streamlitcloud → main (2026-07-20)
 
 - [x] Merge `streamlitcloud` into `main` (PR #6) — Community Cloud / offline SE, sidebar, Banner, Alpha/productive compose

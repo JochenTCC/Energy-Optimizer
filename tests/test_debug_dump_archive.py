@@ -120,6 +120,65 @@ def test_write_debug_dump_zip_requires_history(tmp_path, monkeypatch):
     assert raised
 
 
+def test_write_debug_dump_zip_uses_volume_runtime_when_earnie_env_empty(
+    tmp_path, monkeypatch
+):
+    """Docker layout: baked earnie_env/runtime empty, history on mounted runtime/."""
+    monkeypatch.chdir(tmp_path)
+    for key in (
+        "EARNIE_RUNTIME_PATH",
+        "ENERGY_OPTIMIZER_RUNTIME_PATH",
+        "EARNIE_ENV_PATH",
+        "ENERGY_OPTIMIZER_ENV_PATH",
+        "EARNIE_RUNTIME_DIR",
+        "ENERGY_OPTIMIZER_RUNTIME_DIR",
+        "EARNIE_HOUSE_PROFILES_PATH",
+        "ENERGY_OPTIMIZER_HOUSE_PROFILES_PATH",
+    ):
+        monkeypatch.delenv(key, raising=False)
+    (tmp_path / "earnie_env" / "runtime").mkdir(parents=True)
+    (tmp_path / "runtime").mkdir()
+    (tmp_path / "runtime" / "optimization_history.jsonl").write_text(
+        '{"written_at":"2026-07-16T08:00:00","soc_percent":50}\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "runtime" / "optimizer_run_state.json").write_text(
+        '{"ok":true}',
+        encoding="utf-8",
+    )
+    config_path, scenarios_path = write_minimal_config_tree(
+        tmp_path,
+        config_payload=minimal_config_payload(
+            extra={
+                "ui": {
+                    "chart_debug_capture_enabled": True,
+                    "chart_debug_capture_dir": "chart_debug",
+                }
+            }
+        ),
+    )
+    # Isolate from suite-leaked profiles (chdir breaks CWD climate fixtures).
+    (tmp_path / "config" / "house_profiles.json").write_text(
+        '{"profiles": []}',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ENERGY_OPTIMIZER_OFFLINE", "1")
+    monkeypatch.setenv("ENERGY_OPTIMIZER_CONFIG_PATH", config_path)
+    monkeypatch.setenv("ENERGY_OPTIMIZER_BACKTESTING_SCENARIOS_PATH", scenarios_path)
+    config.reinit_config()
+    zip_path = write_debug_dump_zip(
+        title="docker path",
+        symptom="volume",
+        captured_at=datetime(2026, 7, 16, 8, 0, 0),
+    )
+    assert zip_path.endswith("debug_dump_20260716_080000.zip")
+    assert "runtime" in zip_path.replace("\\", "/")
+    with zipfile.ZipFile(zip_path) as archive:
+        names = set(archive.namelist())
+        assert "runtime/optimization_history.jsonl" in names
+        assert "runtime/optimizer_run_state.json" in names
+
+
 def test_write_debug_dump_zip_without_chart(tmp_path, monkeypatch):
     with _dump_config(tmp_path, monkeypatch):
         _write_history(

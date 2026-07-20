@@ -21,12 +21,14 @@ name: earnie-alpha
 version: "3.8"
 
 x-persist-volumes: &persist-volumes
-  - ./earnie_env_alpha/config:/app/config
-  - ./earnie_env_alpha/runtime:/app/runtime
+  - ./earnie_env/config:/app/config
+  - ./earnie_env/runtime:/app/runtime
 
 x-common-env: &common-env
   TZ: Europe/Vienna
   EARNIE_CONFIG_PATH: config
+  # Volume is ./…/runtime:/app/runtime — must match writers (not baked earnie_env/runtime).
+  EARNIE_RUNTIME_PATH: runtime
   EARNIE_STRICT_TARIFF_VALIDATE: "1"
   EARNIE_VERIFY_LOXONE_ON_START: "1"
   EARNIE_AUTO_START_MAIN: "1"

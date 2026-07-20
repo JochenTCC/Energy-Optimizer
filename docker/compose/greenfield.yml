@@ -23,6 +23,8 @@ x-persist-volumes: &persist-volumes
 x-common-env: &common-env
   TZ: Europe/Vienna
   EARNIE_CONFIG_PATH: config
+  # Volume is ./greenfield/runtime:/app/runtime — must match writers (not baked earnie_env/runtime).
+  EARNIE_RUNTIME_PATH: runtime
   # Kein Loxone-Smoke-Test — Greenfield nutzt Dummy-Zugangsdaten aus der Ersteinrichtung.
   EARNIE_VERIFY_LOXONE_ON_START: "0"
   EARNIE_AUTO_START_MAIN: "1"

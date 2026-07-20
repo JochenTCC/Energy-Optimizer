@@ -411,6 +411,36 @@ def upsert_battery(raw_spec: dict, *, stable_id: str = "") -> None:
     _save_components_document(data)
 
 
+def delete_battery(entity_id: str) -> None:
+    """Remove a battery from components.json and scrub scenario references."""
+    target = str(entity_id or "").strip()
+    if not target:
+        raise ValueError("Batterie-ID fehlt.")
+    data = _load_components_document()
+    batteries = list(data.get("batteries") or [])
+    remaining = [item for item in batteries if str(item.get("id", "")).strip() != target]
+    if len(remaining) == len(batteries):
+        raise ValueError(f"Unbekannte Batterie '{target}'.")
+    data["batteries"] = remaining
+    _save_components_document(data)
+
+    doc = load_backtesting_scenarios_raw()
+    changed = False
+    for scenario in doc.get("scenarios") or []:
+        if not isinstance(scenario, dict):
+            continue
+        settings = scenario.get("settings")
+        if not isinstance(settings, dict):
+            continue
+        if str(settings.get("battery_id", "") or "").strip() != target:
+            continue
+        settings["battery_id"] = ""
+        changed = True
+    if changed:
+        save_backtesting_scenarios(doc)
+        config.reinit_config()
+
+
 def _live_scenario_settings() -> dict:
     from house_config.scenario_resolution import (
         find_scenario_settings,
