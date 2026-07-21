@@ -84,6 +84,7 @@ def _normalize_dach_fields(raw: dict, spec: dict) -> None:
         "markup_percent",
         "vat_percent",
         "netzentgelt_cent_kwh",
+        "monthly_fee_eur",
     ):
         value = _optional_float(raw, key)
         if value is not None:

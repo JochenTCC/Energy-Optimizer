@@ -21,6 +21,7 @@ import logger_config
 from data import profile_manager
 from simulation.backtesting_log import save_backtesting_log
 from simulation.backtesting_log import build_critical_cases, summarize_critical_cases
+from simulation.monthly_fees import monthly_fees_by_result_id
 from data.data_loader import load_market_prices, resolve_simulation_window
 from data.backtesting_prices import (
     MISSING_PRICE_STRATEGY_FORECAST,
@@ -948,6 +949,12 @@ def main(argv: list[str] | None = None):
         period_meta["imported_pv_scenario_ids"] = used_pv
     if missing_pv:
         period_meta["imported_pv_missing_scenario_ids"] = missing_pv
+    monthly_fee_by_scenario = monthly_fees_by_result_id(
+        scenarios=scenarios,
+        historical_params=reference_params,
+        historical_id=HISTORICAL_REFERENCE_ID,
+        extra_ref_specs=extra_ref_specs,
+    )
     log_path = save_backtesting_log(
         sim_results,
         labels,
@@ -956,6 +963,7 @@ def main(argv: list[str] | None = None):
         log_dir=args.output_dir,
         cbc_events_by_scenario=cbc_events_by_scenario,
         window_snapshots=window_snapshots,
+        monthly_fee_by_scenario=monthly_fee_by_scenario,
     )
     if progress_file:
         clear_progress_dir(progress_file)

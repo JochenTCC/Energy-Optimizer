@@ -78,6 +78,11 @@
           "type": "number",
           "minimum": 0
         },
+        "monthly_fee_eur": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Approximate monthly standing charge in EUR/month (net if prices_include_vat is false, else gross). Used in Scenario Explorer totals only."
+        },
         "notes": {
           "type": "string"
         }

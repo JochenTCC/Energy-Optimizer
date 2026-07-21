@@ -1,8 +1,12 @@
 # Preise & aWATTar
 
+**Nachrechnen für Anwender:** [Tarife und Preise nachrechnen](../referenz/tarife-quellen.md) — Schritt-für-Schritt Bezugs-/Einspeisepreis und SE-Monatsgebühr.
+
 Live-Bezugspreise kommen über Tarif-Einträge vom Typ `awattar` (API AT/DE) oder über Spot-Tarife mit Day-Ahead-Marktpreis. Providerunabhängige EPEX-Daten für Planung/Backtesting kommen standardmäßig von **Energy-Charts** (AT/DE/CH); aWATTar bleibt Fallback bzw. Live-Typ `awattar`.
 
-Quellen und rechtliche Anker: [Tarife — Quellen](../referenz/tarife-quellen.md), [OeMAG & Referenzmarktwert](../referenz/oemag-referenzmarktwert.md).
+Quellen und rechtliche Anker: [Tarife und Preise nachrechnen](../referenz/tarife-quellen.md), [OeMAG & Referenzmarktwert](../referenz/oemag-referenzmarktwert.md).
+
+**Monatsgebühr (`monthly_fee_eur`):** optionale Näherung in EUR/Monat am Tarif (netto/brutto wie `prices_include_vat`). Wird nur in den **Szenario-Explorer**-Gesamt-/Monatskosten addiert (eine volle Gebühr pro Kalendermonat), nicht in Live-MILP und nicht in stündlichen `sim_cost`.
 
 ## Bezugspreis (Live)
 

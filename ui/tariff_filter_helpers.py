@@ -120,6 +120,13 @@ def _append_common_meta(rows: list[tuple[str, str]], tariff: dict) -> None:
     currency = tariff.get("currency")
     if currency:
         rows.append(("Währung", str(currency)))
+    _append_if_present(
+        rows,
+        tariff,
+        "monthly_fee_eur",
+        "Monatsgebühr (ca.)",
+        suffix=" €/Monat",
+    )
     notes = tariff.get("notes")
     if notes:
         rows.append(("Hinweis", str(notes)))

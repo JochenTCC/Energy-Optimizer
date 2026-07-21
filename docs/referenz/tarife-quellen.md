@@ -1,57 +1,155 @@
-# Tarife — Quellenverzeichnis (2.3.a)
+# Tarife und Preise nachrechnen
 
-Dokumentation der **Quellen und Entscheidungen** hinter der Tarif-Hygiene in Earnie (Backlog **2.3.a**). Sprache der Anwenderdoku: Deutsch; Identifier, URLs und JSON-Keys unverändert.
+Anleitung für Anwender:innen, die im **Szenarioeditor** oder **Szenario-Explorer** verstehen wollen, wie Earnie Bezugs- und Einspeisepreise sowie die ungefähren Monatskosten bildet. Sprache der Anwenderdoku: Deutsch; Identifier, URLs und JSON-Keys unverändert.
 
-Verwandt: [OeMAG und Referenzmarktwert](oemag-referenzmarktwert.md) · [Preise und aWATTar](../konfiguration/preise.md)
+Verwandt: [Preise & aWATTar](../konfiguration/preise.md) (Konfiguration/Typen) · [OeMAG und Referenzmarktwert](oemag-referenzmarktwert.md)
 
-## 1. Day-Ahead / EPEX-Quellen
+## 1. Was Earnie berechnet (und was nicht)
 
+| Bestandteil | Live / MILP | Szenario-Explorer (Gesamt- und Monatskosten) |
+| ----------- | ----------- | --------------------------------------------- |
+| Energiepreis Bezug (€/kWh × Netzbezug) | ja | ja |
+| Einspeisevergütung (€/kWh × Netzeinspeisung) | ja | ja |
+| Aufschläge am Tarif (`settlement_fee_cent_kwh`, `markup_percent`, USt) | ja | ja |
+| **Monatsgebühr** (`monthly_fee_eur`, Näherung) | **nein** | **ja** (nach Aggregation) |
+| Vollständige Netz-Grundpreise, Messstellengebühr, Abgabenstack der Rechnung | nein | nein |
+
+Earnie liefert **gute-genug-€** für Vergleiche und Demos — **keine** Abrechnung gegen echte Stromrechnungen. Katalogwerte können unvollständig oder veraltet sein; bitte die Parameter im Szenarioeditor prüfen.
+
+## 2. Bezugspreis Schritt für Schritt
+
+Für Spot-/aWATTar-Tarife gilt (Cent/kWh), wie im Katalog und in der Vorschau:
+
+1. **Börsenpreis** der Stunde (Day-Ahead / EPEX-Zone zum Land des Tarifs).
+2. Optional **prozentualer Aufschlag** (`markup_percent`), z. B. 3 → Faktor 1,03.
+3. **Fixer Aufschlag** (`settlement_fee_cent_kwh`) in Cent/kWh.
+4. **Umsatzsteuer**, falls `prices_include_vat` = nein: Ergebnis × (1 + `vat_percent`/100).
+
+Formel:
+
+```
+(Börsenpreis × (1 + markup_percent/100) + settlement_fee_cent_kwh)
+  × (1 + vat_percent/100)   falls prices_include_vat = false
+```
+
+Bei Festpreis-Tarifen (`fixed_cent`) ist der Arbeitspreis `fix_cent_kwh` (ebenfalls mit USt-Regel).
+
+### Beispiel: aWATTar HOURLY (AT)
+
+Katalog (`awattar_at`): Aufschlag 1,5 Cent/kWh netto, Markup 3 %, Preise **ohne** USt, USt 20 %.
+
+Angenommen Börsenpreis = **5,00** Cent/kWh:
+
+1. 5,00 × 1,03 = 5,15  
+2. 5,15 + 1,50 = 6,65  
+3. 6,65 × 1,20 = **7,98 Cent/kWh** (brutto, wie Earnie ihn für die Kostenrechnung nutzt)
+
+Zusätzlich kann der Tarif eine **Monatsgebühr** haben (bei aWATTar AT ca. 4,79 € netto / Monat) — die fließt nur in die SE-Gesamt-/Monatskosten ein, nicht in den Stundenpreis.
+
+### Beispiel: VKW Strom Dynamisch
+
+Katalog: +1,20 Cent/kWh **netto**, ohne Markup, `prices_include_vat` = nein. Bei Börse 10,00 Cent/kWh → (10,00 + 1,20) × 1,20 = **13,44 Cent/kWh** brutto.
+
+## 3. Einspeisevergütung
+
+Je nach Export-Tariftyp:
+
+- **Fest** (`fixed`): konstanter Cent/kWh (`k_push_cent`).
+- **Spot** (`spot_hourly`): Börsenpreis minus Abschlag (`settlement_fee_cent_kwh`).
+- **Monatspreis** (`monthly_table`): ein Cent/kWh-Wert für den Kalendermonat (`monthly_rates`).
+
+### Beispiel: VKW PV-Einspeisetarif Dynamisch
+
+Vergütung ≈ EPEX − **0,60** Cent/kWh (netto laut Produktseite). Bei Börse 10,00 Cent/kWh → **9,40 Cent/kWh**.
+
+Details zu Typen und JSON: [Preise & aWATTar](../konfiguration/preise.md).
+
+## 4. Monatsgebühr in den SE-Gesamtkosten
+
+- Feld im Katalog: `monthly_fee_eur` (optional; fehlt = 0).
+- **Netto oder brutto** wie beim Tarif: gleiche Basis wie `prices_include_vat` (netto, wenn Preise ohne USt geführt werden).
+- Pro Szenario: Monatsgebühr Bezug + Monatsgebühr Einspeise (falls gesetzt).
+- Pro **Kalendermonat** im SE-Zeitraum (monatsweise aus `cons_data`): **eine volle** Monatsgebühr — keine anteilige Kürzung.
+- Jahres-/Gesamtwert: Summe der Monatsgebühren über alle Monate + Summe der Stunden-Energiekosten.
+- **Nicht** in Live-MILP, **nicht** in den stündlichen `sim_cost`-Kurven.
+
+In der UI: Szenario-Explorer → Gesamtkosten und Monatliche Stromkosten (Hinweis „Näherung Monatsgebühren“, wenn Gebühren vorhanden).
+
+## 5. Katalogparameter prüfen
+
+Im Szenarioeditor erscheint nach Tarifwahl eine **read-only-Vorschau** (Land, Aufschläge, USt-Flag, ggf. Monatsgebühr ca.).
+
+Prüfen Sie insbesondere:
+
+- Stimmen Aufschlag und USt-Flag mit dem Tarifblatt des Anbieters überein?
+- Ist eine Monatsgebühr hinterlegt, die Sie erwarten — oder fehlt sie (dann 0 in der SE-Rechnung)?
+- Es gibt **keine Garantie** für Vollständigkeit oder Aktualität des Katalogs.
+
+Nachrechnen der Formeln: diese Seite. Technisches Mapping: [preise.md](../konfiguration/preise.md).
+
+## 6. Quellen und Herkunft der Katalogwerte
+
+### Day-Ahead / EPEX
 
 | Quelle | Zugang | Rolle in Earnie |
 | ------ | ------ | --------------- |
-| **Offizielle EPEX** SFTP / MATS API | Kostenpflichtig ([Market Data Services](https://www.epexspot.com/en/marketdataservices), [EEX Webshop](https://webshop.eex-group.com/epex-spot-public-market-data); [SFTP-Spezifikation](https://www.epexspot.com/sites/default/files/download_center_files/EPEXSPOT_SFTP_file_specifications_2025-10a.pdf)) | **Nicht** angebunden (Lizenz/Kosten für Community-OSS) |
-| **Energy-Charts** `GET /price?bzn=…` | Kostenlos, ohne Token; Fraunhofer ISE, CC BY 4.0 ([api.energy-charts.info](https://api.energy-charts.info/)) | **Primäre** Day-Ahead-Quelle für AT, DE-LU, CH |
-| **aWATTar** `api.awattar.at` / `.de` | Kostenlos, Fair Use | Fallback (AT) bzw. optional (DE); weiterhin Tarif-Typ `awattar` |
-| **ENTSO-E Transparency** | Kostenlos + Registrierung + API-Token ([transparency.entsoe.eu](https://transparency.entsoe.eu/)) | Optional später; Token-Hürde für Endnutzer |
-| **APG** markt.apg.at | Öffentliche Charts | Nur manuelle Referenz, keine API-Anbindung |
+| **Offizielle EPEX** SFTP / MATS API | Kostenpflichtig ([Market Data Services](https://www.epexspot.com/en/marketdataservices), [EEX Webshop](https://webshop.eex-group.com/epex-spot-public-market-data)) | **Nicht** angebunden |
+| **Energy-Charts** `GET /price?bzn=…` | Kostenlos; Fraunhofer ISE, CC BY 4.0 ([api.energy-charts.info](https://api.energy-charts.info/)) | **Primäre** Day-Ahead-Quelle für AT, DE-LU, CH |
+| **aWATTar** `api.awattar.at` / `.de` | Kostenlos, Fair Use | Fallback (AT) bzw. optional (DE); Tarif-Typ `awattar` |
+| **ENTSO-E Transparency** | Token erforderlich | Optional später |
+| **APG** markt.apg.at | Öffentliche Charts | Nur manuelle Referenz |
 
-Implementierung: [`data/data_loader.py`](../../data/data_loader.py) (`load_market_prices`). Preisformeln bleiben in [`data/tariff_pricing.py`](../../data/tariff_pricing.py).
+### OeMAG Marktpreis
 
-## 2. OeMAG Marktpreis
+- Offiziell: [oem-ag.at/marktpreis](https://www.oem-ag.at/marktpreis)
+- Katalog: `oemag_monthly_feed_in_rates`; Export `at_oemag_gesetzlicher_marktpreis`
 
-- Offiziell: [https://www.oem-ag.at/marktpreis](https://www.oem-ag.at/marktpreis)
-- Katalog: `oemag_monthly_feed_in_rates`, Nenner `monthly_float_reference_cent_kwh` (historisch 7,15 für Seeds)
-- Export-Tarif: `at_oemag_gesetzlicher_marktpreis` (`monthly_table` mit eigenen `monthly_rates`)
-- Hygiene 2025: Aug/Sep/Nov/Dez gegen OeMAG-Vorjahrestabelle bzw. übereinstimmende Sekundärquellen (z. B. [smartmeter-portal OeMAG](https://www.smartmeter-portal.at/einspeisetarife-pv-oemag-2025/)) geprüft; 2026 Jan–Jun stimmen mit der OeMAG-Tabelle überein
+### E-Control Referenzmarktwert
 
-## 3. E-Control Referenzmarktwert / Referenzmarktpreis
-
-- RefMarkt: [https://www.e-control.at/referenzmarktwert](https://www.e-control.at/referenzmarktwert)
-- RefMarktpreis: [https://www.e-control.at/referenzmarktpreis1](https://www.e-control.at/referenzmarktpreis1)
+- [e-control.at/referenzmarktwert](https://www.e-control.at/referenzmarktwert) · Abgrenzung: [oemag-referenzmarktwert.md](oemag-referenzmarktwert.md)
 - Katalog: `econtrol_referenzmarktwert_pv_monthly`
-- Abgrenzung: siehe [oemag-referenzmarktwert.md](oemag-referenzmarktwert.md)
 
-Seed Jul 2025–Jun 2026: E-Control-Veröffentlichungen (u. a. Mai 2026 = 3,76; Jun 2026 = 5,55) sowie konsistente Ableitung aus VKW-Flex-Beispielwerten (Flex ≈ RefMarkt − 0,60). Monatswerte bei Bedarf an der E-Control-Seite aktualisieren.
+### VKW (Vorarlberg)
 
-## 4. VKW-Produkte (Vorarlberg)
+| Produkt | Formel (Energie) | Katalog-ID |
+| ------- | ---------------- | ---------- |
+| Strom Dynamisch | EPEX + 1,20 ct netto | `at_vkw_strom_dynamisch` |
+| PV Dynamisch | EPEX − 0,60 ct netto | `at_vkw_pv_dynamisch` |
+| PV Flex | RefMarkt PV − 0,60 ct | `at_vkw_pv_flex` |
 
+### Attribution
 
-| Produkt | URL | Formel (Energie) | Katalog-ID / Typ |
-| ------- | --- | ---------------- | ---------------- |
-| Strom Dynamisch (Bezug) | [vkw.at/produkte/strom/strom-dynamisch](https://www.vkw.at/produkte/strom/strom-dynamisch) | EPEX Spot AT Day-Ahead + **1,20 ct netto** (+ 20 % USt) | `at_vkw_strom_dynamisch` / `spot_hourly` |
-| PV-Einspeisetarif Dynamisch | [vkw.at/pv-einspeisetarif-dynamisch](https://www.vkw.at/pv-einspeisetarif-dynamisch) | EPEX − **0,60 ct** netto | `at_vkw_pv_dynamisch` / export `spot_hourly` |
-| PV-Einspeisetarif Flex | [vkw.at/pv-einspeisetarif-flex](https://www.vkw.at/pv-einspeisetarif-flex) | RefMarkt PV − **0,60 ct** | `at_vkw_pv_flex` / `monthly_table` |
+Day-Ahead über Energy-Charts: [Energy-Charts](https://energy-charts.info) (Fraunhofer ISE), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
-- Geltungsbereich: Vorarlberg (ohne Kleinwalsertal); Flex typisch bis 100 kWp.
-- **Nicht** modelliert: Strom Flex (monatlicher Phelix-AT-Future an der EEX) — braucht Futures-Feed.
+## 7. Audit / Abweichungen (Stand 2.3.b, 2026-07-21)
 
-## 5. Katalog / Datenmodell
+Transparenz zur Katalogpflege: Abgleich öffentlicher Quellen mit `tariffs.json`. Sekundärseiten können Grundgebühren weglassen oder USt falsch zuordnen — Primärquellen (Produktseite / Tarifblatt) haben Vorrang.
 
-- Öffentlicher Katalog: [`share/config/tariffs.json`](../../share/config/tariffs.json) (Schema: `tariffs.schema.json`)
-- Monatskonstante Einspeisung: ein Typ **`monthly_table`** mit eigenen `monthly_rates` (früher zusätzlich `monthly_float` mit Live-Skalierung)
-- Shared-Kurven (`oemag_*`, `econtrol_referenzmarktwert_pv_*`) bleiben **Wartungs-/Seed-Hilfen**; Runtime liest die owned Rates am Tarif
-- UI-Label: „Monatspreis“ ([`ui/tariff_filter_helpers.py`](../../ui/tariff_filter_helpers.py))
+### Monatsgebühren (geseedet, Näherung)
 
-## 6. Attribution
+| Katalog-ID | `monthly_fee_eur` | Basis | Quelle |
+| ---------- | ----------------- | ----- | ------ |
+| `awattar_at` | 4,79 | netto | [awattar.at/tariffs/hourly](https://www.awattar.at/tariffs/hourly) |
+| `at_vkw_strom_dynamisch` | 3,00 | netto | [vkw.at Strom Dynamisch](https://www.vkw.at/produkte/strom/strom-dynamisch) (36 €/Jahr netto) |
+| `at_smartenergy_smartcontrol` | 2,99 | brutto | [smartenergy.at/smartcontrol](https://smartenergy.at/smartcontrol) |
+| `at_spotty_smart_active` | 2,40 | brutto | Spotty / Vergleichsportale (ca. 2,00 netto) |
+| `at_verbund_v_strom_spot` | 4,79 | brutto | Selectra / Verbund-Grundpreis (ca.) |
+| `de_tibber_tibber_dynamic` | 5,99 | brutto | [Tibber Support](https://support.tibber.com/de/articles/12310314-grund-und-arbeitspreis-bei-tibber) |
+| `de_awattar_de_hourly_de` | 4,58 | wie veröffentlicht | [awattar.de HOURLY](https://www.awattar.de/tariffs/hourly) (ggf. PLZ-abhängig) |
 
-Day-Ahead-Preise über Energy-Charts: Daten von [Energy-Charts](https://energy-charts.info) (Fraunhofer ISE), Lizenz [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+**Falle:** Manche Vergleichsportale behaupten für aWATTar AT „kein Grundpreis“ — das widerspricht der offiziellen aWATTar-Seite.
+
+### Volumetrische Werte (Energieaufschläge)
+
+| ID | Katalog | Prüfung | Status |
+| -- | ------- | ------- | ------ |
+| `awattar_at` | 1,5 ct + 3 % Markup, netto | Tarifblatt enthält 3 %; Marketingseite oft ohne 3 % | Match (Katalog vollständiger) |
+| `at_vkw_strom_dynamisch` | 1,2 ct netto | Offiziell +1,20 ct netto | Match |
+| `at_vkw_pv_dynamisch` / `at_vkw_pv_flex` | Abschlag 0,6; USt-Flag korrigiert auf netto | Offiziell ohne USt | Fix in 2.3.b |
+| `at_smartenergy_smartcontrol` | 1,44 ct inkl. USt | Offiziell 1,44 inkl. | Match |
+| `at_spotty_smart_active` | 1,79 ct inkl. | ≈ 1,49 netto × 1,2 | Match |
+| `de_tibber_tibber_dynamic` | 2,15 ct | Support 2,15 ct | Match |
+| `at_verbund_v_strom_spot` | 1,3 + 4 % | Selectra eher Fix-ct; Formel unsicher | Offen — nur Monatsgebühr geseedet |
+| `de_awattar_de_hourly_de` | 2,25 + 3 % | Seite betont EPEX+3 %; 2,25 unklar | Offen — Monatsgebühr ca. 4,58 |
+
+Technische Typen und APIs: [Preise & aWATTar](../konfiguration/preise.md).
