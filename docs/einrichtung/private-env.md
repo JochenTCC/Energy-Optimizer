@@ -7,8 +7,9 @@ Hausbezogene Dateien unter `earnie_env/config/` gehören **nicht** ins öffentli
 | Ort | Inhalt |
 |-----|--------|
 | `share/config/` (öffentlich) | `*.minimal.json`, `*.example.json`, `*.schema.json`, **`tariffs.json`** |
-| Privates Repo `Earnie-env-home` | `config.json`, Szenarien, `house_profiles.json`, `components.json`, `deviation_rules.json`, `uploads/` |
+| Privates Repo `Earnie-env-home` | `config.json`, Szenarien, `house_profiles.json`, `components.json`, `deviation_rules.json`, `uploads/`, **`vscode/launch.json`** |
 | `earnie_env/config/` (lokal) | Windows-**Junction** auf das private `config/` |
+| `.vscode/launch.json` (lokal) | Aus privatem `vscode/launch.json` (Hardlink/Kopie via Link-Skript); im öffentlichen Repo gitignored |
 | `earnie_env/runtime/` | Laufzeitdaten (gitignored), lokal |
 
 `.env` (Loxone) wird nirgends versioniert.
@@ -23,6 +24,8 @@ Hausbezogene Dateien unter `earnie_env/config/` gehören **nicht** ins öffentli
 ```
 
 Beim ersten Mal mit vorhandenem echtem `earnie_env\config`-Ordner: `-Force` (legt ein Backup `config.bak-…` an).
+
+Das Skript installiert außerdem `.vscode/launch.json` aus dem privaten `vscode/launch.json` (Hardlink wenn möglich, sonst Kopie). So bleibt die Launch-Config nach Branch-/Tag-Syncs wiederherstellbar, ohne sie im öffentlichen Repo zu versionieren.
 
 Fehlendes `tariffs.json` im Link-Ziel wird aus `share/config/tariffs.json` kopiert (lokal; nicht ins private Repo committen).
 

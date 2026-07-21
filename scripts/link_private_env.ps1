@@ -77,4 +77,40 @@ if (-not (Test-Path -LiteralPath $DestTariffs)) {
     Write-Host "tariffs.json already present in linked config"
 }
 
+$PrivateLaunch = Join-Path $PrivateRepoRoot "vscode\launch.json"
+$VscodeDir = Join-Path $RepoRoot ".vscode"
+$LinkLaunch = Join-Path $VscodeDir "launch.json"
+if (Test-Path -LiteralPath $PrivateLaunch) {
+    New-Item -ItemType Directory -Path $VscodeDir -Force | Out-Null
+    if (Test-Path -LiteralPath $LinkLaunch) {
+        $existing = Get-Item -LiteralPath $LinkLaunch -Force
+        # Same file already (hardlink) — nothing to do.
+        if ($existing.LinkType -eq "HardLink") {
+            Write-Host "launch.json already hard-linked to private vscode\launch.json"
+        } else {
+            Remove-Item -LiteralPath $LinkLaunch -Force
+            $linked = $false
+            cmd /c "mklink /H `"$LinkLaunch`" `"$PrivateLaunch`"" | Out-Null
+            if ($?) {
+                Write-Host "Hard-linked .vscode\launch.json -> $PrivateLaunch"
+                $linked = $true
+            }
+            if (-not $linked) {
+                Copy-Item -LiteralPath $PrivateLaunch -Destination $LinkLaunch -Force
+                Write-Host "Copied vscode\launch.json to .vscode\launch.json (hardlink failed)"
+            }
+        }
+    } else {
+        cmd /c "mklink /H `"$LinkLaunch`" `"$PrivateLaunch`"" | Out-Null
+        if ($?) {
+            Write-Host "Hard-linked .vscode\launch.json -> $PrivateLaunch"
+        } else {
+            Copy-Item -LiteralPath $PrivateLaunch -Destination $LinkLaunch -Force
+            Write-Host "Copied vscode\launch.json to .vscode\launch.json (hardlink failed)"
+        }
+    }
+} else {
+    Write-Host "No private vscode\launch.json (skip .vscode install)"
+}
+
 Write-Host "Done."
