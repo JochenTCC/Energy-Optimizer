@@ -3,6 +3,11 @@
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 
+### Bugfix NAS Chart 1 history without EARNIE_RUNTIME_PATH (2026-07-21)
+
+- [x] **NAS launch: Chart 1 Monitor missing past data without `EARNIE_RUNTIME_PATH`** — `optimization_history` / `run_state` / `live_optimization_debug` / `single_instance` bound runtime via `read_runtime_path_or("runtime")` (ignored `EARNIE_ENV_PATH`); now use `persist_paths.runtime_dir()` / `runtime_path()` so `{ENV_PATH}/runtime` alone loads NAS `optimization_history.jsonl`; regression test; verified live on NAS :8503
+
+
 ### Bugfix Chart 1 PV *:00 seasonal spikes (2026-07-21)
 
 - [x] **Chart 1 PV forecast spikes at *:00** — dump `chart_debug_review/debug_dump_20260721_165852`: gray-area `forecast_pv_kw` at *:00 matched seasonal synthetic (`kwp=6` summer) while :15/:30/:45 used forecast.solar. Fix: keep warm API cache on timeout/HTTP/429 instead of discarding it (`data/pv_forecast.py`); tests in `tests/test_pv_forecast.py`. Closed for now (user); intermittent failure-path live proof not pursued.
