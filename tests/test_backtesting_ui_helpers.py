@@ -292,6 +292,58 @@ def test_read_progress_snapshot_aggregates_worker_files(tmp_path):
     assert snapshot["Fix"]["current"] == 7
 
 
+def test_migrate_oemag_template_fill_when_keys_missing(tmp_path, monkeypatch):
+    from runtime_store import bootstrap
+    from settings.json_io import read_json_dict
+
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    tariffs = config_dir / "tariffs.json"
+    tariffs.write_text(
+        json.dumps(
+            {
+                "earnie_data_model": 1,
+                "import_tariffs": [],
+                "export_tariffs": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("EARNIE_ENV_PATH", str(tmp_path))
+    monkeypatch.setenv("EARNIE_CONFIG_PATH", str(config_dir))
+    monkeypatch.setenv("EARNIE_TARIFFS_PATH", str(tariffs))
+
+    modified = bootstrap._migrate_oemag_data_model_v2()
+    assert str(tariffs) in modified
+    doc = read_json_dict(str(tariffs))
+    assert len(doc["oemag_monthly_feed_in_rates"]) == 12
+    assert doc["monthly_float_reference_cent_kwh"] == 7.15
+    assert doc["earnie_data_model"] == 2
+    assert bootstrap._migrate_oemag_data_model_v2() == []
+
+
+def test_subprocess_env_passes_cloud_session_root(monkeypatch, tmp_path):
+    """Cloud-demo SE child must use session workspace, not earnie_env."""
+    from runtime_store import cloud_demo
+    from ui.backtesting_runner import _subprocess_env
+
+    session = tmp_path / "earnie_cloud_session"
+    session.mkdir()
+    monkeypatch.setenv("EARNIE_CLOUD_DEMO", "1")
+    monkeypatch.setenv("EARNIE_ENV_PATH", str(tmp_path / "earnie_env"))
+    monkeypatch.setenv("EARNIE_CONFIG_PATH", str(tmp_path / "earnie_env" / "config"))
+    cloud_demo.set_session_env_root_for_tests(str(session))
+    try:
+        env = _subprocess_env()
+    finally:
+        cloud_demo.set_session_env_root_for_tests(None)
+
+    assert env["EARNIE_ENV_PATH"] == str(session)
+    assert env["ENERGY_OPTIMIZER_ENV_PATH"] == str(session)
+    assert "EARNIE_CONFIG_PATH" not in env
+    assert "ENERGY_OPTIMIZER_CONFIG_PATH" not in env
+
+
 def test_run_backtesting_module_import_does_not_force_offline(monkeypatch):
     """Streamlit UI imports BACKTESTING_YEAR — must not pollute process env."""
     import importlib

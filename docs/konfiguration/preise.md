@@ -86,7 +86,8 @@ tools/convert_dach_tariffs.py --check
 
 ### monthly_float — OeMAG-Referenz vs. aWATTar-SUNNY
 
-Referenzdaten für `monthly_float` in `backtesting_scenarios.json`:
+Referenzdaten für `monthly_float` in `tariffs.json`
+(seit Datenmodell v2; Bootstrap migriert ältere `backtesting_scenarios.json`-Einträge):
 
 
 | Feld                               | Zweck                                                                      |

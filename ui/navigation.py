@@ -148,12 +148,15 @@ def _append_konfiguration_and_echtzeit(
 def _restricted_page_specs(enabled_mode_keys: list[str]) -> list[PageSpec]:
     # Onboarding always needs Live-Konfiguration / daemon / Loxone pages,
     # even when EARNIE_UI_MODES is explorer-only (no live_environment key).
+    # Community Cloud demo stays config-only (no forced Live/Daemon).
+    from runtime_store.cloud_demo import is_cloud_demo
+
     specs: list[PageSpec] = []
     _append_konfiguration_and_echtzeit(
         specs,
         enabled_mode_keys,
         house_config_default=True,
-        force_echtzeit=True,
+        force_echtzeit=not is_cloud_demo(),
     )
     return specs
 

@@ -7,13 +7,17 @@ import logger_config
 
 logger_config.configure_utf8_stdio()
 
-from runtime_store import bootstrap
-
-bootstrap.run()
-
 import logging
 
 import streamlit as st
+
+from runtime_store.cloud_demo import ensure_cloud_session_env, render_cloud_demo_intro
+
+ensure_cloud_session_env()
+
+from runtime_store import bootstrap
+
+bootstrap.run()
 
 from runtime_store.config_load import load_config_or_exit, reinit_config_or_exit
 
@@ -36,6 +40,7 @@ from ui.info_sidebar import render_info_sidebar
 from ui.styles import (
     inject_checkbox_highlight_css,
     inject_compact_numeric_css,
+    inject_compact_top_layout_css,
     inject_help_hint_css,
     inject_single_file_uploader_css,
 )
@@ -70,6 +75,7 @@ def main() -> None:
 
     config.reinit_config(require_loxone_credentials=require_loxone_credentials_for_config())
     inject_chunk_load_recovery()
+    inject_compact_top_layout_css()
     inject_compact_numeric_css()
     inject_help_hint_css()
     inject_single_file_uploader_css()
@@ -79,11 +85,12 @@ def main() -> None:
     render_deferred_loxone_sidebar()
     render_setup_progress_notice()
     _render_drift_warning()
-    render_truth_banner(where="main")
+    render_cloud_demo_intro()
 
     navigation = build_navigation(get_enabled_ui_mode_keys())
     navigation.run()
-    # After nav so Info / About sits at the bottom of the sidebar.
+    # After nav: Banner der Wahrheit at page bottom; Info / About at sidebar bottom.
+    render_truth_banner(where="main")
     render_info_sidebar()
 
 

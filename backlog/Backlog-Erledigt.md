@@ -3,6 +3,21 @@
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 
+### Version 2.2.0 — SCC per-session Greenfield (2026-07-21)
+
+- [x] **App on Streamlit cloud should start always with Greenfield** — `EARNIE_CLOUD_DEMO=1`: per-browser-session temp env (`runtime_store/cloud_demo.py`), session-aware `persist_paths`, skip offline seed, restricted nav opens Hauskonfigurator without Live/Daemon, German intro banner; docs `private-env.md` / `betrieb.md`; tests `tests/test_cloud_demo.py`
+
+
+### Bugfix scenario editor Land filter for export tariffs (2026-07-21)
+
+- [x] **Country filter in scenario editor must also filter export tariffs** — shared `Land` already applied to both Bezug and Einspeise via `render_shared_land_filter` + `render_tariff_type_filter(..., land=shared_land)` (`ui/tariff_filter_helpers.py`, Szenarieneditor); verified live
+
+
+### Bugfix cloud-demo ghost scenarios (2026-07-21)
+
+- [x] **Greenfield/`EARNIE_CLOUD_DEMO=1`: ghost scenarios not in session** — SE child inherited host `earnie_env` path overrides and listed scenarios outside the per-session workspace; `_apply_cloud_session_env` clears path overrides and points the subprocess at the session root (`ui/backtesting_runner.py`); test `test_subprocess_env_passes_cloud_session_root`; verified live
+
+
 ### Bugfix SE sunrise_window TypeError (2026-07-20)
 
 - [x] **SE `sunrise_window`: `TypeError` on `effective_sunrise_soc_min_index(None)`** — `_simulate_anchor_step` no longer re-applies `effective_*` on the already-effective index from `build_sunrise_window_matrix`; `effective_sunrise_soc_min_index` is idempotent for `None`. Unit: `TestEffectiveSunriseSocMinIndex`; verified live (full-year / Sep-2025 `sunrise_window` backtesting)

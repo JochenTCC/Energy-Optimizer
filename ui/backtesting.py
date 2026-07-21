@@ -207,6 +207,10 @@ def _execute_backtesting_run(
         st.error(_format_config_error(config_error))
         return
 
+    from runtime_store.cloud_demo import mark_cloud_demo_se_simulation_started
+
+    mark_cloud_demo_se_simulation_started()
+
     scenarios, _ = try_get_backtesting_scenarios()
     live_scenario_id = config.get_live_scenario_id()
     parallel_task_count = count_backtesting_parallel_tasks(
@@ -234,6 +238,40 @@ def _execute_backtesting_run(
         ),
         labels_for_order,
     )
+    # #region agent log
+    try:
+        import json as _json, time as _time
+        from runtime_store.cloud_demo import get_session_env_root, is_cloud_demo
+        from runtime_store.persist_paths import (
+            resolve_backtesting_scenarios_json_path,
+            runtime_dir,
+        )
+
+        with open("debug-7d4f32.log", "a", encoding="utf-8") as _f:
+            _f.write(
+                _json.dumps(
+                    {
+                        "sessionId": "7d4f32",
+                        "hypothesisId": "F",
+                        "location": "backtesting.py:_execute_backtesting_run",
+                        "message": "SE run start parent",
+                        "data": {
+                            "cloud": is_cloud_demo(),
+                            "session_root": get_session_env_root(),
+                            "scenario_ids": list((scenarios or {}).keys()),
+                            "preferred_progress_labels": preferred_progress_labels,
+                            "progress_file": progress_file,
+                            "runtime_dir": runtime_dir(),
+                            "scenarios_path": resolve_backtesting_scenarios_json_path(),
+                        },
+                        "timestamp": int(_time.time() * 1000),
+                    }
+                )
+                + "\n"
+            )
+    except Exception:
+        pass
+    # #endregion
 
     with st.status(status_label, expanded=True) as status:
         progress_host = st.empty()
@@ -241,6 +279,36 @@ def _execute_backtesting_run(
         def _on_progress(snapshot: dict) -> None:
             if not snapshot:
                 return
+            # #region agent log
+            try:
+                import json as _json, time as _time
+
+                with open("debug-7d4f32.log", "a", encoding="utf-8") as _f:
+                    _f.write(
+                        _json.dumps(
+                            {
+                                "sessionId": "7d4f32",
+                                "runId": "post-fix",
+                                "hypothesisId": "F",
+                                "location": "backtesting.py:_on_progress",
+                                "message": "progress snapshot keys",
+                                "data": {
+                                    "keys": list(snapshot.keys()),
+                                    "preferred": preferred_progress_labels,
+                                    "ghost_vs_preferred": [
+                                        k
+                                        for k in snapshot.keys()
+                                        if k not in preferred_progress_labels
+                                    ],
+                                },
+                                "timestamp": int(_time.time() * 1000),
+                            }
+                        )
+                        + "\n"
+                    )
+            except Exception:
+                pass
+            # #endregion
             with progress_host.container():
                 active_entries = [
                     progress
@@ -564,8 +632,11 @@ def _deviation_labels_map(meta: dict) -> dict[str, str]:
 
 
 def _render_backtesting_results(meta: dict, hourly_df: pd.DataFrame) -> None:
+    from runtime_store.cloud_demo import render_cloud_demo_feedback_banner
+
     render_backtesting_log_caption(meta)
     _render_imported_pv_results_notice(meta)
+    render_cloud_demo_feedback_banner()
     render_annual_cost_table(meta)
     render_backtesting_monthly_chart(meta)
     render_scenario_consumption_table(meta, hourly_df)

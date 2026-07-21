@@ -45,3 +45,7 @@ def test_app_py_calls_render_truth_banner() -> None:
     assert "render_info_sidebar()" in app_src
     assert "render_truth_banner(where=\"main\")" in app_src
     assert "render_truth_banner(where=\"inline\")" in info_src
+    # Main banner must sit below page content (after navigation.run()).
+    nav_idx = app_src.index("navigation.run()")
+    banner_idx = app_src.index('render_truth_banner(where="main")')
+    assert banner_idx > nav_idx

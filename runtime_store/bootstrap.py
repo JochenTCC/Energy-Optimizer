@@ -15,6 +15,12 @@ from runtime_store.file_metadata import (
     stamp_payload,
 )
 from runtime_store.persist_paths import (
+    bundled_backtesting_scenarios_schema_file,
+    bundled_components_schema_file,
+    bundled_config_schema_file,
+    bundled_deviation_rules_schema_file,
+    bundled_house_profiles_schema_file,
+    bundled_tariffs_schema_file,
     config_dir,
     config_path,
     cons_data_pending_file,
@@ -124,6 +130,67 @@ def _copy_template_if_missing(dest_path: str, source_path: str, label: str) -> b
     return True
 
 
+def _read_schema_data_model_const(schema_doc: dict) -> int | None:
+    props = schema_doc.get("properties")
+    if not isinstance(props, dict):
+        return None
+    model = props.get("earnie_data_model")
+    if not isinstance(model, dict):
+        return None
+    const = model.get("const")
+    if const is None:
+        return None
+    try:
+        return int(const)
+    except (TypeError, ValueError):
+        return None
+
+
+def _copy_schema_if_missing_or_stale(
+    dest_path: str,
+    bundled_source_path: str,
+    label: str,
+) -> bool:
+    """Create or upgrade site *.schema.json when bundled earnie_data_model const is newer."""
+    if not os.path.isfile(bundled_source_path):
+        if _is_missing_file(dest_path):
+            logger.warning(
+                "bootstrap: %s fehlt und Vorlage '%s' ist nicht verfügbar.",
+                dest_path,
+                bundled_source_path,
+            )
+        return False
+
+    from settings.json_io import read_json_dict
+
+    bundled = read_json_dict(bundled_source_path)
+    bundled_const = _read_schema_data_model_const(bundled)
+
+    if _is_missing_file(dest_path):
+        _ensure_parent_dir(dest_path)
+        shutil.copyfile(bundled_source_path, dest_path)
+        logger.info("bootstrap: %s aus %s angelegt.", dest_path, label)
+        return True
+
+    if bundled_const is None:
+        return False
+
+    local = read_json_dict(dest_path)
+    local_const = _read_schema_data_model_const(local)
+    if local_const is not None and local_const >= bundled_const:
+        return False
+
+    shutil.copyfile(bundled_source_path, dest_path)
+    logger.info(
+        "bootstrap: %s aus %s aktualisiert (Schema earnie_data_model %s → %s).",
+        dest_path,
+        label,
+        local_const,
+        bundled_const,
+    )
+    return True
+
+
 def _bootstrap_config_example() -> bool:
     dest = config_path("config.example.json")
     return _copy_template_if_missing(
@@ -135,10 +202,10 @@ def _bootstrap_config_example() -> bool:
 
 def _bootstrap_config_schema() -> bool:
     dest = config_path("config.schema.json")
-    return _copy_template_if_missing(
+    return _copy_schema_if_missing_or_stale(
         dest,
-        resolve_config_schema_template_path(),
-        "Image-Vorlage",
+        bundled_config_schema_file(),
+        "share/config/config.schema.json",
     )
 
 
@@ -173,10 +240,10 @@ def _bootstrap_backtesting_scenarios_example() -> bool:
 
 def _bootstrap_backtesting_scenarios_schema() -> bool:
     dest = config_path("backtesting_scenarios.schema.json")
-    return _copy_template_if_missing(
+    return _copy_schema_if_missing_or_stale(
         dest,
-        resolve_backtesting_scenarios_schema_template_path(),
-        "Image-Vorlage",
+        bundled_backtesting_scenarios_schema_file(),
+        "share/config/backtesting_scenarios.schema.json",
     )
 
 
@@ -190,6 +257,179 @@ def _bootstrap_backtesting_scenarios_json() -> bool:
     )
 
 
+_OEMAG_SHARED_TARIFF_KEYS = (
+    "oemag_monthly_feed_in_rates",
+    "monthly_float_reference_cent_kwh",
+)
+_OEMAG_DATA_MODEL_V2 = 2
+
+
+def _oemag_rates_template_doc() -> dict:
+    """Source for missing OeMAG keys: tariffs minimal template, else example."""
+    from settings.json_io import read_json_dict
+
+    for path in (
+        resolve_tariffs_minimal_template_path(),
+        resolve_tariffs_template_path(),
+    ):
+        if not os.path.isfile(path):
+            continue
+        doc = read_json_dict(path)
+        if all(key in doc for key in _OEMAG_SHARED_TARIFF_KEYS):
+            return doc
+    return {}
+
+
+def _read_data_model_version(doc: dict) -> int:
+    raw = doc.get("earnie_data_model")
+    if raw is None:
+        return 1
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return 1
+
+
+def _migrate_oemag_data_model_v2() -> list[str]:
+    """
+    Convert earnie_data_model 1 → 2 for tariffs + backtesting_scenarios.
+
+    - Copy OeMAG reference keys from scenarios to tariffs when missing there.
+    - Strip legacy OeMAG keys from scenarios.
+    - Template-fill tariffs if keys are still absent.
+    - Stamp both documents to earnie_data_model=2 when changed or still < 2.
+    """
+    tariffs_path = resolve_tariffs_json_path()
+    if not os.path.isfile(tariffs_path):
+        return []
+    from settings.json_io import read_json_dict, write_json_dict
+
+    scenarios_path = resolve_backtesting_scenarios_json_path()
+    tariffs = read_json_dict(tariffs_path)
+    scenarios: dict | None = None
+    if os.path.isfile(scenarios_path):
+        scenarios = read_json_dict(scenarios_path)
+
+    tariffs_changed = False
+    scenarios_changed = False
+    copied: list[str] = []
+    stripped: list[str] = []
+    filled: list[str] = []
+
+    if scenarios is not None:
+        for key in _OEMAG_SHARED_TARIFF_KEYS:
+            if scenarios.get(key) is None:
+                continue
+            if tariffs.get(key) is None:
+                tariffs[key] = scenarios[key]
+                tariffs_changed = True
+                copied.append(key)
+            if key in scenarios:
+                del scenarios[key]
+                scenarios_changed = True
+                stripped.append(key)
+
+    missing = [key for key in _OEMAG_SHARED_TARIFF_KEYS if tariffs.get(key) is None]
+    if missing:
+        template = _oemag_rates_template_doc()
+        for key in missing:
+            if key in template:
+                tariffs[key] = template[key]
+                tariffs_changed = True
+                filled.append(key)
+
+    if _read_data_model_version(tariffs) < _OEMAG_DATA_MODEL_V2 or tariffs_changed:
+        tariffs["earnie_data_model"] = _OEMAG_DATA_MODEL_V2
+        tariffs_changed = True
+    if scenarios is not None and (
+        _read_data_model_version(scenarios) < _OEMAG_DATA_MODEL_V2 or scenarios_changed
+    ):
+        scenarios["earnie_data_model"] = _OEMAG_DATA_MODEL_V2
+        scenarios_changed = True
+
+    modified: list[str] = []
+    if tariffs_changed:
+        write_json_dict(tariffs_path, tariffs)
+        modified.append(tariffs_path)
+    if scenarios is not None and scenarios_changed:
+        write_json_dict(scenarios_path, scenarios)
+        modified.append(scenarios_path)
+
+    if copied or stripped or filled:
+        logger.info(
+            "bootstrap: OeMAG data-model v2 migration "
+            "(copied=%s, stripped=%s, filled=%s) → %s",
+            ",".join(copied) or "-",
+            ",".join(stripped) or "-",
+            ",".join(filled) or "-",
+            ", ".join(modified),
+        )
+    elif modified:
+        logger.info(
+            "bootstrap: stamped earnie_data_model=2 on %s",
+            ", ".join(modified),
+        )
+    return modified
+
+
+def _pack_json_stamp_candidates() -> list[str]:
+    """Live pack JSONs plus local example/minimal sidecars that carry earnie_data_model."""
+    paths = [
+        resolve_config_json_path(),
+        resolve_backtesting_scenarios_json_path(),
+        resolve_components_json_path(),
+        resolve_deviation_rules_json_path(),
+        resolve_house_profiles_json_path(),
+        resolve_tariffs_json_path(),
+    ]
+    for basename in (
+        "config.example.json",
+        "config.minimal.json",
+        "backtesting_scenarios.example.json",
+        "backtesting_scenarios.minimal.json",
+        "components.example.json",
+        "components.minimal.json",
+        "deviation_rules.example.json",
+        "house_profiles.example.json",
+        "house_profiles.minimal.json",
+        "tariffs.example.json",
+        "tariffs.minimal.json",
+    ):
+        paths.append(config_path(basename))
+    return paths
+
+
+def _stamp_pack_jsons_to_current_data_model() -> list[str]:
+    """
+    Persist CURRENT_DATA_MODEL on pack/sidecar JSONs still tagged older (or missing).
+
+    Complements the OeMAG structural migration: other files need only a version stamp
+    so schemas with const=CURRENT stay valid.
+    """
+    from runtime_store.data_model import CURRENT_DATA_MODEL
+    from settings.json_io import read_json_dict, write_json_dict
+
+    modified: list[str] = []
+    for path in _pack_json_stamp_candidates():
+        if not os.path.isfile(path):
+            continue
+        doc = read_json_dict(path)
+        if not isinstance(doc, dict):
+            continue
+        if _read_data_model_version(doc) >= CURRENT_DATA_MODEL:
+            continue
+        # write_json_dict stamps CURRENT_DATA_MODEL
+        write_json_dict(path, doc)
+        modified.append(path)
+    if modified:
+        logger.info(
+            "bootstrap: stamped earnie_data_model=%s on %s",
+            CURRENT_DATA_MODEL,
+            ", ".join(modified),
+        )
+    return modified
+
+
 def _bootstrap_tariffs_example() -> bool:
     dest = config_path("tariffs.example.json")
     return _copy_template_if_missing(
@@ -201,10 +441,10 @@ def _bootstrap_tariffs_example() -> bool:
 
 def _bootstrap_tariffs_schema() -> bool:
     dest = config_path("tariffs.schema.json")
-    return _copy_template_if_missing(
+    return _copy_schema_if_missing_or_stale(
         dest,
-        resolve_tariffs_schema_template_path(),
-        "Image-Vorlage",
+        bundled_tariffs_schema_file(),
+        "share/config/tariffs.schema.json",
     )
 
 
@@ -235,10 +475,10 @@ def _bootstrap_house_profiles_example() -> bool:
 
 def _bootstrap_house_profiles_schema() -> bool:
     dest = config_path("house_profiles.schema.json")
-    return _copy_template_if_missing(
+    return _copy_schema_if_missing_or_stale(
         dest,
-        resolve_house_profiles_schema_template_path(),
-        "Image-Vorlage",
+        bundled_house_profiles_schema_file(),
+        "share/config/house_profiles.schema.json",
     )
 
 
@@ -261,10 +501,10 @@ def _bootstrap_components_example() -> bool:
 
 def _bootstrap_components_schema() -> bool:
     dest = config_path("components.schema.json")
-    return _copy_template_if_missing(
+    return _copy_schema_if_missing_or_stale(
         dest,
-        resolve_components_schema_template_path(),
-        "Image-Vorlage",
+        bundled_components_schema_file(),
+        "share/config/components.schema.json",
     )
 
 
@@ -287,10 +527,10 @@ def _bootstrap_deviation_rules_example() -> bool:
 
 def _bootstrap_deviation_rules_schema() -> bool:
     dest = config_path("deviation_rules.schema.json")
-    return _copy_template_if_missing(
+    return _copy_schema_if_missing_or_stale(
         dest,
-        resolve_deviation_rules_schema_template_path(),
-        "Image-Vorlage",
+        bundled_deviation_rules_schema_file(),
+        "share/config/deviation_rules.schema.json",
     )
 
 
@@ -417,6 +657,8 @@ def run() -> None:
         created.append(config_path("tariffs.schema.json"))
     if _bootstrap_tariffs_json():
         created.append(resolve_tariffs_json_path())
+    for path in _migrate_oemag_data_model_v2():
+        created.append(path)
     if _bootstrap_house_profiles_example():
         created.append(config_path("house_profiles.example.json"))
     if _bootstrap_house_profiles_schema():
@@ -435,6 +677,8 @@ def run() -> None:
         created.append(config_path("deviation_rules.schema.json"))
     if _bootstrap_deviation_rules_json():
         created.append(resolve_deviation_rules_json_path())
+    for path in _stamp_pack_jsons_to_current_data_model():
+        created.append(path)
     if _bootstrap_local_settings_json():
         created.append(resolve_local_settings_json_path())
     if _bootstrap_dotenv():
@@ -461,7 +705,11 @@ def run() -> None:
     else:
         logger.debug("bootstrap: alle persistenten Dateien vorhanden.")
 
+    from runtime_store.cloud_demo import is_cloud_demo
     from runtime_store.offline_demo_seed import seed_offline_live_scenario
 
+    if is_cloud_demo():
+        logger.debug("bootstrap: cloud demo — skip offline live-scenario seed.")
+        return
     if seed_offline_live_scenario():
         logger.info("bootstrap: offline demo live-scenario refs seeded.")

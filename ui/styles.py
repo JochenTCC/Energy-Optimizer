@@ -4,6 +4,20 @@ from __future__ import annotations
 import streamlit as st
 
 
+def inject_compact_top_layout_css() -> None:
+    """Reduce Streamlit's default top padding so content starts nearer the toolbar."""
+    st.markdown(
+        """
+        <style>
+        .block-container {
+            padding-top: 1rem;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def inject_compact_numeric_css() -> None:
     """Kleinere Schrift für Metrik-Zahlen und Tabellen; Number-Input ohne ±-Stepper."""
     st.markdown(

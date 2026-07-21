@@ -106,6 +106,7 @@ def get_backtesting_feed_in_settings(
     runtime: dict,
     *,
     load_scenarios_document: Callable[[], dict],
+    load_tariffs_document: Callable[[], dict],
 ):
     """Einspeise-Settings für Backtesting inkl. monatlicher Fixtarife."""
     from data.feed_in_prices import feed_in_settings_from_dict
@@ -119,9 +120,9 @@ def get_backtesting_feed_in_settings(
     export_spec = runtime.get("_export_tariff_spec")
     export_type = str(export_spec.get("type", "")).strip().lower() if export_spec else ""
     if export_type == "monthly_float":
-        scenarios_doc = load_scenarios_document()
-        oemag_rates = load_oemag_monthly_reference_rates(scenarios_doc)
-        reference_cent = load_monthly_float_reference_cent(scenarios_doc)
+        tariffs_doc = load_tariffs_document()
+        oemag_rates = load_oemag_monthly_reference_rates(tariffs_doc)
+        reference_cent = load_monthly_float_reference_cent(tariffs_doc)
         monthly = build_monthly_float_lookup(oemag_rates, reference_cent, export_spec)
     elif runtime.get("_monthly_fixed_tariffs") is not None:
         monthly = runtime["_monthly_fixed_tariffs"]

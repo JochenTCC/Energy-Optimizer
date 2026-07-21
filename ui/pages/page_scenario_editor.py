@@ -24,12 +24,9 @@ from ui.house_config_io import (
     upsert_scenario,
 )
 from ui.tariff_filter_helpers import (
-    EXPORT_TYPE_LABELS,
-    IMPORT_TYPE_LABELS,
     render_shared_land_filter,
+    render_tariff_parameter_preview,
     render_tariff_type_filter,
-    tariff_meta_caption,
-    type_caption,
 )
 from ui.label_select import (
     label_select_choices,
@@ -292,7 +289,6 @@ def _render_scenarios_tab() -> None:
         live_scenario_id=live_id,
         labels=scenario_labels,
     )
-
     batteries = list_batteries()
     pv_systems = list_pv_systems()
     import_tariffs = list_import_tariffs()
@@ -434,30 +430,27 @@ def _render_scenarios_tab() -> None:
     )
     selected_import = lookup_entity_id(imp_map, imp_pick)
     selected_export = lookup_entity_id(exp_map, exp_pick)
+    import_tariff = None
+    export_tariff = None
     if selected_import:
         import_tariff = next(t for t in import_tariffs if t["id"] == selected_import)
-        st.caption(
-            f"Bezug: {type_caption(import_tariff, IMPORT_TYPE_LABELS)}"
-            + (
-                f" · {tariff_meta_caption(import_tariff)}"
-                if tariff_meta_caption(import_tariff)
-                else ""
-            )
+        render_tariff_parameter_preview(
+            import_tariff, title="Bezugstarif-Parameter", kind="import"
         )
     if selected_export:
         export_tariff = next(t for t in export_tariffs if t["id"] == selected_export)
-        st.caption(
-            f"Einspeise: {type_caption(export_tariff, EXPORT_TYPE_LABELS)}"
-            + (
-                f" · {tariff_meta_caption(export_tariff)}"
-                if tariff_meta_caption(export_tariff)
-                else ""
-            )
+        render_tariff_parameter_preview(
+            export_tariff, title="Einspeisetarif-Parameter", kind="export"
+        )
+    if selected_import or selected_export:
+        st.info(
+            "Bitte prüfen Sie die angezeigten Tarifdaten. Es gibt keine Garantie "
+            "für Vollständigkeit oder Aktualität des Katalogs. Monatliche Fixkosten "
+            "(Grundgebühr o. Ä.) fließen noch nicht in die Kostenrechnung ein."
         )
 
     netzentgelt_override = None
-    if selected_import:
-        import_tariff = next(t for t in import_tariffs if t["id"] == selected_import)
+    if import_tariff is not None:
         if import_tariff.get("land") == "DE" and import_tariff.get("type") in {
             "spot_hourly",
             "ex_post_spot",

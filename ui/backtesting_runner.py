@@ -99,6 +99,36 @@ def suggest_test_month() -> int | None:
     return overlap_start.month
 
 
+_CLOUD_SESSION_PATH_OVERRIDE_SUFFIXES = (
+    "ENV_PATH",
+    "CONFIG_PATH",
+    "RUNTIME_PATH",
+    "RUNTIME_DIR",
+    "BACKTESTING_SCENARIOS_PATH",
+    "TARIFFS_PATH",
+    "HOUSE_PROFILES_PATH",
+    "COMPONENTS_PATH",
+    "DEVIATION_RULES_PATH",
+    "LOCAL_SETTINGS_PATH",
+    "DOTENV_PATH",
+)
+
+
+def _apply_cloud_session_env(env: dict[str, str]) -> str | None:
+    """Point SE subprocess at the Streamlit cloud-demo session workspace."""
+    from runtime_store.cloud_demo import get_session_env_root
+
+    session = get_session_env_root()
+    if not session:
+        return None
+    for suffix in _CLOUD_SESSION_PATH_OVERRIDE_SUFFIXES:
+        for prefix in ("EARNIE_", "ENERGY_OPTIMIZER_"):
+            env.pop(f"{prefix}{suffix}", None)
+    env["EARNIE_ENV_PATH"] = session
+    env["ENERGY_OPTIMIZER_ENV_PATH"] = session
+    return session
+
+
 def _subprocess_env() -> dict[str, str]:
     """Kindprozess-Env: PYTHONPATH + offline + ohne Debugpy-Hooks (VS-Code-Launcher)."""
     root = str(project_root())
@@ -109,6 +139,44 @@ def _subprocess_env() -> dict[str, str]:
             del env[key]
     existing = env.get("PYTHONPATH", "").strip()
     env["PYTHONPATH"] = f"{root}{os.pathsep}{existing}" if existing else root
+    session = _apply_cloud_session_env(env)
+    # #region agent log
+    try:
+        import json as _json, time as _time
+        from runtime_store.cloud_demo import is_cloud_demo
+
+        with open("debug-7d4f32.log", "a", encoding="utf-8") as _f:
+            _f.write(
+                _json.dumps(
+                    {
+                        "sessionId": "7d4f32",
+                        "runId": "post-fix",
+                        "hypothesisId": "F",
+                        "location": "backtesting_runner.py:_subprocess_env",
+                        "message": "subprocess env before launch",
+                        "data": {
+                            "cloud": is_cloud_demo(),
+                            "session_root": session,
+                            "env_path": env.get("EARNIE_ENV_PATH")
+                            or env.get("ENERGY_OPTIMIZER_ENV_PATH"),
+                            "config_path": env.get("EARNIE_CONFIG_PATH")
+                            or env.get("ENERGY_OPTIMIZER_CONFIG_PATH"),
+                            "passes_session_as_env_path": bool(
+                                session
+                                and (
+                                    env.get("EARNIE_ENV_PATH") == session
+                                    or env.get("ENERGY_OPTIMIZER_ENV_PATH") == session
+                                )
+                            ),
+                        },
+                        "timestamp": int(_time.time() * 1000),
+                    }
+                )
+                + "\n"
+            )
+    except Exception:
+        pass
+    # #endregion
     return env
 
 

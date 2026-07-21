@@ -7,13 +7,13 @@ REQUIRED_OEMAG_MONTHS = 12
 
 
 def load_oemag_monthly_reference_rates(
-    backtesting_scenarios_doc: dict,
+    tariffs_doc: dict,
 ) -> tuple[tuple[int, int, float], ...]:
     """Lädt und validiert die 12-monatige OeMAG-Referenzkurve."""
-    raw = backtesting_scenarios_doc.get("oemag_monthly_feed_in_rates")
+    raw = tariffs_doc.get("oemag_monthly_feed_in_rates")
     if raw is None:
         raise ValueError(
-            "oemag_monthly_feed_in_rates fehlt in backtesting_scenarios.json "
+            "oemag_monthly_feed_in_rates fehlt in tariffs.json "
             "(erforderlich für monthly_float Export-Tarife)."
         )
     rates = validate_fixed_monthly_feed_in_rates(raw)
@@ -25,11 +25,11 @@ def load_oemag_monthly_reference_rates(
     return rates
 
 
-def load_monthly_float_reference_cent(backtesting_scenarios_doc: dict) -> float:
-    raw = backtesting_scenarios_doc.get("monthly_float_reference_cent_kwh")
+def load_monthly_float_reference_cent(tariffs_doc: dict) -> float:
+    raw = tariffs_doc.get("monthly_float_reference_cent_kwh")
     if raw is None:
         raise ValueError(
-            "monthly_float_reference_cent_kwh fehlt in backtesting_scenarios.json "
+            "monthly_float_reference_cent_kwh fehlt in tariffs.json "
             "(erforderlich für monthly_float Export-Tarife)."
         )
     reference = float(raw)

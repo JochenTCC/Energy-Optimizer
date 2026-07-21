@@ -30,7 +30,7 @@ OEMAG_RATES = (
 )
 
 
-def _scenarios_doc() -> dict:
+def _tariffs_doc() -> dict:
     return {
         "oemag_monthly_feed_in_rates": [
             {"year": y, "month": m, "tariff_cent_kwh": c}
@@ -41,13 +41,13 @@ def _scenarios_doc() -> dict:
 
 
 def test_load_oemag_requires_twelve_months():
-    doc = _scenarios_doc()
+    doc = _tariffs_doc()
     rates = load_oemag_monthly_reference_rates(doc)
     assert len(rates) == REQUIRED_OEMAG_MONTHS
 
 
 def test_load_oemag_rejects_wrong_count():
-    doc = _scenarios_doc()
+    doc = _tariffs_doc()
     doc["oemag_monthly_feed_in_rates"] = doc["oemag_monthly_feed_in_rates"][:6]
     with pytest.raises(ValueError, match="genau 12"):
         load_oemag_monthly_reference_rates(doc)
@@ -91,4 +91,4 @@ def test_export_cent_kwh_monthly_float_lookup():
 def test_load_monthly_float_reference_cent_required():
     with pytest.raises(ValueError, match="monthly_float_reference_cent_kwh"):
         load_monthly_float_reference_cent({})
-    assert load_monthly_float_reference_cent(_scenarios_doc()) == pytest.approx(7.15)
+    assert load_monthly_float_reference_cent(_tariffs_doc()) == pytest.approx(7.15)

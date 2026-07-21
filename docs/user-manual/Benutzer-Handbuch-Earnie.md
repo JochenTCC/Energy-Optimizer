@@ -55,7 +55,7 @@ Vollständige Bedingungen: [LICENSE.md](../../LICENSE.md).
 
 ### Banner der Wahrheit
 
-In der Sidebar unter **Info / About** (unten; und zusätzlich im Hauptbereich) erscheint ein kurzes Attributions-Banner (Name, nicht-kommerzieller Hinweis, Link zum offiziellen Repository, Version). Es kennzeichnet Earnie und die Nutzungsbedingungen.
+In der Sidebar unter **Info / About** (unten) und zusätzlich **am unteren Ende des Hauptbereichs** erscheint ein kurzes Attributions-Banner (Name, nicht-kommerzieller Hinweis, Link zum offiziellen Repository, Version). Es kennzeichnet Earnie und die Nutzungsbedingungen.
 
 Bei erkennbar inoffiziellen oder geänderten Builds (z. B. abweichende Git-Remote) kann zusätzlich ein Warnhinweis erscheinen. Das Banner ist bewusst sichtbar gehalten; es ist **nicht** technisch fälschungssicher.
 
@@ -210,7 +210,7 @@ Beispiele für Vergleiche:
 
 Das **Live-Szenario** (meist ID `live`) ist die Basis für den späteren Produktivbetrieb. Weitere Szenarien dienen der Analyse im Szenario-Explorer.
 
-Tarife wählen Sie aus dem Tarifkatalog (Bezug/Einspeise). Details zu Preisen: [Preise & aWATTar](../konfiguration/preise.md).
+Tarife wählen Sie aus dem Tarifkatalog (Bezug/Einspeise). Nach der Auswahl zeigt der Editor die **Katalogparameter** des gewählten Tarifs (read-only). Bitte prüfen Sie diese Werte — es gibt **keine Garantie** für Vollständigkeit oder Aktualität. **Monatliche Fixkosten** (Grundgebühr o. Ä.) fließen noch nicht in die Kostenrechnung ein. Details zu Preisen: [Preise & aWATTar](../konfiguration/preise.md).
 
 ### Szenario-Explorer (Was-Wäre-Wenn-Analyse)
 

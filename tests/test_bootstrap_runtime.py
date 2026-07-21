@@ -151,3 +151,94 @@ def test_bootstrap_migrates_legacy_root_dotenv(tmp_path, monkeypatch):
     bootstrap.run()
 
     assert (config_dir / ".env").read_text(encoding="utf-8") == "LOXONE_USER=legacy\n"
+
+
+def test_bootstrap_upgrades_stale_schema_from_bundled(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("EARNIE_CONFIG_PATH", str(tmp_path / "config"))
+    monkeypatch.setenv("EARNIE_RUNTIME_PATH", str(tmp_path / "runtime"))
+
+    share_dir = tmp_path / "share" / "config"
+    share_dir.mkdir(parents=True)
+    (share_dir / "tariffs.schema.json").write_text(
+        json.dumps(
+            {
+                "properties": {
+                    "earnie_data_model": {"const": 2},
+                    "oemag_monthly_feed_in_rates": {"type": "array"},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    config_dir = tmp_path / "config"
+    config_dir.mkdir(parents=True)
+    (config_dir / "config.json").write_text("{}", encoding="utf-8")
+    (config_dir / "tariffs.json").write_text(
+        json.dumps({"earnie_data_model": 2, "import_tariffs": [], "export_tariffs": []}),
+        encoding="utf-8",
+    )
+    (config_dir / "tariffs.schema.json").write_text(
+        json.dumps({"properties": {"earnie_data_model": {"const": 1}}}),
+        encoding="utf-8",
+    )
+
+    bootstrap.run()
+
+    schema = json.loads((config_dir / "tariffs.schema.json").read_text(encoding="utf-8"))
+    assert schema["properties"]["earnie_data_model"]["const"] == 2
+    assert "oemag_monthly_feed_in_rates" in schema["properties"]
+
+
+def test_bootstrap_stamps_other_pack_jsons_to_current(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("EARNIE_CONFIG_PATH", str(tmp_path / "config"))
+    monkeypatch.setenv("EARNIE_RUNTIME_PATH", str(tmp_path / "runtime"))
+    for suffix in (
+        "COMPONENTS_PATH",
+        "TARIFFS_PATH",
+        "HOUSE_PROFILES_PATH",
+        "BACKTESTING_SCENARIOS_PATH",
+        "DEVIATION_RULES_PATH",
+    ):
+        monkeypatch.delenv(f"EARNIE_{suffix}", raising=False)
+        monkeypatch.delenv(f"ENERGY_OPTIMIZER_{suffix}", raising=False)
+
+    config_dir = tmp_path / "config"
+    config_dir.mkdir(parents=True)
+    (config_dir / "config.json").write_text(
+        json.dumps({"earnie_data_model": 1, "live_scenario_id": "live"}),
+        encoding="utf-8",
+    )
+    (config_dir / "components.json").write_text(
+        json.dumps({"earnie_data_model": 1, "batteries": [], "pv_systems": []}),
+        encoding="utf-8",
+    )
+    (config_dir / "tariffs.json").write_text(
+        json.dumps(
+            {
+                "earnie_data_model": 2,
+                "import_tariffs": [],
+                "export_tariffs": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (config_dir / "config.minimal.json").write_text(
+        json.dumps({"earnie_data_model": 1}),
+        encoding="utf-8",
+    )
+
+    bootstrap.run()
+
+    from runtime_store.data_model import CURRENT_DATA_MODEL
+
+    config = json.loads((config_dir / "config.json").read_text(encoding="utf-8"))
+    components = json.loads((config_dir / "components.json").read_text(encoding="utf-8"))
+    minimal = json.loads((config_dir / "config.minimal.json").read_text(encoding="utf-8"))
+    tariffs = json.loads((config_dir / "tariffs.json").read_text(encoding="utf-8"))
+    assert config["earnie_data_model"] == CURRENT_DATA_MODEL
+    assert components["earnie_data_model"] == CURRENT_DATA_MODEL
+    assert minimal["earnie_data_model"] == CURRENT_DATA_MODEL
+    assert tariffs["earnie_data_model"] == CURRENT_DATA_MODEL

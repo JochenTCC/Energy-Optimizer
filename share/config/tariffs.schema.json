@@ -20,9 +20,20 @@
         "$ref": "#/definitions/export_tariff"
       }
     },
+    "oemag_monthly_feed_in_rates": {
+      "$ref": "#/definitions/monthly_rates",
+      "description": "OeMAG Gesetzlicher Marktpreis (Referenz für monthly_float): genau 12 Monate Cent/kWh netto.",
+      "minItems": 12,
+      "maxItems": 12
+    },
+    "monthly_float_reference_cent_kwh": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "OeMAG arbeitspreis_kwh_cent als Nenner für monthly_float-Skalierung (z. B. 7.15)."
+    },
     "earnie_data_model": {
       "type": "integer",
-      "const": 1,
+      "const": 2,
       "description": "Earnie data-model version for config pack import/export."
     }
   },

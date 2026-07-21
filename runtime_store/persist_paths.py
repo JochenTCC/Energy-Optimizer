@@ -15,7 +15,12 @@ _LEGACY_DOTENV = ".env"
 
 
 def env_root() -> str:
-    """Env-Wurzel: EARNIE_ENV_PATH (Default: earnie_env)."""
+    """Env-Wurzel: cloud session override, else EARNIE_ENV_PATH (Default: earnie_env)."""
+    from runtime_store.cloud_demo import get_session_env_root
+
+    session = get_session_env_root()
+    if session:
+        return session
     env = read_env("ENV_PATH")
     return env if env else _DEFAULT_ENV_ROOT
 
@@ -57,7 +62,12 @@ def default_config_dir() -> str:
 
 
 def config_dir() -> str:
-    """Config-Verzeichnis: CONFIG_PATH-ENV oder default_config_dir()."""
+    """Config-Verzeichnis: cloud session, else CONFIG_PATH-ENV oder default_config_dir()."""
+    from runtime_store.cloud_demo import get_session_env_root
+
+    session = get_session_env_root()
+    if session:
+        return os.path.join(session, "config")
     env_dir = _config_directory_from_env()
     if env_dir:
         return env_dir
@@ -80,6 +90,11 @@ def _preferred_or_legacy_file(*relative_parts: str) -> str:
 
 
 def runtime_dir() -> str:
+    from runtime_store.cloud_demo import get_session_env_root
+
+    session = get_session_env_root()
+    if session:
+        return os.path.join(session, "runtime")
     env = read_runtime_path()
     if env:
         return env
@@ -256,7 +271,12 @@ def resolve_config_schema_template_path() -> str:
 
 
 def resolve_config_json_path() -> str:
-    """Pfad zu config.json: CONFIG_PATH-Dir > ENV_PATH/config > legacy config/ > Root."""
+    """Pfad zu config.json: cloud session > CONFIG_PATH-Dir > ENV_PATH/config > legacy."""
+    from runtime_store.cloud_demo import get_session_env_root
+
+    session = get_session_env_root()
+    if session:
+        return os.path.join(session, "config", "config.json")
     env = read_env("CONFIG_PATH")
     if env:
         if _is_legacy_config_file_path(env):
@@ -292,10 +312,14 @@ def _resolve_sidecar_json_path(
     """
     Sidecar-JSON im Config-Verzeichnis, wenn CONFIG_PATH per ENV gesetzt ist.
 
-    Reihenfolge: explizite Sidecar-ENV > vorhandene Datei im Config-Dir >
+    Reihenfolge: cloud session > explizite Sidecar-ENV > vorhandene Datei im Config-Dir >
     vorhandener Default/Legacy > (bei CONFIG_PATH) Zielpfad im Config-Dir >
     Default-Pfad.
     """
+    from runtime_store.cloud_demo import get_session_env_root
+
+    if get_session_env_root():
+        return os.path.join(config_dir(), filename)
     env = read_env(env_suffix)
     if env:
         return env
@@ -339,7 +363,11 @@ def resolve_local_settings_template_path() -> str:
 
 
 def resolve_local_settings_json_path() -> str:
-    """Maschinenspezifische Einstellungen: ENV > runtime/local_settings.json."""
+    """Maschinenspezifische Einstellungen: cloud session / runtime > ENV > runtime/local_settings.json."""
+    from runtime_store.cloud_demo import get_session_env_root
+
+    if get_session_env_root():
+        return local_settings_file()
     env = read_env("LOCAL_SETTINGS_PATH")
     if env:
         return env
@@ -632,7 +660,11 @@ def bundled_dotenv_example_file() -> str:
 
 
 def resolve_dotenv_path() -> str:
-    """Pfad zur .env: ENV > Config-Dir > ENV_PATH/config/.env > legacy."""
+    """Pfad zur .env: cloud session > ENV > Config-Dir > ENV_PATH/config/.env > legacy."""
+    from runtime_store.cloud_demo import get_session_env_root
+
+    if get_session_env_root():
+        return os.path.join(config_dir(), ".env")
     env = read_env("DOTENV_PATH")
     if env:
         return env

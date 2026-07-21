@@ -293,6 +293,7 @@ class Config:
         return live_scenario.get_backtesting_feed_in_settings(
             runtime,
             load_scenarios_document=self._load_backtesting_scenarios_document,
+            load_tariffs_document=self._load_tariffs_document,
         )
 
     def get_threshold_power(self) -> float:
@@ -351,6 +352,9 @@ class Config:
         return scenario_settings.load_backtesting_scenarios_document(
             self.backtesting_scenarios_path
         )
+
+    def _load_tariffs_document(self) -> dict:
+        return read_json_dict(self.tariffs_path)
 
     def get_backtesting_cbc_gap_rel(self) -> float:
         return scenario_settings.get_backtesting_cbc_gap_rel(self.backtesting_scenarios_path)

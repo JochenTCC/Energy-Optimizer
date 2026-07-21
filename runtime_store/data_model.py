@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-CURRENT_DATA_MODEL = 1
-COMPATIBLE_DATA_MODELS: frozenset[int] = frozenset({1})
+CURRENT_DATA_MODEL = 2
+COMPATIBLE_DATA_MODELS: frozenset[int] = frozenset({1, 2})
 
 # Future: map from source version → callable that mutates a document in place.
 _CONVERTERS: dict[int, Callable[[dict[str, Any]], None]] = {}
@@ -39,12 +39,16 @@ def ensure_compatible(doc: dict[str, Any], *, label: str) -> int:
     Validate / convert a document to a compatible data-model version.
 
     Missing tag is treated as version 1 (legacy files before tagging).
+    Older compatible versions are upgraded in-memory to CURRENT_DATA_MODEL.
     """
     version = read_data_model(doc)
     if version is None:
         version = 1
         doc[DATA_MODEL_KEY] = version
     if version in COMPATIBLE_DATA_MODELS:
+        if version < CURRENT_DATA_MODEL:
+            stamp_data_model(doc)
+            return CURRENT_DATA_MODEL
         return version
     converter = _CONVERTERS.get(version)
     if converter is not None:

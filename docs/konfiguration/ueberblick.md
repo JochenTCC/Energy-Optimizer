@@ -62,7 +62,7 @@ Details zu Preisen: [Preise & aWATTar](preise.md).
 
 ## Seite Live-Konfiguration
 
-Im Abschnitt **Konfiguration** wählt die Seite **Live-Konfiguration** (Komfort-Ansicht Live-Szenario) Entitäten per Dropdown (`battery_id`, PV, Tarife, Hausprofil). Vor den Tarif-Dropdowns gibt es einen gemeinsamen Filter **Land** (`land`: AT/DE/CH) für Bezug und Einspeise sowie getrennte **Typ**-Filter; dasselbe gilt im **Szenarieneditor**. Ein Regionsfilter ist noch nicht verfügbar. Aufgelöste Werte (kWp, Kapazität, Vergütung) sind **read-only**; gespeichert werden nur IDs im Live-Szenario in `backtesting_scenarios.json`.
+Im Abschnitt **Konfiguration** wählt die Seite **Live-Konfiguration** (Komfort-Ansicht Live-Szenario) Entitäten per Dropdown (`battery_id`, PV, Tarife, Hausprofil). Vor den Tarif-Dropdowns gibt es einen gemeinsamen Filter **Land** (`land`: AT/DE/CH) für Bezug und Einspeise sowie getrennte **Typ**-Filter; dasselbe gilt im **Szenarieneditor**. Beim Einspeise-**Typ** erscheinen `monthly_table` und `monthly_float` gemeinsam als **Monatspreis** (monatsfester Charakter; die interne Berechnung bleibt im Katalog getrennt, bis das Datenmodell vereinheitlicht ist). Ein Regionsfilter ist noch nicht verfügbar. Im **Szenarieneditor** erscheinen nach der Tarifwahl die Katalogparameter read-only inkl. Hinweis, dass Monatsfixkosten noch nicht in die Kostenrechnung einfließen. Aufgelöste Werte (kWp, Kapazität, Vergütung) sind **read-only**; gespeichert werden nur IDs im Live-Szenario in `backtesting_scenarios.json`.
 
 ## Weiterführend
 

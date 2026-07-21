@@ -55,7 +55,8 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 - [x] Perform a SE for posts
 - [x] Add a link to Manual in Info
 - [x] Test if sunset2set-Mode is working in SE brings better results than fixed_24h
-- [ ] Define SE overall horizon not on current day, but on the recent month (and then backwards)
+  - Results are better, but computing effort is much higher
+- [x] In Scenario Editor show parameters of selected tariffs and give a hint that user must check if data is correct (there is no guarantee for correctness) and monthly fixed fees are not part of the calculation yet
 - [ ] Finalize Version 2.2.0 after test usage and make a release
   - Update German Docs
 
@@ -64,10 +65,13 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 
 Year-1 product depth (trust / What-If / churn). **Good-enough €** for SE and demos — invoice-grade bill reconciliation is explicitly out of scope (nice-to-have later). Includes a thin marker/data-model prep for later SAM work (`2.4`), not the connector rewrite.
 
+- [ ] Check if file_paths_battery_simulation should be kept in config.json
+  - Also check for other entities
+- [ ] Define SE overall horizon not on current day, but on the recent month (and then backwards)
 - [ ] **2.3.a — Tariff hygiene (good-enough €)**
   - Find EPEX API to have provider independent tariff calculation
   - Review current tariffs - use https://www.e-control.at/referenzmarktwert and `docs/referenz/` OeMAG/RefMrkt anchors
-  - Remove usage of `oemag_monthly_feed_in_rates` in `backtesting_scenarios.json` for monthly export tariffs. They must own their own complete data. Consider that as design change if needed. Add data of `oemag_monthly_feed_in_rates` as sample in `tariffs.json`. Remove entry `oemag_monthly_feed_in_rates` in `backtesting_scenarios.json`.
+  - Shared OeMAG reference already lives in `tariffs.json` (data-model v2). Remaining: unify export `monthly_float` and `monthly_table` in the data model (one month-constant type with owned `monthly_rates`; migrate/trim catalog entries that only differ by scale-vs-table). UI already treats both as one Typ (“Monatspreis”); calculation paths stay distinct until this unify.
 - [ ] **2.3.b — Approximate cost model (monthly fees)**
   - Improve cost calculation by adding monthly fees etc.
   - Label fees as approximate where needed; no requirement to match real invoices
