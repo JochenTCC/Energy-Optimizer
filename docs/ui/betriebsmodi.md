@@ -12,12 +12,12 @@ Ohne diese Variable stehen in der Entwicklung **Sunset-2-Sunset** (Seite **Monit
 |-----|-------|-----------|------------|
 | `sunset2sunset` | **Monitor**, **Manuelle Geräte** | Live-Cockpit | ja (Hauptansicht; ohne Key kein Live-Cockpit-Abschnitt) |
 | `scenario_explorer` | **Szenario-Explorer** | Konfiguration | optional (Dev / Community Cloud) |
-| `live_environment` | **Optimierer-Dienst**, **Loxone-Kommunikation**, **Verbraucheranalyse** (Live-Cockpit) | Daemon Control / Live-Cockpit | ja (Prod; ohne Key kein Live-/Daemon-Anteil) |
+| `live_environment` | **Optimierer-Dienst**, **Loxone-Kommunikation**, **Analyse Verbrauch & Kosten** (Live-Cockpit) | Daemon Control / Live-Cockpit | ja (Prod; ohne Key kein Live-/Daemon-Anteil) |
 | `price_forecast` | **Preis-Prognose (Dev)** | Live-Cockpit | Dev-only |
 
 Beispiel Community Cloud (nur Szenario-Explorer): `EARNIE_UI_MODES=scenario_explorer` — Live-Cockpit und Daemon Control entfallen.
 
-Weitere Seiten (nicht über `EARNIE_UI_MODES` gesteuert): **Hauskonfigurator**, **Szenarieneditor** — Freischaltung abhängig vom Setup-Fortschritt (`ui/setup_readiness.py`). **Verbraucheranalyse** erscheint nur mit `live_environment` und nur im Abschnitt Live-Cockpit; ohne Live-Verbindung zur Smarthome-Steuerung zeigt die Seite einen Hinweis statt der Analyse.
+Weitere Seiten (nicht über `EARNIE_UI_MODES` gesteuert): **Hauskonfigurator**, **Szenarieneditor** — Freischaltung abhängig vom Setup-Fortschritt (`ui/setup_readiness.py`). **Analyse Verbrauch & Kosten** erscheint nur mit `live_environment` und nur im Abschnitt Live-Cockpit; ohne Live-Verbindung zur Smarthome-Steuerung zeigt die Seite einen Hinweis statt der Analyse.
 
 In der Sidebar (unten): Abschnitt **Info / About** (Banner der Wahrheit, Version, Kontaktformular an `mail@techcreacon.com` — ZIP sammeln und der E-Mail manuell anhängen), oben Setup-Hinweise und **„Konfiguration speichern / laden“** (ZIP-Export/Import der Config-Sidecars und `uploads/` — siehe [Speichern / Laden](../konfiguration/speichern-laden.md)).
 
@@ -25,7 +25,7 @@ In der Sidebar (unten): Abschnitt **Info / About** (Banner der Wahrheit, Version
 
 | Abschnitt | Seiten |
 |-----------|--------|
-| **Live-Cockpit** | Monitor, Manuelle Geräte, Verbraucheranalyse (bei `live_environment`), Preis-Prognose (Dev) |
+| **Live-Cockpit** | Monitor, Manuelle Geräte, Analyse Verbrauch & Kosten (bei `live_environment`), Preis-Prognose (Dev) |
 | **Konfiguration** | Hauskonfigurator, Szenarieneditor, Szenario-Explorer (wenn freigeschaltet) |
 | **Daemon Control** | Optimierer-Dienst, Loxone-Kommunikation |
 

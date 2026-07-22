@@ -396,11 +396,14 @@ Unter **Live-Cockpit → Manuelle Geräte** für Verbraucher mit Rolle **manuell
 
 Geplante Läufe (mit einem Check versehen) erscheinen im Monitor (Chart 1) und fließen in die Optimierung der übrigen Lasten ein. Ideal für Geräte ohne smarte Freigabe, bei denen Sie den Start selbst setzen.
 
-### Verbraucheranalyse
+### Analyse Verbrauch & Kosten
 
-Unter **Live-Cockpit → Verbraucheranalyse** (nur wenn der UI-Modus `live_environment` aktiv ist und eine Live-Verbindung zur Smarthome-Steuerung besteht; sonst Hinweis auf der Seite):
+Unter **Live-Cockpit → Analyse Verbrauch & Kosten** (nur wenn der UI-Modus `live_environment` aktiv ist und eine Live-Verbindung zur Smarthome-Steuerung besteht; sonst Hinweis auf der Seite):
 
-Auswertung, welcher Verbrauch **autonom** (Haus/Loxone ohne Earnie-Plan) und welcher **earnie-initiiert** bzw. verschoben war. Hilft zu prüfen, ob Freigaben und Pläne greifen und wo noch Potenzial liegt.
+- **Wochenansicht** aus dem Produktiv-Log: Verbrauch je Verbraucher (Optimizer-Flex und manuelle Geräte mit `earnie_role: manual`) im Vergleich zu Importpreis und PV, Herkunft der Energie (PV / Batterie / Netz) sowie grobe Kosten nur für den **Netzanteil** (PV und Batterie am Verbrauchsort zählen als 0 €). Manuelle Geräte erscheinen bei aktivem Startplan bzw. wenn ihre Leistung im Log gemessen ist.
+- **Summen** für Kalenderwoche, laufenden Monat und Jahr — bezogen auf vorhandene Log-Daten (kein Abgleich mit der Stromrechnung).
+- **Batterie-Energieflüsse** der gewählten Woche (Laden/Entladen, Anteil PV vs. Netz beim Laden).
+- Darunter weiterhin die **Swimspa**-Auswertung (Ist-/Soll-Temperatur und Filter autonom vs. Earnie-initiiert im S-2-Fenster).
 
 ---
 

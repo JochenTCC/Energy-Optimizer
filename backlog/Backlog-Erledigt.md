@@ -3,6 +3,15 @@
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 
+### 2.3.e — Analyse Verbrauch & Kosten (2026-07-22)
+
+- [x] Live-Cockpit rename **Verbraucheranalyse → Analyse Verbrauch & Kosten** (`consumer-analysis`)
+- [x] Weekly consumer usage vs price/PV from `optimization_history.jsonl`; PV/battery/grid pro-rata via `allocate_slot_flows`
+- [x] Point-of-use costs (grid share × import price only; PV/battery discharge = 0 €); rough KW/month/year KPIs with log coverage caption
+- [x] Battery charge/discharge energy sums; manuals (`earnie_role: manual`) included (measured or schedule peel)
+- [x] Swimspa temp/filter charts kept as secondary section; tests + German docs
+
+
 ### 2.3.d — Scenario Explorer polish (2026-07-22)
 
 - [x] SE progress bars: ETA (“time left until finished”) during scenario simulation — `ProgressEtaTracker` / caption helpers in `simulation/backtesting_progress.py`; UI in `ui/backtesting.py` (reopened from 2026-07-16 baseline progress)

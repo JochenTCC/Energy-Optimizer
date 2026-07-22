@@ -50,14 +50,8 @@ Year-1 product depth (trust / What-If / churn). **Good-enough €** for SE and d
   - A/B last12m truncated vs full+flexbook; gate: plaus ≈ truncated before reconsidering product path
   - [x] **TAKEAWAY** — last12m (`2025-07-01`–`2026-06-30`, 8 workers). Plaus **restored** to 344/365 (= truncated) on all four scenarios. € Δ vs truncated ≈ −7…−18 €/y (Live −10 €); wall ~398s vs ~423s. Broken run without flexbook had −136…−175 € with collapsed plaus — those “savings” were flex deferred past booking. **Product default (user 2026-07-22):** `sunrise_full_horizon_trial` **true** (full SA_0-->SA_2 + flexbook + free SOC anchors); set `false` for old truncate-before-MILP. Artifacts: `backtesting_logs/sunrise_full_flexbook_ab_last12m/`
 
-- [ ] Streamlit Rollout (Pre-Release)
+- [x] Streamlit Rollout (Pre-Release)
 
-- [ ] **2.3.e — Verbraucheranalyse → Analyse Verbrauch & Kosten**
-  - Visualize usage of consumers on a weekly basis compared to historical price and PV
-  - Show if power came from PV, battery or grid
-  - Visualize cost for each usage
-  - Visualize total cost per week / month / year (**rough totals for trust** — not validation against invoices)
-  - Visualize battery usage as sum of energy flow (maybe established charts exist?)
 - [ ] **2.3.f — Thin marker / data-model prep (SAM optionality)**
   - **Goal:** Cheap prep for `2.4` without connector framework, MQTT/Matter, or Loxone HTTP rewrite
   - Clarify marker ↔ role assignments (consumers, inverter, heating, battery, EV, …) in data model / schema naming toward generic “smarthome markers” (docs + structure; keep Loxone as sole live backend)

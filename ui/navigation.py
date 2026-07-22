@@ -30,7 +30,7 @@ SECTION_KONFIGURATION = "Konfiguration"
 SECTION_ECHTZEIT = "Daemon Control"
 
 _VA_OFFLINE_NOTICE = (
-    "Verbraucheranalyse ist ohne Live-Verbindung zur Smarthome-Steuerung "
+    "Analyse Verbrauch & Kosten ist ohne Live-Verbindung zur Smarthome-Steuerung "
     "nicht verfügbar (EARNIE_OFFLINE oder unvollständiges Live-Szenario). "
     "Bitte Live-Szenario im Szenarieneditor vervollständigen bzw. "
     "Offline-Modus deaktivieren."
@@ -212,7 +212,7 @@ def build_page_specs(enabled_mode_keys: list[str]) -> list[PageSpec]:
                         page_consumer_analysis.render,
                         _VA_OFFLINE_NOTICE,
                     ),
-                    "Verbraucheranalyse",
+                    "Analyse Verbrauch & Kosten",
                     "📈",
                     SECTION_BETRIEB,
                     "consumer-analysis",

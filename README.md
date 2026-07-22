@@ -63,7 +63,7 @@ Details: [Betrieb](docs/einrichtung/betrieb.md)
 - **Hauskonfigurator / Szenarieneditor** — Umfangreiche Konfiguration des Hauses mit allen Verbrauchern zur Planung und Szenario-Exploration
 - **Manuelle Geräte** — Laufzeiten mithilfe von Earnie planen und Empfehlungen annehmen
 - **Szenario-Explorer** — Szenarien vergleichen (Was-Wäre-Wenn Analysen)
-- **Verbraucheranalyse** — autonom vs. Earnie-initiiert
+- **Analyse Verbrauch & Kosten** — Verbrauch/Herkunft/Kosten aus dem Produktiv-Log; Swimspa autonom vs. Earnie
 
 
 
