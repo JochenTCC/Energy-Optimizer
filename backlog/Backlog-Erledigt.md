@@ -3,6 +3,13 @@
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 
+### 2.3.b — Approximate cost model (monthly fees) (2026-07-22)
+
+- [x] Optional `monthly_fee_eur` on import/export tariffs; SE `total_eur` / `monthly_eur` add one full fee per calendar month (not MILP / not hourly `sim_cost`)
+- [x] Catalog seeds + VKW export VAT hygiene; Scenario Editor / SE captions label fees as approximate
+- [x] User how-to [`docs/referenz/tarife-quellen.md`](../docs/referenz/tarife-quellen.md) (Nachrechnen + sources/audit)
+
+
 ### 2.3.a — Tariff hygiene (good-enough €) (2026-07-21)
 
 - [x] Provider-independent AT Day-Ahead via Energy-Charts (`bzn=AT`), aWATTar fallback
