@@ -1,6 +1,6 @@
 # Loxone-Kommunikation (Debug-Seite)
 
-Die Seite **Loxone-Kommunikation** unter **Daemon Control** zeigt den Live-Zustand aller konfigurierten Loxone-Merker und die Schreibvorgänge des letzten Produktiv-Laufs von `main.py`.
+Die Seite **Loxone-Kommunikation** unter **Daemon Control** zeigt den Live-Zustand aller konfigurierten Smarthome-Merker (Backend: Loxone) und die Schreibvorgänge des letzten Produktiv-Laufs von `main.py`. Zusätzlich können Sie die zentralen Anlagen-Merker (`loxone_blocks`) und Event-Trigger (`system.event_triggers`) strukturiert bearbeiten.
 
 ## Aufruf
 
@@ -11,11 +11,19 @@ Die Seite ist auch während der Einrichtung sichtbar (eingeschränkte Navigation
 
 ## Live-Cockpit noch gesperrt (Greenfield)
 
-Nach abgeschlossener Planungs-Konfiguration (Hauskonfigurator + Live-Szenario im Szenarieneditor) erscheint **Szenario-Explorer**, aber **Live-Cockpit** (Monitor / Manuelle Geräte) bleibt bewusst ausgeblendet, solange die Loxone-Merker für den Live-Betrieb nicht vollständig und korrekt sind.
+Nach abgeschlossener Planungs-Konfiguration (Hauskonfigurator + Live-Szenario im Szenarieneditor) erscheint **Szenario-Explorer**, aber **Live-Cockpit** (Monitor / Manuelle Geräte) bleibt bewusst ausgeblendet, solange die Smarthome-Merker für den Live-Betrieb nicht vollständig und korrekt sind.
 
-Auf dieser Seite erscheint dann ein Hinweis. Nutzen Sie **Loxone-Merker testen** und die Tabelle **Live-Lesen**, um Platzhalter oder falsche Namen in `loxone_blocks` (`config.json`) und in den Verbraucher-Merkern des Hausprofils zu korrigieren. Erst danach wird der Abschnitt Live-Cockpit freigeschaltet.
+Auf dieser Seite erscheint dann ein Hinweis. Nutzen Sie die Formulare **Anlagen-Merker** / **Event-Trigger**, **Smarthome-Merker testen** und die Tabelle **Live-Lesen**, um Platzhalter oder falsche Namen in `loxone_blocks` (`config.json`) und in den Verbraucher-Merkern des Hausprofils zu korrigieren. Erst danach wird der Abschnitt Live-Cockpit freigeschaltet.
 
 ## Bereiche der Seite
+
+### Anlagen-Merker (`loxone_blocks`)
+
+Strukturiertes Formular für Batterie-/PV-/Netz- und Steuerbefehl-Rollen. Werte sind Miniserver-Merkernamen; Speichern schreibt `config.json` und lädt die Runtime-Konfiguration neu. Die Roh-JSON-Bearbeitung unter Konfiguration bleibt als Escape Hatch.
+
+### Event-Trigger
+
+Liste der Signale, die außerplanmäßige Optimierungsläufe auslösen (`id`, Merkername, `signal_type`, `on_change`, `label`). Siehe auch [Loxone-Signale](../referenz/loxone-signale.md#event-trigger-systemevent_triggers).
 
 ### Statusleiste
 
@@ -25,17 +33,17 @@ Auf dieser Seite erscheint dann ein Hinweis. Nutzen Sie **Loxone-Merker testen**
 
 ### Live-Lesen
 
-Alle aus `config.json` abgeleiteten Loxone-Eingänge werden periodisch (Standard: alle 10 Sekunden) vom Miniserver gelesen.
+Alle aus `config.json` abgeleiteten Eingänge werden periodisch (Standard: alle 10 Sekunden) vom Miniserver gelesen.
 
 | Spalte | Bedeutung |
 |--------|-----------|
 | Label | Bezeichnung aus der Konfiguration (z. B. Batterie-SoC, Verbraucher-Leistung) |
-| IO-Name | Merkername in Loxone |
+| IO-Name | Smarthome-Merkername (Loxone) |
 | Status | OK, Warnung oder Fehler |
 | Detail | Rohwert oder parsebarer Wert |
 | Zuletzt gelesen | Zeitpunkt des letzten Abrufs auf dieser Seite |
 
-Mit **Loxone-Merker testen** starten Sie eine einmalige Prüfung aller konfigurierten Merker (Ergebnis als farbige Meldungen). Die Tabelle darunter wird zusätzlich automatisch aktualisiert (Standard: alle 10 Sekunden).
+Mit **Smarthome-Merker testen** starten Sie eine einmalige Prüfung aller konfigurierten Merker (Ergebnis als farbige Meldungen). Die Tabelle darunter wird zusätzlich automatisch aktualisiert (Standard: alle 10 Sekunden).
 
 Lesefehler bedeuten: Merkername falsch, Miniserver nicht erreichbar, oder Wert nicht parsebar — nicht dass `main.py` fehlgeschlagen ist.
 

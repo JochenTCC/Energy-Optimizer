@@ -64,6 +64,7 @@ _PASSTHROUGH_CONSUMER_KEYS = (
     "heating_power_threshold_kw",
     "actual_temp_step_c",
     "thermal_control",
+    "swimspa_filter_bindings",
     "profile_csv",
     "use_profile_csv",
 )
@@ -160,6 +161,8 @@ def _render_power_source_fields(
     key_prefix: str,
 ) -> tuple[str, dict | None]:
     """Leistungsquelle + optional loxone_inputs.power_name."""
+    from ui.smarthome_marker_fields import render_marker_text
+
     inputs = _loxone_inputs_from_consumer(consumer)
     rec = consumer.get("appliance_recommendation") or {}
     has_marker = bool(str(inputs.get("power_name", "")).strip())
@@ -171,23 +174,174 @@ def _render_power_source_fields(
         options=["manual", "loxone"],
         index=0 if default_source != "loxone" else 1,
         format_func=lambda value: (
-            "Aus Profil (Nennleistung)" if value == "manual" else "Loxone-Merker"
+            "Aus Profil (Nennleistung)" if value == "manual" else "Smarthome-Merker"
         ),
         key=_scoped_key(session_scope, f"{key_prefix}_src_{index}"),
     )
     if power_source != "loxone":
         return power_source, None
     st.caption(
-        "Merker wird für künftige Live-Adaption gespeichert; "
+        "Merker-Adresse (Loxone Miniserver); für künftige Live-Adaption gespeichert. "
         "Grundlast/Empfehlung nutzen weiterhin Nennleistung aus dem Profil."
     )
-    power_name = labeled_text_input(
-        "Loxone-Merker (Leistung)",
-        value=str(inputs.get("power_name", "")),
+    marker = render_marker_text(
+        "Smarthome-Merker (Leistung)",
+        inputs.get("power_name", ""),
         key=_scoped_key(session_scope, f"{key_prefix}_merker_{index}"),
     )
-    marker = str(power_name).strip()
     return power_source, {"power_name": marker} if marker else None
+
+
+def _render_live_io_markers(
+    consumer: dict,
+    index: int,
+    *,
+    session_scope: str,
+    key_prefix: str,
+    include_enable: bool = True,
+    include_ev_outputs: bool = False,
+    include_subtract: bool = False,
+) -> tuple[dict, dict]:
+    """Edit loxone_inputs / loxone_outputs used by live consumers."""
+    from ui.smarthome_marker_fields import render_marker_text
+
+    st.markdown("**Smarthome-Merker (Live)**")
+    st.caption("Rollen = Config-Schlüssel; Werte = Miniserver-Merkernamen (Loxone).")
+    inputs = _loxone_inputs_from_consumer(consumer)
+    outputs = dict(consumer.get("loxone_outputs") or {})
+    power_name = render_marker_text(
+        "Merker: Leistung (Lesen)",
+        inputs.get("power_name", ""),
+        key=_scoped_key(session_scope, f"{key_prefix}_pwr_{index}"),
+    )
+    new_inputs: dict = {}
+    if power_name:
+        new_inputs["power_name"] = power_name
+    if "signal_type" in inputs:
+        new_inputs["signal_type"] = inputs["signal_type"]
+    if include_subtract:
+        subtract = inputs.get("subtract_consumer_ids")
+        existing = (
+            ", ".join(str(item) for item in subtract)
+            if isinstance(subtract, list)
+            else ""
+        )
+        subtract_text = render_marker_text(
+            "Abzug Verbraucher-IDs (Komma, optional)",
+            existing,
+            key=_scoped_key(session_scope, f"{key_prefix}_sub_{index}"),
+        )
+        if subtract_text:
+            new_inputs["subtract_consumer_ids"] = [
+                part.strip() for part in subtract_text.split(",") if part.strip()
+            ]
+    new_outputs: dict = {}
+    if include_enable:
+        enable_name = render_marker_text(
+            "Merker: Freigabe (Schreiben)",
+            outputs.get("enable_name", ""),
+            key=_scoped_key(session_scope, f"{key_prefix}_en_{index}"),
+        )
+        if enable_name:
+            new_outputs["enable_name"] = enable_name
+    if include_ev_outputs:
+        setpoint = render_marker_text(
+            "Merker: Lade-Sollwert kW (Schreiben)",
+            outputs.get("power_setpoint_name", ""),
+            key=_scoped_key(session_scope, f"{key_prefix}_set_{index}"),
+        )
+        pv_follow = render_marker_text(
+            "Merker: PV-Follow (Schreiben)",
+            outputs.get("pv_follow_name", ""),
+            key=_scoped_key(session_scope, f"{key_prefix}_pvf_{index}"),
+        )
+        if setpoint:
+            new_outputs["power_setpoint_name"] = setpoint
+        if pv_follow:
+            new_outputs["pv_follow_name"] = pv_follow
+    return new_inputs, new_outputs
+
+
+def _render_ev_charging_loxone(
+    sched: dict,
+    index: int,
+    *,
+    session_scope: str,
+) -> dict:
+    from ui.smarthome_marker_fields import (
+        EV_CHARGING_LOXONE_FIELDS,
+        collect_named_markers,
+    )
+
+    st.markdown("**E-Auto Status-Merker** (`charging_schedule.loxone`)")
+    source = sched.get("loxone") if isinstance(sched.get("loxone"), dict) else {}
+    return collect_named_markers(
+        source,
+        EV_CHARGING_LOXONE_FIELDS,
+        key_prefix=_scoped_key(session_scope, f"hc_ev_lox_{index}"),
+    )
+
+
+def _render_thermal_control_loxone(
+    consumer: dict,
+    index: int,
+    *,
+    session_scope: str,
+) -> dict:
+    from ui.smarthome_marker_fields import (
+        THERMAL_CONTROL_LOXONE_FIELDS,
+        collect_named_markers,
+    )
+
+    st.markdown("**Temperatur-Merker** (`thermal_control.loxone`)")
+    control = consumer.get("thermal_control") if isinstance(
+        consumer.get("thermal_control"), dict
+    ) else {}
+    source = control.get("loxone") if isinstance(control.get("loxone"), dict) else {}
+    loxone = collect_named_markers(
+        source,
+        THERMAL_CONTROL_LOXONE_FIELDS,
+        key_prefix=_scoped_key(session_scope, f"hc_tc_lox_{index}"),
+    )
+    return {"loxone": loxone} if loxone else {}
+
+
+def _render_swimspa_filter_bindings(
+    consumer: dict,
+    index: int,
+    *,
+    session_scope: str,
+) -> dict:
+    """Optional marker overrides for bridge-only SwimSpa filter."""
+    from house_config.planning_flex_bridge import SWIMSPA_FILTER_BRIDGE_DEFAULTS
+    from ui.smarthome_marker_fields import (
+        assemble_filter_bindings,
+        filter_binding_prefills,
+        render_marker_text,
+    )
+
+    st.markdown("**SwimSpa-Filter Merker** (optional, Bridge-Defaults)")
+    st.caption(
+        "Overrides für den Bridge-Filter; leer = eingebauter Default. "
+        "Kein eigener Hausprofil-Verbraucher."
+    )
+    stored = consumer.get("swimspa_filter_bindings")
+    stored = stored if isinstance(stored, dict) else {}
+    prefills = filter_binding_prefills(stored, SWIMSPA_FILTER_BRIDGE_DEFAULTS)
+    prefix = _scoped_key(session_scope, f"hc_filt_{index}")
+    labels = (
+        ("loxone_target_hours_name", "Merker: Filter-Sollstunden", "hours"),
+        ("power_name", "Merker: Filter Leistung/Aktiv", "pwr"),
+        ("alternate_binary_power_name", "Merker: Filter alternativ", "alt"),
+        ("enable_name", "Merker: Filter Freigabe", "en"),
+        ("native_start_hour_name", "Merker: natives Filter-Start", "start"),
+        ("native_duration_hours_name", "Merker: natives Filter-Dauer", "dur"),
+    )
+    values = {
+        role: render_marker_text(label, prefills.get(role, ""), key=f"{prefix}_{suffix}")
+        for role, label, suffix in labels
+    }
+    return assemble_filter_bindings(values)
 
 
 def _render_manual_appliance_fields(
@@ -609,6 +763,21 @@ def _render_ev_fields(consumer: dict, index: int, *, session_scope: str) -> dict
             session_scope=session_scope,
         ),
     }
+    loxone_inputs, loxone_outputs = _render_live_io_markers(
+        consumer,
+        index,
+        session_scope=session_scope,
+        key_prefix="hc_ev_io",
+        include_enable=False,
+        include_ev_outputs=True,
+    )
+    item["loxone_inputs"] = loxone_inputs
+    item["loxone_outputs"] = loxone_outputs
+    charging_loxone = _render_ev_charging_loxone(
+        sched, index, session_scope=session_scope
+    )
+    if charging_loxone:
+        item["charging_schedule"]["loxone"] = charging_loxone
     return item
 
 
@@ -693,7 +862,7 @@ def _render_thermal_rc_fields(
     session_scope: str,
 ) -> dict:
     rc = consumer.get("thermal_rc") if isinstance(consumer.get("thermal_rc"), dict) else consumer
-    return {
+    item: dict = {
         "min_on_quarterhours": labeled_number_input(
             "Mindestlaufzeit (Viertelstunden)",
             min_value=0,
@@ -741,6 +910,27 @@ def _render_thermal_rc_fields(
             ),
         },
     }
+    loxone_inputs, loxone_outputs = _render_live_io_markers(
+        consumer,
+        index,
+        session_scope=session_scope,
+        key_prefix="hc_rc_io",
+        include_enable=True,
+        include_subtract=True,
+    )
+    item["loxone_inputs"] = loxone_inputs
+    item["loxone_outputs"] = loxone_outputs
+    thermal_control = _render_thermal_control_loxone(
+        consumer, index, session_scope=session_scope
+    )
+    if thermal_control:
+        item["thermal_control"] = thermal_control
+    filter_bindings = _render_swimspa_filter_bindings(
+        consumer, index, session_scope=session_scope
+    )
+    if filter_bindings:
+        item["swimspa_filter_bindings"] = filter_bindings
+    return item
 
 
 def _render_thermal_solar_fields(
@@ -922,6 +1112,15 @@ def _render_consumer_form(
                     default_azimuth=default_pv_azimuth,
                 )
             )
+            loxone_inputs, loxone_outputs = _render_live_io_markers(
+                consumer,
+                index,
+                session_scope=session_scope,
+                key_prefix="hc_ta_io",
+                include_enable=True,
+            )
+            item["loxone_inputs"] = loxone_inputs
+            item["loxone_outputs"] = loxone_outputs
             from data.modeled_climate import thermal_annual_kwh_from_archive
 
             thermal_preview = {**item, "latitude": latitude, "longitude": longitude}

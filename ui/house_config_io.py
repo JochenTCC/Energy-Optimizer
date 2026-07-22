@@ -293,6 +293,16 @@ def _save_config_document(data: dict) -> None:
     config.reinit_config()
 
 
+def load_main_config() -> dict:
+    """Public alias: load earnie_env config.json."""
+    return _load_config_document()
+
+
+def save_main_config(data: dict) -> None:
+    """Public alias: persist config.json and reinit runtime config."""
+    _save_config_document(data)
+
+
 def _load_components_document() -> dict:
     from house_config.components_store import load_components_document
 

@@ -160,7 +160,7 @@
     },
     "event_trigger": {
       "type": "object",
-      "description": "Ein Loxone-Signal als Event-Trigger für main.py.",
+      "description": "Ein Smarthome-Merker als Event-Trigger für main.py (Backend derzeit Loxone; Schlüssel loxone_name bleibt).",
       "required": [
         "id",
         "loxone_name",
@@ -174,7 +174,7 @@
         },
         "loxone_name": {
           "type": "string",
-          "description": "Merker- oder Virtueller-Eingang-Name im Miniserver."
+          "description": "Rolle: Adresse des Smarthome-Merkers (Lesen; Miniserver-Name)."
         },
         "signal_type": {
           "type": "string",
@@ -224,7 +224,7 @@
         },
         "event_triggers": {
           "type": "array",
-          "description": "Loxone-Signale, deren Änderung einen außerplanmäßigen Optimierungslauf auslöst.",
+          "description": "Smarthome-Merker (Rollen in event_trigger), deren Änderung einen außerplanmäßigen Optimierungslauf auslöst.",
           "items": {
             "$ref": "#/definitions/event_trigger"
           }
@@ -411,7 +411,7 @@
     },
     "loxone_blocks": {
       "type": "object",
-      "description": "Zentrale Loxone-IO-Namen für Speicher, PV und Steuerbefehle.",
+      "description": "Zentrale Smarthome-Merker-Rollen für Speicher, PV und Steuerbefehle (Adresse = String; Backend derzeit Loxone).",
       "required": [
         "soc_name",
         "pv_counter_name",
@@ -428,15 +428,15 @@
       "properties": {
         "soc_name": {
           "type": "string",
-          "description": "Aktueller Batterie-SOC in % (Lesen)."
+          "description": "Rolle Lesen: aktueller Batterie-SOC in %."
         },
         "pv_counter_name": {
           "type": "string",
-          "description": "PV-Zählerstand kumuliert in kWh (Lesen, PV-Tuning)."
+          "description": "Rolle Lesen: PV-Zählerstand kumuliert in kWh (PV-Tuning)."
         },
         "log_filename": {
           "type": "string",
-          "description": "FTP-Logdateiname auf dem Miniserver."
+          "description": "FTP-Logdateiname auf dem Miniserver (kein Live-Merker)."
         },
         "pv_tuning_log_file": {
           "type": "string",
@@ -444,31 +444,31 @@
         },
         "pv_power_name": {
           "type": "string",
-          "description": "Aktuelle PV-Leistung in kW (Lesen)."
+          "description": "Rolle Lesen: aktuelle PV-Leistung in kW."
         },
         "battery_power_name": {
           "type": "string",
-          "description": "Aktuelle Batterieleistung in kW (Lesen, Vorzeichen: + laden, − entladen)."
+          "description": "Rolle Lesen: aktuelle Batterieleistung in kW (+ laden, − entladen)."
         },
         "grid_power_name": {
           "type": "string",
-          "description": "Aktuelle Netzleistung in kW (Lesen)."
+          "description": "Rolle Lesen: aktuelle Netzleistung in kW."
         },
         "target_soc_name": {
           "type": "string",
-          "description": "Virtueller Eingang: Ziel-SOC in % (Schreiben)."
+          "description": "Rolle Schreiben: Ziel-SOC in %."
         },
         "target_charge_power_name": {
           "type": "string",
-          "description": "Virtueller Eingang: Zwangsladeleistung in kW (Schreiben)."
+          "description": "Rolle Schreiben: Zwangsladeleistung in kW."
         },
         "target_discharge_power_name": {
           "type": "string",
-          "description": "Virtueller Eingang: Ziel-Entladeleistung in kW (Schreiben)."
+          "description": "Rolle Schreiben: Ziel-Entladeleistung in kW."
         },
         "control_cmd_name": {
           "type": "string",
-          "description": "Virtueller Eingang: Huawei-Steuerbefehl (Register 47100): 0=Automatik, 1=Zwangsladen/Entladesperre, 2=Zwangs-Entladen."
+          "description": "Rolle Schreiben: Huawei-Steuerbefehl (Register 47100): 0=Automatik, 1=Zwangsladen/Entladesperre, 2=Zwangs-Entladen."
         }
       }
     },

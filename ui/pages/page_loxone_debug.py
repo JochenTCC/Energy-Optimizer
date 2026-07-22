@@ -6,6 +6,7 @@ import streamlit as st
 import config
 from ui.help_hint import render_page_title_with_help
 from ui.loxone_debug import render_loxone_debug_block
+from ui.loxone_marker_forms import render_marker_config_editors
 from ui.setup_readiness import (
     is_betrieb_unlocked,
     is_planning_ready,
@@ -13,17 +14,18 @@ from ui.setup_readiness import (
 )
 
 _LOXONE_DEBUG_HELP = (
-    "Live-Übersicht aller konfigurierten Loxone-Merker (Lesen) und der letzten "
+    "Live-Übersicht aller konfigurierten Smarthome-Merker (Lesen) und der letzten "
     "Schreibvorgänge aus dem Produktiv-Lauf von main.py. Im Silent-Modus werden "
-    "nur Sollwerte angezeigt, keine tatsächlichen Schreibbestätigungen."
+    "nur Sollwerte angezeigt, keine tatsächlichen Schreibbestätigungen. "
+    "Anlagen-Merker und Event-Trigger können auf dieser Seite bearbeitet werden."
 )
 
 _COCKPIT_LOCKED_NOTICE = (
     "**Live-Cockpit noch gesperrt:** Monitor und Manuelle Geräte erscheinen erst, "
-    "wenn die Loxone-Merker für den Live-Betrieb vollständig und korrekt "
+    "wenn die Smarthome-Merker für den Live-Betrieb vollständig und korrekt "
     "konfiguriert sind (`loxone_blocks` in `config.json` sowie Verbraucher-Merker "
     "im Hausprofil). Prüfen Sie die Tabelle **Live-Lesen** und den Button "
-    "**Loxone-Merker testen** — fehlerhafte oder Platzhalter-Namen halten das "
+    "**Smarthome-Merker testen** — fehlerhafte oder Platzhalter-Namen halten das "
     "Live-Cockpit bewusst zurück."
 )
 
@@ -45,4 +47,5 @@ def render() -> None:
     )
     st.caption(f"Konfiguration: `{config.CONFIG.config_path}`")
     _render_cockpit_locked_notice()
+    render_marker_config_editors()
     render_loxone_debug_block()

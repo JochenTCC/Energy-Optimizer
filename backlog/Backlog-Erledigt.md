@@ -3,6 +3,14 @@
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 
+### 2.3.f — Thin marker / data-model prep (SAM optionality) (2026-07-22)
+
+- [x] Role↔entity catalog + “Smarthome-Merker” wording (docs/schema); JSON keys `loxone_*` / `*.loxone` unchanged; Loxone sole live backend
+- [x] Hauskonfigurator: editable marker assignments for EV / WP / SwimSpa / generic; optional `swimspa_filter_bindings` → `planning_filter_to_milp`
+- [x] Loxone-Kommunikation: `loxone_blocks` + `event_triggers` forms; tests + German UI/signal docs
+- Out of scope left for `2.4` / nested-models `2.+1` (connectors, HTTP extraction, device templates, full nesting)
+
+
 ### 2.3.e — Analyse Verbrauch & Kosten (2026-07-22)
 
 - [x] Live-Cockpit rename **Verbraucheranalyse → Analyse Verbrauch & Kosten** (`consumer-analysis`)

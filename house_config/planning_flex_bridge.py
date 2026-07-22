@@ -271,6 +271,17 @@ def planning_filter_to_milp(bindings: dict | None = None) -> dict:
     return entry
 
 
+def _swimspa_filter_bindings_from_profile(house_profile: dict) -> dict | None:
+    """Optional marker overrides from first MILP thermal_rc consumer."""
+    for consumer in _house_thermal_rc_consumers(house_profile):
+        if consumer_uses_profile_csv(consumer):
+            continue
+        bindings = consumer.get("swimspa_filter_bindings")
+        if isinstance(bindings, dict) and bindings:
+            return bindings
+    return None
+
+
 def planning_thermal_rc_consumers(house_profile: dict) -> list[dict]:
     return [planning_thermal_rc_to_milp(consumer) for consumer in _house_thermal_rc_consumers(house_profile)]
 
@@ -290,7 +301,11 @@ def collect_planning_flex_consumers(house_profile: dict) -> list[dict]:
     ]
     # Filter only with MILP thermal_rc. CSV thermal_rc meters (e.g. SwimSpa)
     # already include filter power in the overlay series.
-    filters = [planning_filter_to_milp()] if thermal_rc_flex else []
+    filters = (
+        [planning_filter_to_milp(_swimspa_filter_bindings_from_profile(house_profile))]
+        if thermal_rc_flex
+        else []
+    )
     return (
         flex_generic
         + planning_ev_consumers(house_profile)

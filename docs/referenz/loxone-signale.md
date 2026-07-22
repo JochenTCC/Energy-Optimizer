@@ -2,12 +2,28 @@
 
 Alle Namen sind **Beispiele** aus [`share/config/config.example.json`](../../share/config/config.example.json). In der eigenen `earnie_env/config/config.json` (bzw. den Sidecars `house_profiles.json`) müssen sie exakt den virtuellen Eingängen und Merkern im Loxone Miniserver entsprechen.
 
+**Begriffsklärung (Smarthome-Merker):** Die **Adresse** (Zeichenkette, z. B. `Ernie_WP_P_act`) ist ein *Smarthome-Merker*. Die **Rolle** ist der Config-Schlüssel (`power_name`, `soc_name`, …). Live-Backend bleibt vorerst ausschließlich Loxone; JSON-Schlüssel behalten die Präfixe `loxone_*` / `*.loxone`. Nicht verwechseln mit Chart-Markern oder `earnie_role` (Bekannt/Gesteuert/Manuell).
+
 Prüfung aller konfigurierten Signale:
 
 ```powershell
 .venv\Scripts\python.exe -m scripts.verify_loxone_setup
 .venv\Scripts\python.exe -m scripts.verify_swimspa_filter_live
 ```
+
+## Rolle ↔ Entity (Überblick)
+
+| Entity / Bereich | Speicherort | Typische Rollen (Config-Schlüssel) |
+|------------------|-------------|--------------------------------------|
+| Anlage (Batterie, PV, Netz, Steuerbefehl) | `config.json` → `loxone_blocks` | `soc_name`, `pv_power_name`, `battery_power_name`, `grid_power_name`, `target_*`, `control_cmd_name` |
+| Event-Trigger | `config.json` → `system.event_triggers[]` | `loxone_name` (+ `signal_type`, `on_change`) |
+| Wärmepumpe (`thermal_annual`) | Hausprofil `consumers[]` | `loxone_inputs.power_name`, `loxone_outputs.enable_name` |
+| E-Auto (`ev`) | Hausprofil | `loxone_inputs.power_name`, `loxone_outputs.power_setpoint_name` / `pv_follow_name`, `charging_schedule.loxone.*` |
+| SwimSpa (`thermal_rc`) | Hausprofil | `loxone_inputs.power_name`, `loxone_outputs.enable_name`, `thermal_control.loxone.*` |
+| SwimSpa-Filter (Bridge) | optional `swimspa_filter_bindings` am `thermal_rc`-Verbraucher (sonst Bridge-Defaults) | `loxone_target_hours_name`, Filter-`power_name` / `enable_name`, `filter_schedule.loxone.*` |
+| Generic (known/manual) | Hausprofil | optional `loxone_inputs.power_name` |
+
+Bearbeitung in der UI: Verbraucher-Merker im **Hauskonfigurator**; Anlagen-Merker und Event-Trigger unter **Daemon Control → Loxone-Kommunikation**.
 
 ## Zentrale Signale (`loxone_blocks`)
 
@@ -66,7 +82,9 @@ Zusätzlich Pflichtfeld **`min_power_kw`** am Verbraucher (untere Grenze für de
 
 Ergänzende Filterlaufzeit; nativer Duty-Cycle läuft unabhängig. Spec: [swimspa-filter.md](../spec/swimspa-filter.md).
 
-| Config-Pfad | Richtung | Beispiel | Wert |
+Der Filter ist **kein** eigener Hausprofil-Verbraucher. Marker-Overrides liegen optional unter `swimspa_filter_bindings` am zugehörigen `thermal_rc`-Verbraucher (Deep-Merge über Bridge-Defaults in `planning_flex_bridge`). Ohne Bindings gelten die eingebauten Defaults.
+
+| Config-Pfad (unter Bindings bzw. Bridge) | Richtung | Beispiel | Wert |
 |-------------|----------|----------|------|
 | `loxone_target_hours_name` | Lesen | `Ernie_Swimspa_Filter_Sollstunden` | Verbleibende Filter-Schulden, **Stunden** (Float) |
 | `loxone_inputs.power_name` | Lesen | `homie_bwa_spa_filter2` | `0`/`1` — Filter läuft (nativ + Earnie) |

@@ -52,38 +52,153 @@
     },
     "loxone_inputs": {
       "type": "object",
-      "description": "Optionaler Loxone-Leistungsmerker (known/manual generic, thermal, EV).",
+      "description": "Smarthome-Merker-Rollen zum Lesen (Adresse = String-Wert; Backend derzeit Loxone). Rollen: power_name, alternate_binary_power_name, signal_type, subtract_consumer_ids.",
       "properties": {
         "power_name": {
-          "type": "string"
+          "type": "string",
+          "description": "Rolle Lesen: Leistungs- oder binärer Aktivitäts-Merker."
+        },
+        "alternate_binary_power_name": {
+          "type": "string",
+          "description": "Rolle Lesen: alternativer binärer Leistungs-/Aktivitäts-Merker (z. B. Filter-Fallback)."
         },
         "signal_type": {
           "type": "string",
           "enum": [
             "power",
             "binary"
-          ]
+          ],
+          "description": "Interpretation von power_name: power = kW, binary = 0/1."
         },
         "subtract_consumer_ids": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "description": "Verbraucher-IDs, deren Leistung vom Gesamtzähler abgezogen wird (z. B. swimspa_filter)."
         }
       }
     },
     "loxone_outputs": {
       "type": "object",
-      "description": "Steuer-Signale an Loxone (Freigabe und/oder kW-Sollwert).",
+      "description": "Smarthome-Merker-Rollen zum Schreiben (Freigabe und/oder kW-Sollwert). Rollen: enable_name, power_setpoint_name, pv_follow_name.",
       "properties": {
         "enable_name": {
-          "type": "string"
+          "type": "string",
+          "description": "Rolle Schreiben: 0 = gesperrt, 1 = Freigabe."
         },
         "power_setpoint_name": {
-          "type": "string"
+          "type": "string",
+          "description": "Rolle Schreiben: Soll-Leistung in kW (E-Auto)."
         },
         "pv_follow_name": {
-          "type": "string"
+          "type": "string",
+          "description": "Rolle Schreiben: 0/1 PV-Überschuss folgen (E-Auto)."
+        }
+      }
+    },
+    "ev_charging_loxone": {
+      "type": "object",
+      "description": "E-Auto Live-Status-Merker unter charging_schedule.loxone (Rollen = Schlüssel, Adresse = String).",
+      "properties": {
+        "plugged_in_name": {
+          "type": "string",
+          "description": "Rolle Lesen: Fahrzeug angeschlossen (0/1)."
+        },
+        "soc_at_plug_in_name": {
+          "type": "string",
+          "description": "Rolle Lesen: Rest-SOC bei Anschluss (%)."
+        },
+        "actual_soc_name": {
+          "type": "string",
+          "description": "Rolle Lesen: aktueller Fahrzeug-SOC (%)."
+        },
+        "ready_by_time_name": {
+          "type": "string",
+          "description": "Rolle Lesen: Fertig-Uhrzeit (Text)."
+        },
+        "nominal_power_kw_name": {
+          "type": "string",
+          "description": "Rolle Lesen: max. Ladeleistung (kW oder A)."
+        },
+        "battery_capacity_kwh_name": {
+          "type": "string",
+          "description": "Rolle Lesen: Akkukapazität (kWh)."
+        },
+        "charge_immediate_name": {
+          "type": "string",
+          "description": "Rolle Lesen: Sofort-Laden aktiv (0/1)."
+        },
+        "charge_immediate_remaining_name": {
+          "type": "string",
+          "description": "Rolle Lesen: Restzeit Sofortladen (Sekunden)."
+        }
+      }
+    },
+    "thermal_control_loxone": {
+      "type": "object",
+      "description": "thermal_control.loxone — Temperatur-/Heiz-Indikator-Merker (Lesen).",
+      "properties": {
+        "actual_temp_name": {
+          "type": "string",
+          "description": "Rolle Lesen: Ist-Temperatur °C."
+        },
+        "setpoint_temp_name": {
+          "type": "string",
+          "description": "Rolle Lesen: Soll-Temperatur °C."
+        },
+        "ambient_temp_name": {
+          "type": "string",
+          "description": "Rolle Lesen: Umgebungs-/Außentemperatur °C."
+        },
+        "tolerance_c_name": {
+          "type": "string",
+          "description": "Rolle Lesen: Toleranz ± °C."
+        },
+        "heating_active_name": {
+          "type": "string",
+          "description": "Rolle Lesen: Heizung aktiv (0/1)."
+        }
+      }
+    },
+    "thermal_control": {
+      "type": "object",
+      "description": "Thermische Live-Steuerung am thermal_rc-Verbraucher (Merker unter .loxone).",
+      "properties": {
+        "loxone": {
+          "$ref": "#/definitions/thermal_control_loxone"
+        }
+      }
+    },
+    "swimspa_filter_bindings": {
+      "type": "object",
+      "description": "Optionale Marker-Overrides für den Bridge-Filter (Deep-Merge auf SWIMSPA_FILTER_BRIDGE_DEFAULTS).",
+      "properties": {
+        "loxone_target_hours_name": {
+          "type": "string",
+          "description": "Rolle Lesen: verbleibende Filter-Sollstunden."
+        },
+        "loxone_inputs": {
+          "$ref": "#/definitions/loxone_inputs"
+        },
+        "loxone_outputs": {
+          "$ref": "#/definitions/loxone_outputs"
+        },
+        "filter_schedule": {
+          "type": "object",
+          "properties": {
+            "loxone": {
+              "type": "object",
+              "properties": {
+                "native_start_hour_name": {
+                  "type": "string"
+                },
+                "native_duration_hours_name": {
+                  "type": "string"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -176,6 +291,9 @@
               "minimum": 0
             }
           }
+        },
+        "loxone": {
+          "$ref": "#/definitions/ev_charging_loxone"
         }
       }
     },
@@ -279,6 +397,12 @@
         },
         "loxone_outputs": {
           "$ref": "#/definitions/loxone_outputs"
+        },
+        "thermal_control": {
+          "$ref": "#/definitions/thermal_control"
+        },
+        "swimspa_filter_bindings": {
+          "$ref": "#/definitions/swimspa_filter_bindings"
         },
         "appliance_recommendation": {
           "$ref": "#/definitions/appliance_recommendation"

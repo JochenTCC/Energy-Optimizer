@@ -84,7 +84,7 @@ def render_loxone_verify_results(*, button_key: str = "loxone_verify_button") ->
     if not loxone_env_configured():
         st.caption("Zuerst Miniserver-Zugang speichern.")
         return
-    if not st.button("Loxone-Merker testen", key=button_key):
+    if not st.button("Smarthome-Merker testen", key=button_key):
         return
 
     with st.spinner("Lese konfigurierte Merker vom Miniserver …"):

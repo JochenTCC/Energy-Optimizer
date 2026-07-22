@@ -17,7 +17,7 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 
 ### Version 2.3 — Enhance consumer visualization and cost analysis - sharpen tariffs handling
 
-Year-1 product depth (trust / What-If / churn). **Good-enough €** for SE and demos — invoice-grade bill reconciliation is explicitly out of scope (nice-to-have later). Includes a thin marker/data-model prep for later SAM work (`2.4`), not the connector rewrite.
+Year-1 product depth (trust / What-If / churn). **Good-enough €** for SE and demos — invoice-grade bill reconciliation is explicitly out of scope (nice-to-have later). Thin marker/data-model prep for SAM (`2.3.f`) is done; connector rewrite remains `2.4`.
 
 - [x] **2.3.c.0a — SE: one MILP per window (or commit-K) instead of hourly re-solve**
   - **Goal:** Cut SE wall time; largest expected gain vs scenario-only parallelization
@@ -52,18 +52,11 @@ Year-1 product depth (trust / What-If / churn). **Good-enough €** for SE and d
 
 - [x] Streamlit Rollout (Pre-Release)
 
-- [ ] **2.3.f — Thin marker / data-model prep (SAM optionality)**
-  - **Goal:** Cheap prep for `2.4` without connector framework, MQTT/Matter, or Loxone HTTP rewrite
-  - Clarify marker ↔ role assignments (consumers, inverter, heating, battery, EV, …) in data model / schema naming toward generic “smarthome markers” (docs + structure; keep Loxone as sole live backend)
-  - Make existing marker→entity assignments editable in UI where already used
-  - **Out of scope here:** connector architecture, Loxone HTTP extraction, third-party connector spec, device-template library (→ `2.4`); full nested structures (→ nested-models `2.+1`)
 - [ ] **2.3.0 — Release**
   - Finalize after test usage; update German docs as needed (carry-over from 2.2.0 finalize)
 
 
 ### Version 2.4 — Become Loxone agnostic and standardize communication (SAM expansion)
-
-Year-2+ SAM expansion (KNX / Home Assistant / IoBroker when a second connector is real). Depends on thin prep in **2.3.f**. Do not start the full rewrite until Loxone path is stable and a non-Loxone pilot volunteer exists.
 
 - [ ] **2.4.a — Earnie ↔ smarthome internal interface**
   - **Goal:** Reach more smarthome “nerds” willing to build connections to their specific hardware

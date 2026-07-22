@@ -1278,3 +1278,162 @@ def test_live_scenario_resolves_entity_refs(tmp_path, monkeypatch):
     assert resolved.get("_house_profile") is not None
     assert resolved["latitude"] == pytest.approx(48.2)
     assert resolved["timezone_name"] == "Europe/Berlin"
+
+
+def test_merge_passthrough_keeps_edited_markers():
+    from ui.house_config_profile_form import _merge_passthrough_consumer_fields
+
+    original = {
+        "id": "ev",
+        "type": "ev",
+        "loxone_inputs": {"power_name": "Old_P"},
+        "loxone_outputs": {"power_setpoint_name": "Old_Set"},
+        "charging_schedule": {
+            "target_soc_percent": 100.0,
+            "loxone": {"plugged_in_name": "Old_Da"},
+            "milp": {"tie_break_on_epsilon": 0.001},
+        },
+    }
+    edited = {
+        "id": "ev",
+        "type": "ev",
+        "loxone_inputs": {"power_name": "New_P"},
+        "loxone_outputs": {
+            "power_setpoint_name": "New_Set",
+            "pv_follow_name": "New_Pv",
+        },
+        "charging_schedule": {
+            "target_soc_percent": 90.0,
+            "loxone": {"plugged_in_name": "New_Da"},
+        },
+    }
+    merged = _merge_passthrough_consumer_fields(original, edited)
+    assert merged["loxone_inputs"]["power_name"] == "New_P"
+    assert merged["loxone_outputs"]["pv_follow_name"] == "New_Pv"
+    assert merged["charging_schedule"]["loxone"]["plugged_in_name"] == "New_Da"
+    assert merged["charging_schedule"]["milp"]["tie_break_on_epsilon"] == pytest.approx(
+        0.001
+    )
+
+
+def test_swimspa_filter_bindings_override_defaults():
+    from house_config.planning_flex_bridge import (
+        SWIMSPA_FILTER_BRIDGE_DEFAULTS,
+        collect_planning_flex_consumers,
+        planning_filter_to_milp,
+    )
+
+    custom = planning_filter_to_milp(
+        {
+            "loxone_target_hours_name": "Custom_Filter_Hours",
+            "loxone_outputs": {"enable_name": "Custom_Filter_Enable"},
+        }
+    )
+    assert custom["loxone_target_hours_name"] == "Custom_Filter_Hours"
+    assert custom["loxone_outputs"]["enable_name"] == "Custom_Filter_Enable"
+    assert (
+        custom["loxone_inputs"]["power_name"]
+        == SWIMSPA_FILTER_BRIDGE_DEFAULTS["loxone_inputs"]["power_name"]
+    )
+
+    profile = {
+        "consumers": [
+            {
+                "id": "swimspa",
+                "label": "SwimSpa",
+                "type": "thermal_rc",
+                "nominal_power_kw": 2.8,
+                "use_profile_csv": False,
+                "thermal_rc": {
+                    "water_volume_liters": 6000.0,
+                    "setpoint_c": 36.0,
+                    "tolerance_c": 1.0,
+                    "heat_loss_kw_per_k": 0.1,
+                    "heating_efficiency": 0.95,
+                },
+                "swimspa_filter_bindings": {
+                    "loxone_target_hours_name": "Profile_Filter_Hours",
+                },
+            }
+        ]
+    }
+    flex = collect_planning_flex_consumers(profile)
+    filt = next(item for item in flex if item["id"] == "swimspa_filter")
+    assert filt["loxone_target_hours_name"] == "Profile_Filter_Hours"
+
+
+def test_assemble_filter_bindings_shape():
+    from ui.smarthome_marker_fields import assemble_filter_bindings
+
+    bindings = assemble_filter_bindings(
+        {
+            "loxone_target_hours_name": "Hours",
+            "power_name": "P2",
+            "alternate_binary_power_name": "P1",
+            "enable_name": "En",
+            "native_start_hour_name": "Start",
+            "native_duration_hours_name": "Dur",
+        }
+    )
+    assert bindings["loxone_target_hours_name"] == "Hours"
+    assert bindings["loxone_inputs"]["power_name"] == "P2"
+    assert bindings["loxone_outputs"]["enable_name"] == "En"
+    assert bindings["filter_schedule"]["loxone"]["native_start_hour_name"] == "Start"
+
+
+def test_save_main_config_roundtrip_loxone_blocks_and_triggers(tmp_path, monkeypatch):
+    import json
+
+    from runtime_store import persist_paths
+    from ui.house_config_io import load_main_config, save_main_config
+
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "system": {"event_triggers": []},
+                "loxone_blocks": {
+                    "soc_name": "Old_SOC",
+                    "pv_counter_name": "Old_PV_C",
+                    "log_filename": "Verbrauch.csv",
+                    "pv_tuning_log_file": "runtime/pv_accuracy_log.csv",
+                    "pv_power_name": "Old_PV",
+                    "battery_power_name": "Old_Bat",
+                    "grid_power_name": "Old_Grid",
+                    "target_soc_name": "Old_TSoc",
+                    "target_charge_power_name": "Old_TCh",
+                    "target_discharge_power_name": "Old_TDis",
+                    "control_cmd_name": "Old_Cmd",
+                },
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        persist_paths, "resolve_config_json_path", lambda: str(config_path)
+    )
+    monkeypatch.setattr(
+        "ui.house_config_io.resolve_config_json_path", lambda: str(config_path)
+    )
+
+    def _noop_reinit() -> None:
+        return None
+
+    monkeypatch.setattr("ui.house_config_io.config.reinit_config", _noop_reinit)
+
+    data = load_main_config()
+    data["loxone_blocks"]["soc_name"] = "New_SOC"
+    data["system"]["event_triggers"] = [
+        {
+            "id": "t1",
+            "loxone_name": "Merker_A",
+            "signal_type": "binary",
+            "on_change": "any",
+            "label": "Test",
+        }
+    ]
+    save_main_config(data)
+    reloaded = json.loads(config_path.read_text(encoding="utf-8"))
+    assert reloaded["loxone_blocks"]["soc_name"] == "New_SOC"
+    assert reloaded["system"]["event_triggers"][0]["loxone_name"] == "Merker_A"
