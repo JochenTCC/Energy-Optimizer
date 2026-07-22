@@ -486,14 +486,24 @@ def render_annual_cost_table(meta: dict) -> None:
         st.info("Keine Gesamtkosten im Log.")
         return
     st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
+    fee_map = meta.get("monthly_fee_by_scenario") or {}
+    has_fees = any(float(v or 0) > 0 for v in fee_map.values())
+    fee_note = (
+        " Jahres-/Monatskosten inkl. **Näherung Monatsgebühren** aus dem Tarifkatalog "
+        "(nicht Live-MILP). "
+        if has_fees
+        else " "
+    )
     st.caption(
         "**Jahres Verbrauch:** Bei „Historisch“ Summe des Ist-Verbrauchs aus "
         "`cons_data` (Zähler). Bei Referenz- und Optimierungszeilen Summe aus dem "
         "Hausprofil-Modell bzw. der gelieferten Optimierungsenergie — "
-        "Abweichungen zu Historisch sind erwartbar, wenn Ist ≠ Modell. "
-        "Abweichung >5% vs. Live-Referenz → Warnung in Spalte Hinweis "
+        "Abweichungen zu Historisch sind erwartbar, wenn Ist ≠ Modell."
+        + fee_note
+        + "Abweichung >5% vs. Live-Referenz → Warnung in Spalte Hinweis "
         "(Config-Dump über Info / About → Kontakt). "
-        "Details: Benutzer-Handbuch → Szenario-Explorer."
+        "Details: Benutzer-Handbuch → Szenario-Explorer · "
+        "Tarife und Preise nachrechnen."
     )
 
 
@@ -559,6 +569,12 @@ def render_backtesting_monthly_chart(meta: dict) -> None:
         scenario_monthly_cost_chart(chart_monthly, scenario_order=chart_columns),
         width="stretch",
     )
+    fee_map = meta.get("monthly_fee_by_scenario") or {}
+    if any(float(v or 0) > 0 for v in fee_map.values()):
+        st.caption(
+            "Monatswerte inkl. Näherung Monatsgebühren (eine volle Gebühr pro "
+            "Kalendermonat). Nachrechnen: Tarife und Preise nachrechnen."
+        )
 
 
 def _deviation_labels_map(meta: dict) -> dict[str, str]:

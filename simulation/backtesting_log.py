@@ -104,17 +104,26 @@ def _serialize_plausibility(report: PlausibilityReport) -> dict:
     }
 
 
-def _build_summary(results: dict[str, pd.DataFrame], labels: dict[str, str]) -> dict:
-    total_eur = {
-        scenario_id: round(float(df["sim_cost"].sum()), 4)
-        for scenario_id, df in results.items()
-    }
+def _build_summary(
+    results: dict[str, pd.DataFrame],
+    labels: dict[str, str],
+    monthly_fee_by_scenario: dict[str, float] | None = None,
+) -> dict:
+    fees = monthly_fee_by_scenario or {}
+    total_eur: dict[str, float] = {}
     monthly_eur: dict[str, dict[str, float]] = {}
     for scenario_id, df in results.items():
         label = labels.get(scenario_id, scenario_id)
+        fee = float(fees.get(scenario_id, 0.0) or 0.0)
+        month_count = 0
+        volumetric_total = float(df["sim_cost"].sum()) if not df.empty else 0.0
         for period, value in df["sim_cost"].resample("ME").sum().items():
             month_key = pd.Timestamp(period).strftime("%Y-%m")
-            monthly_eur.setdefault(month_key, {})[label] = round(float(value), 4)
+            month_count += 1
+            monthly_eur.setdefault(month_key, {})[label] = round(
+                float(value) + fee, 4
+            )
+        total_eur[scenario_id] = round(volumetric_total + fee * month_count, 4)
     return {"total_eur": total_eur, "monthly_eur": monthly_eur}
 
 
@@ -363,6 +372,7 @@ def save_backtesting_log(
     cbc_events_by_scenario: dict[str, list[dict]] | None = None,
     config_fingerprint: str | None = None,
     window_snapshots: list[dict] | None = None,
+    monthly_fee_by_scenario: dict[str, float] | None = None,
 ) -> str:
     """Schreibt Metadaten (JSON) und Stundenwerte (CSV). Gibt den JSON-Pfad zurück."""
     target_dir = _DEFAULT_LOG_DIR if log_dir is None else log_dir
@@ -387,7 +397,15 @@ def save_backtesting_log(
             "created_at": datetime.now(timezone.utc).isoformat(),
             "period": period,
             "labels": labels,
-            "summary": _build_summary(results, labels),
+            "summary": _build_summary(
+                results, labels, monthly_fee_by_scenario=monthly_fee_by_scenario
+            ),
+            "monthly_fee_by_scenario": {
+                sid: float(monthly_fee_by_scenario.get(sid, 0.0) or 0.0)
+                for sid in results
+            }
+            if monthly_fee_by_scenario
+            else {},
             "plausibility": {
                 sid: _serialize_plausibility(rep)
                 for sid, rep in plausibility_by_scenario.items()

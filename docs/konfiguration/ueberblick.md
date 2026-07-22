@@ -26,8 +26,9 @@ In Cursor/VS Code erscheinen für viele Felder **Hover-Beschreibungen** aus [`sh
 | `earnie_env/config/tariffs.json`               | Laufzeit-Tarifkatalog (Bezug/Einspeise); Seed aus öffentlichem [`share/config/tariffs.json`](../../share/config/tariffs.json) |
 | `earnie_env/config/house_profiles.json`        | Standort (Geo/Zeitzone), Planungs-Verbraucher (EV, Wärmepumpe, Waschmaschine …); referenziert über `house_profile_id`        |
 | `earnie_env/config/backtesting_scenarios.json` | **Alle** Szenarien (Live + Varianten); einheitliches `settings`-Format                                                       |
-| `file_paths_battery_simulation`     | Pfade zu historischen CSVs, Preisquelle, `cons_data_hourly.csv`                                                              |
-| `flexible_consumers`                | Legacy: steuerbare Verbraucher (MILP) mit Loxone-Ein-/Ausgängen — ab **2.0** leer; Live-Verbraucher in `house_profiles.json` |
+| `scenario_explorer_conf`     | Szenario-Explorer / Backtesting: `cons_data_hourly.csv`, Preisquelle; Zeitraum aus cons_data-Monaten |
+| `flexible_consumers`                | Legacy-Overlay (meist leer); Live-Verbraucher in `house_profiles.json` |
+| `appliance_recommendation`          | Globale Sterne-/Schwellen für Manuelle Geräte (keine Geräte-Definitionen) |
 | `planning_horizon`                  | MILP-Horizont (`sunrise_window` für Live)                                                                                    |
 
 
@@ -42,27 +43,32 @@ Vorlage für Szenarien: [`backtesting_scenarios.example.json`](../../share/confi
 
 
 
-## `file_paths_battery_simulation`
+## `scenario_explorer_conf`
 
 
-| Feld                                                | Bedeutung                                                                         |
-| --------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `path_consumption`, `path_production`, `path_price` | Historische Loxone-/Marktdaten für Analyse und Backtesting                        |
-| `path_cons_data`                                    | Stündliche Verbrauchs- und PV-Basis für Optimierung (wird von `main.py` gepflegt) |
-| `cons_data_retention_months`                        | Wie lange Stundenwerte aufbewahrt werden                                          |
-| `cons_data_write_mode`                              | Schreibmodus (`hourly`)                                                           |
-| `price_source`                                      | `api` = Live-Preise; andere Werte für historische Preise aus CSV                  |
-| `price_provider`                                    | z. B. `awattar`                                                                   |
-| `price_range`                                       | z. B. `last_12_months` für historische Auswertungen                               |
-| `energy_charts_bzn`                                 | Bidding Zone für Energy-Charts-CSV (z. B. `DE-LU`)                                |
+| Feld                         | Bedeutung                                                                 |
+| ---------------------------- | ------------------------------------------------------------------------- |
+| `path_cons_data`             | Stündliche Verbrauchs-/PV-Basis (von `main.py` gepflegt); SE-Gesamtzeitraum |
+| `path_price`                 | Optional: historische Börsenpreise (Energy-Charts-CSV)                    |
+| `cons_data_retention_months` | Wie lange Stundenwerte aufbewahrt werden                                  |
+| `cons_data_write_mode`       | Schreibmodus (`hourly`)                                                   |
+| `price_source`               | `api` = Live-Preise; andere Werte für historische Preise aus CSV          |
+| `price_provider`             | z. B. `awattar`                                                           |
+| `price_range`                | `last_12_months`: 12 Kalendermonate bis zum letzten **vollständigen** Monat in `cons_data` (rückwärts definiert; Tage chronologisch) |
+| `energy_charts_bzn`          | Bidding Zone für Energy-Charts-CSV (z. B. `DE-LU`)                        |
 
+**Drei CSV-Ebenen (nicht vermischen):**
+
+1. **`path_cons_data`** — Runtime-Brennstoff für Live und Szenario-Explorer  
+2. **Hausprofil-CSVs** (`total_profile_csv` / `pv_profile_csv` / `profile_csv`) — Planung / Ist-vs-Modell (siehe [Historische Verbrauchs-CSV](verbrauchs-csv.md))  
+3. **`path_consumption` / `path_production`** — entfernt (data-model v3); früher rohe Loxone-Paar-CSVs nur für Zeitraumgrenzen  
 
 Details zu Preisen: [Preise & aWATTar](preise.md).
 
 
 ## Szenarieneditor (Live-Szenario)
 
-Im Abschnitt **Konfiguration** pflegt der **Szenarieneditor** das Live-Szenario und weitere Varianten. Entitäten werden per Dropdown gewählt (`battery_id`, PV, Tarife, Hausprofil). Vor den Tarif-Dropdowns gibt es einen gemeinsamen Filter **Land** (`land`: AT/DE/CH) für Bezug und Einspeise sowie getrennte **Typ**-Filter. Beim Einspeise-**Typ** erscheinen `monthly_table` und `monthly_float` gemeinsam als **Monatspreis** (monatsfester Charakter; die interne Berechnung bleibt im Katalog getrennt, bis das Datenmodell vereinheitlicht ist). Ein Regionsfilter ist noch nicht verfügbar. Nach der Tarifwahl erscheinen die Katalogparameter read-only inkl. Hinweis, dass Monatsfixkosten noch nicht in die Kostenrechnung einfließen. Gespeichert werden IDs im jeweiligen Szenario in `backtesting_scenarios.json`. Die **Bezeichnung** des Live-Szenarios (`live_scenario_id` in `config.json`, Standard-ID: `live`) ist fest und kann nicht umbenannt oder entfernt werden.
+Im Abschnitt **Konfiguration** pflegt der **Szenarieneditor** das Live-Szenario und weitere Varianten. Entitäten werden per Dropdown gewählt (`battery_id`, PV, Tarife, Hausprofil). Vor den Tarif-Dropdowns gibt es einen gemeinsamen Filter **Land** (`land`: AT/DE/CH) für Bezug und Einspeise sowie getrennte **Typ**-Filter. Beim Einspeise-**Typ** erscheint `monthly_table` als **Monatspreis**. Ein Regionsfilter ist noch nicht verfügbar. Nach der Tarifwahl erscheinen die Katalogparameter read-only inkl. Hinweis, dass Monatsfixkosten noch nicht in die Kostenrechnung einfließen. Gespeichert werden IDs im jeweiligen Szenario in `backtesting_scenarios.json`. Die **Bezeichnung** des Live-Szenarios (`live_scenario_id` in `config.json`, Standard-ID: `live`) ist fest und kann nicht umbenannt oder entfernt werden.
 
 ## Weiterführend
 

@@ -7,9 +7,8 @@ import streamlit as st
 
 ALL_FILTER = "Alle"
 
-# Export monthly_* stay distinct in tariffs.json until data-model unify (Backlog 2.3.a);
-# UI shows one Typ because users only care about month-constant feed-in, not the formula.
-EXPORT_MONTHLY_UI_TYPES = frozenset({"monthly_table", "monthly_float"})
+# Month-constant feed-in is catalog type monthly_table (owned monthly_rates).
+EXPORT_MONTHLY_UI_TYPES = frozenset({"monthly_table"})
 EXPORT_MONTHLY_UI_KEY = "monthly_table"
 
 IMPORT_TYPE_LABELS = {
@@ -25,7 +24,6 @@ EXPORT_TYPE_LABELS = {
     "fixed": "Fixpreis Einspeise",
     "dynamic_epex": "Dynamisch EPEX (Legacy)",
     "monthly_table": "Monatspreis",
-    "monthly_float": "Monatspreis",
     "spot_hourly": "Spot stündlich",
     "ex_post_spot": "Spot ex-post",
 }
@@ -122,6 +120,13 @@ def _append_common_meta(rows: list[tuple[str, str]], tariff: dict) -> None:
     currency = tariff.get("currency")
     if currency:
         rows.append(("Währung", str(currency)))
+    _append_if_present(
+        rows,
+        tariff,
+        "monthly_fee_eur",
+        "Monatsgebühr (ca.)",
+        suffix=" €/Monat",
+    )
     notes = tariff.get("notes")
     if notes:
         rows.append(("Hinweis", str(notes)))
@@ -167,15 +172,6 @@ def _append_type_specific_rows(
     elif tariff_type == "fixed":
         _append_if_present(
             rows, tariff, "k_push_cent", "Einspeisevergütung", suffix=" Cent/kWh"
-        )
-        _append_fee_vat_fields(rows, tariff)
-    elif tariff_type == "monthly_float":
-        _append_if_present(
-            rows,
-            tariff,
-            "arbeitspreis_kwh_cent",
-            "Referenz-Arbeitspreis",
-            suffix=" Cent/kWh",
         )
         _append_fee_vat_fields(rows, tariff)
     elif tariff_type == "dynamic_epex":
@@ -242,7 +238,7 @@ def types_present(
     *,
     kind: Literal["import", "export"] | None = None,
 ) -> list[str]:
-    """Sorted unique types; export monthly_table/monthly_float collapse to one UI key."""
+    """Sorted unique types; export month-constant is monthly_table."""
     types: set[str] = set()
     for item in tariffs:
         raw = str(item.get("type") or "").strip().lower()

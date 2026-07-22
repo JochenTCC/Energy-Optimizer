@@ -243,11 +243,13 @@ def test_dach_tariffs_catalog():
     root = Path(__file__).resolve().parents[1]
     doc = load_tariffs_document(str(root / "share" / "config" / "tariffs.json"))
     assert doc.get("catalog_as_of") == "2026"
-    assert len(doc["import_tariffs"]) == 33
-    assert len(doc["export_tariffs"]) == 13
+    assert len(doc["import_tariffs"]) == 34
+    assert len(doc["export_tariffs"]) == 15
     assert "awattar_at" in doc["import_tariffs"]
+    assert "at_vkw_strom_dynamisch" in doc["import_tariffs"]
     assert "dynamic_epex" in doc["export_tariffs"]
-
+    assert "at_vkw_pv_flex" in doc["export_tariffs"]
+    assert doc["export_tariffs"]["at_oemag_gesetzlicher_marktpreis"]["type"] == "monthly_table"
 
 def test_import_monthly_table_tariff_normalization():
     from house_config.tariffs_store import normalize_tariffs_document
@@ -327,13 +329,15 @@ def test_tariff_netzentgelt_override_resolution():
     assert resolved["netzentgelt_cent_kwh"] == 8.0
 
 
-def test_monthly_float_export_tariff_resolution():
+def test_monthly_table_export_tariff_resolution():
     root = Path(__file__).resolve().parents[1]
     doc = load_tariffs_document(str(root / "share" / "config" / "tariffs.json"))
     oemag = doc["export_tariffs"].get("at_oemag_gesetzlicher_marktpreis")
     assert oemag is not None
-    assert oemag["type"] == "monthly_float"
-    assert oemag["arbeitspreis_kwh_cent"] == pytest.approx(7.15)
+    assert oemag["type"] == "monthly_table"
+    assert len(oemag["monthly_rates"]) >= 12
+    june = next(r for r in oemag["monthly_rates"] if r[:2] == (2026, 6))
+    assert june[2] == pytest.approx(6.772)
 
 
 def test_ev_consumer_normalization(tmp_path):
@@ -1121,7 +1125,7 @@ def test_live_scenario_resolves_entity_refs(tmp_path, monkeypatch):
             "live_scenario_id": "live",
             "system": {"global_timeout": 10, "loop_timeout": 900},
             "loxone_blocks": {"soc_name": "Battery_SOC"},
-            "file_paths_battery_simulation": {"path_cons_data": "runtime/cons_data_hourly.csv"},
+            "scenario_explorer_conf": {"path_cons_data": "runtime/cons_data_hourly.csv"},
             "planning_horizon": {"mode": "sunrise_window"},
             "flexible_consumers": []
         }

@@ -3,6 +3,30 @@
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 
+### 2.3.b — Approximate cost model (monthly fees) (2026-07-22)
+
+- [x] Optional `monthly_fee_eur` on import/export tariffs; SE `total_eur` / `monthly_eur` add one full fee per calendar month (not MILP / not hourly `sim_cost`)
+- [x] Catalog seeds + VKW export VAT hygiene; Scenario Editor / SE captions label fees as approximate
+- [x] User how-to [`docs/referenz/tarife-quellen.md`](../docs/referenz/tarife-quellen.md) (Nachrechnen + sources/audit)
+
+
+### 2.3.a — Tariff hygiene (good-enough €) (2026-07-21)
+
+- [x] Provider-independent AT Day-Ahead via Energy-Charts (`bzn=AT`), aWATTar fallback
+- [x] OeMAG 2025 hygiene + `econtrol_referenzmarktwert_pv_monthly`; docs `docs/referenz/oemag-referenzmarktwert.md` + `tarife-quellen.md`
+- [x] VKW Strom Dynamisch (import) + PV Dynamisch/Flex (export) in tariff catalog
+- [x] Unify export `monthly_float` → `monthly_table` with owned `monthly_rates`; shared curves as maintenance seeds
+
+
+### SE data-model hygiene + month horizon + v3 path-pair (2026-07-21)
+
+- [x] Rename `file_paths_battery_simulation` → `scenario_explorer_conf` (kept in `config.json`; accessors `get_scenario_explorer_conf`; legacy key rejected; `earnie_data_model` → **3**)
+- [x] Data-model hygiene after `scenario_explorer_conf` rename — three CSV layers in schema/docs; root `appliance_recommendation` = scoring; `flexible_consumers: []` Legacy overlay
+- [x] Soft migrate — `resolve_simulation_window` month-aligned from cons_data (last complete month, 12 months back); drop `path_consumption`/`path_production` / `loxone_logs` bounds
+- [x] Define SE overall horizon on recent complete cons_data month (then backwards for span); day iteration stays chronological (SoC chain)
+- [x] Migration helper v2→v3 — bootstrap + `ensure_compatible` rename block / strip path pair / stamp 3; fail-fast gate for leftover path keys; schema/docs omit pair
+
+
 ### Version 2.2.0 — Official release (2026-07-22)
 
 - [x] **Finalize Version 2.2.0 after test usage and make a release** — `version.py` `2.2.0`; tag `v2.2.0` (GitHub Latest + GHCR `2.2.0` / `:latest`); chapter archived from open backlog

@@ -461,7 +461,9 @@ def _render_scenarios_tab() -> None:
         st.info(
             "Bitte prüfen Sie die angezeigten Tarifdaten. Es gibt keine Garantie "
             "für Vollständigkeit oder Aktualität des Katalogs. Monatliche Fixkosten "
-            "(Grundgebühr o. Ä.) fließen noch nicht in die Kostenrechnung ein."
+            "(Grundgebühr o. Ä.) fließen als **Näherung** in die Gesamtkosten und "
+            "Monatswerte des Szenario-Explorers ein — nicht in die Live-MILP-Kosten. "
+            "Nachrechnen: docs/referenz/tarife-quellen.md."
         )
 
     netzentgelt_override = None

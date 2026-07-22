@@ -21,6 +21,7 @@ import logger_config
 from data import profile_manager
 from simulation.backtesting_log import save_backtesting_log
 from simulation.backtesting_log import build_critical_cases, summarize_critical_cases
+from simulation.monthly_fees import monthly_fees_by_result_id
 from data.data_loader import load_market_prices, resolve_simulation_window
 from data.backtesting_prices import (
     MISSING_PRICE_STRATEGY_FORECAST,
@@ -57,8 +58,20 @@ from simulation.horizon_mode import (
 )
 
 HISTORICAL_REFERENCE_LABEL = "Historisch (ohne Optimierung, ohne PV/Batterie)"
+# Fallback when cons_data has no bounds yet (tests / empty site).
 BACKTESTING_YEAR = 2026
-MONTH_ARG_HELP = f"Monatsnummer 1–12 (Basisjahr {BACKTESTING_YEAR})"
+
+
+def backtesting_base_year() -> int:
+    """Calendar year for --start-month/--end-month: year of cons_data max."""
+    _, data_max = profile_manager.get_cons_data_date_bounds()
+    if data_max is not None:
+        return data_max.year
+    return int(pd.Timestamp.now().year)
+
+
+def _month_arg_help() -> str:
+    return f"Monatsnummer 1–12 (Basisjahr {backtesting_base_year()})"
 
 
 def _format_month_period(start: pd.Timestamp, end: pd.Timestamp) -> str:
@@ -68,39 +81,37 @@ def _format_month_period(start: pd.Timestamp, end: pd.Timestamp) -> str:
 
 
 def _parse_month(value: str) -> pd.Timestamp:
-    """Parst Monatsnummer 1–12 zum ersten Tag in BACKTESTING_YEAR."""
+    """Parst Monatsnummer 1–12 zum ersten Tag im cons_data-Basisjahr."""
     try:
         month = int(value.strip())
     except ValueError as exc:
         raise argparse.ArgumentTypeError(
-            f"Ungültiger Monat '{value}'. Erwartet wird {MONTH_ARG_HELP}."
+            f"Ungültiger Monat '{value}'. Erwartet wird {_month_arg_help()}."
         ) from exc
     if not 1 <= month <= 12:
         raise argparse.ArgumentTypeError(
             f"Monat muss zwischen 1 und 12 liegen, nicht {value}."
         )
-    return pd.Timestamp(BACKTESTING_YEAR, month, 1)
+    return pd.Timestamp(backtesting_base_year(), month, 1)
 
 
 def resolve_backtesting_window(
     start_month: pd.Timestamp | None,
     end_month: pd.Timestamp | None,
-    range_mode: str,
-    cons_path: str,
-    prod_path: str,
+    range_mode: str = "last_12_months",
 ) -> tuple[pd.Timestamp, pd.Timestamp]:
     """
     Ermittelt Start/Ende für die Simulation.
     Mit start_month/end_month: erster Tag des Startmonats bis letzter Tag des Endmonats.
-    Ohne Angabe: wie bisher aus config (price_range / resolve_simulation_window).
+    Ohne Angabe: month-aligned Fenster aus cons_data (resolve_simulation_window).
     """
     if start_month is None and end_month is None:
-        return resolve_simulation_window(range_mode, cons_path, prod_path)
+        return resolve_simulation_window(range_mode)
 
     if start_month is None or end_month is None:
         raise SystemExit(
             "Bitte --start-month und --end-month gemeinsam angeben "
-            f"({MONTH_ARG_HELP})."
+            f"({_month_arg_help()})."
         )
 
     start = start_month.normalize()
@@ -123,7 +134,7 @@ def resolve_backtesting_window(
     if start > end:
         raise SystemExit(
             "Kein gültiger Schnitt zwischen gewähltem Monatszeitraum "
-            "und verfügbaren Loxone-Logs."
+            "und verfügbaren cons_data."
         )
 
     return start, end
@@ -151,13 +162,13 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         "--start-month",
         type=_parse_month,
         metavar="MONAT",
-        help=f"Erster Monat der Simulation (inkl.). {MONTH_ARG_HELP}",
+        help=f"Erster Monat der Simulation (inkl.). {_month_arg_help()}",
     )
     parser.add_argument(
         "--end-month",
         type=_parse_month,
         metavar="MONAT",
-        help=f"Letzter Monat der Simulation (inkl.). {MONTH_ARG_HELP}",
+        help=f"Letzter Monat der Simulation (inkl.). {_month_arg_help()}",
     )
     parser.add_argument(
         "--workers",
@@ -663,7 +674,7 @@ def main(argv: list[str] | None = None):
     if args.workers < 1:
         raise SystemExit("--workers muss >= 1 sein.")
 
-    sim_cfg = config.get_file_paths_battery_simulation()
+    sim_cfg = config.get_scenario_explorer_conf()
     range_mode = sim_cfg.get("price_range", "last_12_months")
     price_source = sim_cfg.get("price_source", "csv")
 
@@ -671,8 +682,6 @@ def main(argv: list[str] | None = None):
         args.start_month,
         args.end_month,
         range_mode,
-        sim_cfg["path_consumption"],
-        sim_cfg["path_production"],
     )
 
     if args.start_month is not None:
@@ -940,6 +949,12 @@ def main(argv: list[str] | None = None):
         period_meta["imported_pv_scenario_ids"] = used_pv
     if missing_pv:
         period_meta["imported_pv_missing_scenario_ids"] = missing_pv
+    monthly_fee_by_scenario = monthly_fees_by_result_id(
+        scenarios=scenarios,
+        historical_params=reference_params,
+        historical_id=HISTORICAL_REFERENCE_ID,
+        extra_ref_specs=extra_ref_specs,
+    )
     log_path = save_backtesting_log(
         sim_results,
         labels,
@@ -948,6 +963,7 @@ def main(argv: list[str] | None = None):
         log_dir=args.output_dir,
         cbc_events_by_scenario=cbc_events_by_scenario,
         window_snapshots=window_snapshots,
+        monthly_fee_by_scenario=monthly_fee_by_scenario,
     )
     if progress_file:
         clear_progress_dir(progress_file)
