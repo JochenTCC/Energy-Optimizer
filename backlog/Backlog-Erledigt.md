@@ -3,6 +3,12 @@
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 
+### Version 2.2.0 — Official release (2026-07-22)
+
+- [x] **Finalize Version 2.2.0 after test usage and make a release** — `version.py` `2.2.0`; tag `v2.2.0` (GitHub Latest + GHCR `2.2.0` / `:latest`); chapter archived from open backlog
+  - German docs polish carry-over → open `2.3.0` in [Backlog.md](Backlog.md)
+
+
 ### Bugfix Verbraucher expander Bezeichnung label refresh (2026-07-22)
 
 - [x] **Changed Bezeichnung in Verbraucher Edit is not updating the collapse label instantly (on first Verbraucher)** — already fixed via `_consumer_expander_title` (live `hc_label_*` session) + stable `hc_consumer_expander_{index}` key; re-verified live (not reproducible); runtime logs showed title matching Bezeichnung on rename for Verbraucher 1 and 2

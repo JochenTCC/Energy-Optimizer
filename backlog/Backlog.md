@@ -15,38 +15,6 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 ## Feature Backlog
 
 
-### Version 2.2.0
-
-- [x] Build Szenario-Explorer as "web app" in Streamlit Community Cloud (SCC)
-  - Precursor (done): `EARNIE_OFFLINE` live-scenario demo seed — [Backlog-Erledigt.md](Backlog-Erledigt.md)
-  - Site config split (done): private `Earnie-env-home` + junction; public templates/catalog in `share/config/` (incl. `tariffs.json`); see [private-env.md](../docs/einrichtung/private-env.md)
-  - New EARNIE_UI_MODES "live_environment" to enable / disable "Echtzeitumgebung"
-- [x] Remove any references to DS-KO-DOLS (`DS-KO-DO-2`) in all files and replace it by dummies
-- [x] Implement a first version of "Banner der Wahrheit", that can't be removed in a fork
-- [x] Add a hint "Nicht optional, da ansonsten identisch mit Nicht optimierter Referenz" on subpage Batterien
-- [x] Add a warning at SE at Gesamtkosten und -Verbrauch, when overall consumptions differ more than 5% from Live-Referenz (Hinweis column) with hint to send a config dump to TechCreaCon via Info / About contact.
-- [x] Reorder sidebar
-    - Deactivate "Verbraucheranalyse" when there is no live connection to smarthome (stub page notice)
-    - Hide "Verbraucheranalyse" when EARNIE_UI_MODES does not include "live_environment"
-    - Move "Verbraucheranalyse" into "Live-Cockpit" (at the bottom)
-    - Rename section "Planung" into "Konfiguration"
-    - Move Szenario-Explorer into section "Konfiguration" (above Live-Konfiguration)
-    - Remove section "Analyse"
-    - Move "Live-Konfiguration" into section "Konfiguration"; hide when `live_environment` not in modes (always usable when shown)
-    - Rename section "Betrieb" into "Live-Cockpit"
-- [x] Make a complete info section in sidebar (including version and Banner der Wahrheit + contacting formular with Topic, Description and attachments to mail@techcreacon.com)
-- [x] Merge streamlitcloud branch with main, when app is working on SCC
-- [x] Add a CONTRIBUTING.md document in German
-- [x] Add [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://earnie.streamlit.app) into README.md
-- [x] Perform a SE for posts
-- [x] Add a link to Manual in Info
-- [x] Test if sunset2set-Mode is working in SE brings better results than fixed_24h
-  - Results are better, but computing effort is much higher
-- [x] In Scenario Editor show parameters of selected tariffs and give a hint that user must check if data is correct (there is no guarantee for correctness) and monthly fixed fees are not part of the calculation yet
-- [ ] Finalize Version 2.2.0 after test usage and make a release
-  - Update German Docs
-
-
 ### Version 2.3 — Enhance consumer visualization and cost analysis - sharpen tariffs handling
 
 Year-1 product depth (trust / What-If / churn). **Good-enough €** for SE and demos — invoice-grade bill reconciliation is explicitly out of scope (nice-to-have later). Includes a thin marker/data-model prep for later SAM work (`2.4`), not the connector rewrite.
@@ -86,7 +54,7 @@ Year-1 product depth (trust / What-If / churn). **Good-enough €** for SE and d
   - Make existing marker→entity assignments editable in UI where already used
   - **Out of scope here:** connector architecture, Loxone HTTP extraction, third-party connector spec, device-template library (→ `2.4`); full nested structures (→ nested-models `2.+1`)
 - [ ] **2.3.0 — Release**
-  - Finalize after test usage; update German docs as needed
+  - Finalize after test usage; update German docs as needed (carry-over from 2.2.0 finalize)
 
 
 ### Version 2.4 — Become Loxone agnostic and standardize communication (SAM expansion)
