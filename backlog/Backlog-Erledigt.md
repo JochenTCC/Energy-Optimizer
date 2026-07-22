@@ -3,6 +3,11 @@
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 
+### Bugfix Verbraucher expander Bezeichnung label refresh (2026-07-22)
+
+- [x] **Changed Bezeichnung in Verbraucher Edit is not updating the collapse label instantly (on first Verbraucher)** — already fixed via `_consumer_expander_title` (live `hc_label_*` session) + stable `hc_consumer_expander_{index}` key; re-verified live (not reproducible); runtime logs showed title matching Bezeichnung on rename for Verbraucher 1 and 2
+
+
 ### Bugfix NAS Chart 1 history without EARNIE_RUNTIME_PATH (2026-07-21)
 
 - [x] **NAS launch: Chart 1 Monitor missing past data without `EARNIE_RUNTIME_PATH`** — `optimization_history` / `run_state` / `live_optimization_debug` / `single_instance` bound runtime via `read_runtime_path_or("runtime")` (ignored `EARNIE_ENV_PATH`); now use `persist_paths.runtime_dir()` / `runtime_path()` so `{ENV_PATH}/runtime` alone loads NAS `optimization_history.jsonl`; regression test; verified live on NAS :8503

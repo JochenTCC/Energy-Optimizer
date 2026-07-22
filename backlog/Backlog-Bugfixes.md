@@ -24,6 +24,5 @@ Fix is **implemented** (code + tests + optional PATCH in `version.py`), but **pr
 
 ## New Bugs (Do not remove this chapter — even if empty)
 
-- [ ] Changed Bezeichnung in Verbraucher Edit is not updating the collapse label instantly (on first Verbraucher)
 
 ## Organizational Changes - no bugs (but still no development issue)
