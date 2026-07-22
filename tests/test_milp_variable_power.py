@@ -8,7 +8,7 @@ import pytest
 
 os.environ.setdefault("ENERGY_OPTIMIZER_OFFLINE", "1")
 
-from optimizer.milp import _build_milp_model, milp_optimizer
+from optimizer.milp import _build_milp_model, milp_horizon_schedule
 
 
 def _matrix(hours: int = 6) -> list[dict]:
@@ -45,11 +45,11 @@ def _eauto_consumer() -> dict:
 
 
 def test_partial_power_when_target_below_max():
+    """Partial continuous setpoint (~2 kW) somewhere in the horizon (solver-agnostic)."""
     consumers = [_eauto_consumer()]
     matrix = _matrix(6)
-    _, _, _, powers, pv_follow, _, _ = milp_optimizer(
+    schedule = milp_horizon_schedule(
         matrix,
-        current_hour=0,
         current_soc=50.0,
         battery_params=_battery_params(),
         k_push=3.5,
@@ -58,9 +58,10 @@ def test_partial_power_when_target_below_max():
         consumer_remaining_kwh={"eauto": 2.0},
         charging_contexts={},
     )
-    power = powers["eauto"]
-    assert 0.0 < power <= 3.5
-    assert power == pytest.approx(2.0, abs=0.05)
+    powers = [slot["consumer_powers"].get("eauto", 0.0) for slot in schedule]
+    assert any(0.0 < p <= 3.5 for p in powers)
+    assert any(abs(p - 2.0) <= 0.05 for p in powers)
+    assert sum(powers) == pytest.approx(2.0, abs=0.05)
 
 
 def test_model_has_continuous_power_variables():

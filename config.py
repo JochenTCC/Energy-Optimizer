@@ -367,6 +367,11 @@ class Config:
             self.backtesting_scenarios_path
         )
 
+    def get_backtesting_milp_solver(self) -> str:
+        return scenario_settings.get_backtesting_milp_solver(
+            self.backtesting_scenarios_path
+        )
+
     def _load_backtesting_scenarios_entries(self) -> list:
         return scenario_settings.load_backtesting_scenarios_entries(
             self.backtesting_scenarios_path,
@@ -642,6 +647,10 @@ def get_backtesting_commit_hours() -> int:
 
 def get_backtesting_cbc_strict_time_limit_sec() -> float:
     return CONFIG.get_backtesting_cbc_strict_time_limit_sec()
+
+
+def get_backtesting_milp_solver() -> str:
+    return CONFIG.get_backtesting_milp_solver()
 
 
 def get_value(name: str, default=None, cast=None):

@@ -6,9 +6,11 @@ from pathlib import Path
 
 import pytest
 
+from optimizer.cbc_solver import DEFAULT_MILP_SOLVER
 from settings.scenarios import (
     DEFAULT_BACKTESTING_COMMIT_HOURS,
     get_backtesting_commit_hours,
+    get_backtesting_milp_solver,
 )
 
 
@@ -35,3 +37,28 @@ def test_commit_hours_rejects_zero(tmp_path: Path):
     )
     with pytest.raises(ValueError, match="commit_hours"):
         get_backtesting_commit_hours(str(path))
+
+
+def test_milp_solver_default_when_missing(tmp_path: Path):
+    path = tmp_path / "backtesting_scenarios.json"
+    path.write_text(json.dumps({"scenarios": []}), encoding="utf-8")
+    assert get_backtesting_milp_solver(str(path)) == DEFAULT_MILP_SOLVER
+
+
+def test_milp_solver_reads_highs(tmp_path: Path):
+    path = tmp_path / "backtesting_scenarios.json"
+    path.write_text(
+        json.dumps({"milp_solver": "highs", "scenarios": []}),
+        encoding="utf-8",
+    )
+    assert get_backtesting_milp_solver(str(path)) == "highs"
+
+
+def test_milp_solver_rejects_unknown(tmp_path: Path):
+    path = tmp_path / "backtesting_scenarios.json"
+    path.write_text(
+        json.dumps({"milp_solver": "gurobi", "scenarios": []}),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="milp_solver"):
+        get_backtesting_milp_solver(str(path))

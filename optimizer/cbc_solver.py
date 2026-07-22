@@ -1,11 +1,11 @@
-"""CBC-Solver-Optionen für MILP (zweistufig: strict → gapRel-Fallback)."""
+"""MILP solver options (CBC default; optional HiGHS). Two-stage: strict → gapRel."""
 from __future__ import annotations
 
 import logging
 import os
 import time
 from contextvars import ContextVar, Token
-from typing import Any
+from typing import Any, Literal
 
 import pulp
 
@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CBC_GAP_REL = 0.10
 DEFAULT_CBC_STRICT_TIME_LIMIT_SEC = 3.0
+DEFAULT_MILP_SOLVER: Literal["cbc", "highs"] = "highs"
+VALID_MILP_SOLVERS = frozenset({"cbc", "highs"})
 
 _CBC_ENV_SUFFIXES = (
     "CBC_GAP_REL",
@@ -29,6 +31,8 @@ _CBC_ENV_SUFFIXES = (
 ENV_GAP_REL = "EARNIE_CBC_GAP_REL"
 ENV_GAP_ABS = "EARNIE_CBC_GAP_ABS"
 ENV_STRICT_TIME_LIMIT = "EARNIE_CBC_STRICT_TIME_LIMIT_SEC"
+ENV_MILP_SOLVER = "EARNIE_MILP_SOLVER"
+HIGHS_THREADS = 1
 
 _cbc_gap_rel_override: ContextVar[float | None] = ContextVar(
     "cbc_gap_rel_override",
@@ -36,6 +40,10 @@ _cbc_gap_rel_override: ContextVar[float | None] = ContextVar(
 )
 _cbc_strict_time_limit_override: ContextVar[float | None] = ContextVar(
     "cbc_strict_time_limit_override",
+    default=None,
+)
+_milp_solver_override: ContextVar[str | None] = ContextVar(
+    "milp_solver_override",
     default=None,
 )
 
@@ -91,6 +99,63 @@ def set_cbc_strict_time_limit_override(seconds: float | None) -> Token:
 
 def reset_cbc_strict_time_limit_override(token: Token) -> None:
     _cbc_strict_time_limit_override.reset(token)
+
+
+def _normalize_milp_solver(raw: str) -> Literal["cbc", "highs"]:
+    name = raw.strip().lower()
+    if name not in VALID_MILP_SOLVERS:
+        raise ValueError(
+            f"Unknown MILP solver {raw!r}; expected one of {sorted(VALID_MILP_SOLVERS)}."
+        )
+    return name  # type: ignore[return-value]
+
+
+def resolve_milp_solver() -> Literal["cbc", "highs"]:
+    """Env EARNIE_MILP_SOLVER first, then SE ContextVar, else HiGHS default."""
+    env_raw = read_env("MILP_SOLVER")
+    if env_raw:
+        return _normalize_milp_solver(env_raw)
+    ctx = _milp_solver_override.get()
+    if ctx:
+        return _normalize_milp_solver(ctx)
+    return DEFAULT_MILP_SOLVER
+
+
+def set_milp_solver_override(solver: str | None) -> Token:
+    return _milp_solver_override.set(solver)
+
+
+def reset_milp_solver_override(token: Token) -> None:
+    _milp_solver_override.reset(token)
+
+
+def _require_highs_available() -> None:
+    solver = pulp.HiGHS(msg=False)
+    if not solver.available():
+        raise RuntimeError(
+            "MILP solver 'highs' selected but HiGHS is not available. "
+            "Install with: pip install highspy  (or pip install -e \".[highs]\")"
+        )
+
+
+def build_highs_solver_cmd(
+    *,
+    msg: bool = False,
+    strict: bool = False,
+    gap_rel: float | None = None,
+    time_limit: float | None = None,
+) -> pulp.LpSolver:
+    """Build PuLP HiGHS (highspy) solver; threads=1 for fair SE multi-worker runs."""
+    _require_highs_available()
+    kwargs: dict[str, Any] = {"msg": msg, "threads": HIGHS_THREADS}
+    if time_limit is not None and time_limit > 0:
+        kwargs["timeLimit"] = time_limit
+    gap_abs = _read_optional_float_env("CBC_GAP_ABS")
+    if gap_abs is not None:
+        kwargs["gapAbs"] = gap_abs
+    if not strict:
+        kwargs["gapRel"] = resolve_cbc_gap_rel() if gap_rel is None else gap_rel
+    return pulp.HiGHS(**kwargs)
 
 
 def _append_env_options(settings: dict[str, Any]) -> None:
@@ -158,6 +223,29 @@ def cbc_solver_settings_from_env() -> dict[str, Any]:
     return settings
 
 
+def _build_solver_cmd(
+    *,
+    backend: Literal["cbc", "highs"],
+    msg: bool = False,
+    strict: bool = False,
+    gap_rel: float | None = None,
+    time_limit: float | None = None,
+) -> pulp.LpSolver:
+    if backend == "highs":
+        return build_highs_solver_cmd(
+            msg=msg,
+            strict=strict,
+            gap_rel=gap_rel,
+            time_limit=time_limit,
+        )
+    return build_cbc_solver_cmd(
+        msg=msg,
+        strict=strict,
+        gap_rel=gap_rel,
+        time_limit=time_limit,
+    )
+
+
 def solve_with_strict_fallback(
     prob: pulp.LpProblem,
     *,
@@ -167,9 +255,13 @@ def solve_with_strict_fallback(
     """
     Zweistufig: kurzer Strict-Lauf, bei fehlender Optimalität Fallback auf gapRel.
     EARNIE_CBC_STRICT=1: nur Strict ohne Limit (Benchmarks).
+    Backend: resolve_milp_solver() → highs (default) or cbc.
     """
+    backend = resolve_milp_solver()
+    label = "HiGHS" if backend == "highs" else "CBC"
+
     if _is_strict_cbc_mode():
-        prob.solve(build_cbc_solver_cmd(msg=msg, strict=True))
+        prob.solve(_build_solver_cmd(backend=backend, msg=msg, strict=True))
         return pulp.LpStatus[prob.status]
 
     strict_limit = resolve_cbc_strict_time_limit_sec()
@@ -178,7 +270,12 @@ def solve_with_strict_fallback(
     if strict_limit > 0:
         t0 = time.perf_counter()
         prob.solve(
-            build_cbc_solver_cmd(msg=msg, strict=True, time_limit=strict_limit)
+            _build_solver_cmd(
+                backend=backend,
+                msg=msg,
+                strict=True,
+                time_limit=strict_limit,
+            )
         )
         elapsed = time.perf_counter() - t0
         status = pulp.LpStatus[prob.status]
@@ -198,11 +295,11 @@ def solve_with_strict_fallback(
         )
         if verbose:
             print(
-                f"CBC strict ({strict_limit:.1f} s) Status {status} "
+                f"{label} strict ({strict_limit:.1f} s) Status {status} "
                 f"→ Fallback gapRel={gap_rel * 100:.1f}%"
             )
 
-    prob.solve(build_cbc_solver_cmd(msg=msg, gap_rel=gap_rel))
+    prob.solve(_build_solver_cmd(backend=backend, msg=msg, gap_rel=gap_rel))
     final_status = pulp.LpStatus[prob.status]
     return final_status
 
@@ -211,6 +308,8 @@ def clear_cbc_solver_env() -> None:
     for suffix in _CBC_ENV_SUFFIXES:
         for prefix in ("EARNIE_", "ENERGY_OPTIMIZER_"):
             os.environ.pop(f"{prefix}{suffix}", None)
+    for prefix in ("EARNIE_", "ENERGY_OPTIMIZER_"):
+        os.environ.pop(f"{prefix}MILP_SOLVER", None)
 
 
 def apply_cbc_solver_env(

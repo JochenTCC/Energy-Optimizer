@@ -257,7 +257,7 @@ Von außen gibt es keinen eingebauten Reverse Proxy wie bei Synology DSM. Extern
 | MILP-Performance | langsamer als NAS akzeptabel, Log prüfen | Erwartung identischer Laufzeit wie x86-NAS |
 
 
-Vor Produktivbetrieb: Daemon-Log (`runtime/earnie.log`) auf CBC-Timing und Startfehler prüfen. Optionaler Follow-up: natives `coinor-cbc` im Image für kürzere MILP-Läufe.
+Vor Produktivbetrieb: Daemon-Log (`runtime/earnie.log`) auf MILP-Timing und Startfehler prüfen. Standard-Solver ist **HiGHS** (`highspy`); CBC bleibt Fallback über `EARNIE_MILP_SOLVER=cbc` bzw. SE-`milp_solver`.
 
 ## Proxmox LXC (amd64)
 

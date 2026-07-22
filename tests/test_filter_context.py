@@ -9,7 +9,7 @@ import pytest
 os.environ.setdefault("ENERGY_OPTIMIZER_OFFLINE", "1")
 
 from optimizer import filter_context as fc
-from optimizer.milp import milp_optimizer
+from optimizer.milp import milp_horizon_schedule, milp_optimizer
 
 
 def _swimspa_filter() -> dict:
@@ -121,9 +121,8 @@ class TestMilpFilterWindow:
         consumer = _swimspa_filter()
         filter_ctx = fc.resolve_filter_context(consumer, matrix, logged_simulation=True)
         ernie_rem = fc.ernie_filter_remaining_kwh(consumer, 1.0, filter_ctx)
-        _, _, _, powers, _, _, _ = milp_optimizer(
+        schedule = milp_horizon_schedule(
             matrix,
-            current_hour=0,
             current_soc=50.0,
             battery_params=_battery_params(),
             k_push=3.5,
@@ -132,7 +131,11 @@ class TestMilpFilterWindow:
             consumer_remaining_kwh={"swimspa_filter": ernie_rem},
             filter_contexts={"swimspa_filter": filter_ctx},
         )
-        assert powers.get("swimspa_filter", 0.0) == pytest.approx(0.18)
+        powers = [
+            slot["consumer_powers"].get("swimspa_filter", 0.0) for slot in schedule
+        ]
+        assert any(abs(p - 0.18) < 1e-6 for p in powers)
+        assert sum(powers) == pytest.approx(0.36, abs=0.02)
         blocked = set(filter_ctx["blocked_indices"])
         for hour_idx, row in enumerate(matrix):
             if hour_idx in blocked:

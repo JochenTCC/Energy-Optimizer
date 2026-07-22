@@ -145,3 +145,26 @@ def get_backtesting_cbc_strict_time_limit_sec(backtesting_scenarios_path: str) -
             f"nicht {limit!r} in '{backtesting_scenarios_path}'."
         )
     return limit
+
+
+def get_backtesting_milp_solver(backtesting_scenarios_path: str) -> str:
+    """
+    MILP backend for SE/backtesting: ``highs`` (default) or ``cbc``.
+
+    Optional top-level ``milp_solver`` in backtesting_scenarios.json.
+    Env ``EARNIE_MILP_SOLVER`` still wins at solve time when set.
+    """
+    from optimizer.cbc_solver import DEFAULT_MILP_SOLVER, VALID_MILP_SOLVERS
+
+    doc = load_backtesting_scenarios_document(backtesting_scenarios_path)
+    raw = doc.get("milp_solver")
+    if raw is None:
+        return DEFAULT_MILP_SOLVER
+    name = str(raw).strip().lower()
+    if name not in VALID_MILP_SOLVERS:
+        raise ValueError(
+            f"Kritischer Konfigurationsfehler: milp_solver muss einer von "
+            f"{sorted(VALID_MILP_SOLVERS)} sein, nicht {raw!r} in "
+            f"'{backtesting_scenarios_path}'."
+        )
+    return name

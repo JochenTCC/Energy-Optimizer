@@ -43,8 +43,10 @@ from simulation.horizon_mode import (
 from optimizer.cbc_solver import (
     reset_cbc_gap_rel_override,
     reset_cbc_strict_time_limit_override,
+    reset_milp_solver_override,
     set_cbc_gap_rel_override,
     set_cbc_strict_time_limit_override,
+    set_milp_solver_override,
 )
 from optimizer.cbc_events import (
     begin_cbc_event_collection,
@@ -1180,6 +1182,7 @@ def run_simulation(
     limit_token = set_cbc_strict_time_limit_override(
         config.get_backtesting_cbc_strict_time_limit_sec()
     )
+    solver_token = set_milp_solver_override(config.get_backtesting_milp_solver())
     total_hours = len(anchors) * BACKTESTING_STEP_HOURS
     hours_done = 0
     sim_soc = initial_soc
@@ -1270,6 +1273,7 @@ def run_simulation(
     finally:
         reset_cbc_gap_rel_override(gap_token)
         reset_cbc_strict_time_limit_override(limit_token)
+        reset_milp_solver_override(solver_token)
         if collect_cbc:
             clear_cbc_milp_context()
 

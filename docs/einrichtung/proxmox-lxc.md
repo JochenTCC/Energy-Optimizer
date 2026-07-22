@@ -108,7 +108,7 @@ Im Hausnetz Port **8501**. Extern nur über Reverse Proxy, VPN o. Ä. — nicht 
 | Nesting | `nesting=1` + `keyctl=1` | Docker startet nicht / keine Nested Container |
 | Architektur | amd64 CT | arm64-CT ohne passendes Image-Manifest |
 | Persistenz | `earnie_env/config/` + `earnie_env/runtime/` außerhalb des Images | nur flüchtige Rootfs ohne Backup |
-| MILP | CBC-Läufe im Log ok | dauerhafte Timeouts bei zu wenig RAM/CPU |
+| MILP | HiGHS-Läufe im Log ok (Fallback CBC via Env) | dauerhafte Timeouts bei zu wenig RAM/CPU |
 
 ## Siehe auch
 
