@@ -21,7 +21,12 @@ def _help_text() -> str:
 
 
 def render() -> None:
-    render_page_title_with_help("🏠 Hauskonfigurator", _help_text(), key="house_config_help")
+    render_page_title_with_help(
+        "🏠 Hauskonfigurator",
+        _help_text(),
+        key="house_config_help",
+        page_docs_key="house-config",
+    )
 
     # Reseed before widget when missing OR None/invalid (deselection leaves key present as None).
     if st.session_state.get(_HOUSE_CONFIG_TAB_KEY) not in _HOUSE_CONFIG_TABS:

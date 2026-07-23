@@ -11,14 +11,12 @@ from urllib.parse import quote
 import streamlit as st
 
 from runtime_store.config_pack import build_config_pack_bytes
-from ui.truth_banner import OFFICIAL_REPO_URL, render_truth_banner
+from ui.doc_links import MANUAL_URL
+from ui.truth_banner import render_truth_banner
 
 logger = logging.getLogger(__name__)
 
 SUPPORT_EMAIL = "mail@techcreacon.com"
-MANUAL_URL = (
-    f"{OFFICIAL_REPO_URL}/blob/main/docs/user-manual/Benutzer-Handbuch-Earnie.md"
-)
 _CONTACT_ZIP_PREFIX = "earnie_kontakt"
 
 

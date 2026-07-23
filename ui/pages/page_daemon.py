@@ -60,6 +60,7 @@ def render() -> None:
         "🛠️ Optimierer-Dienst",
         _HELP,
         key="daemon_help",
+        page_docs_key="optimizer-daemon",
     )
     st.caption(
         "Lebenszyklus von `main.py` (Start / Stop / Neustart). "

@@ -3,6 +3,33 @@
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 
+### Energieflussmonitor → Hausprofil blueprint research (2026-07-23)
+
+- [x] Research whether own Loxone Energieflussmonitor + Zähler setup can blueprint Verbraucher-Konfiguration in Hausprofil (incl. CSVs)
+  - **A (process blueprint):** yes — map Netz/Erzeuger/Speicher/Verbraucher/Rest → `grid_profile_csv` / `pv_profile_csv` / `battery_profile_csv` / consumer `profile_csv` + Basislast residual; plan `.cursor/plans/energieflussmonitor_hausprofil_blueprint_a.plan.md`
+  - **C (auto-create consumers + CSV attach):** not officially feasible now (no structure export) — deferred under Version **2.4** MCP item in [Backlog.md](Backlog.md)
+
+
+### SE calculation test plan (2026-07-23)
+
+- [x] Comprehensive SE calculation test plan for Live/`example_efh` (path-A matrix; path B blocked until manuals have CSV)
+- [x] Scripts: `se_calc_test_matrix` / `se_calc_test_run` / `se_calc_test_compare` (+ `se_calc_test_common`)
+- [x] Executed M0/M1/M2 × months 2025-01/04/07/10; actual vs Live-ref vs optimized recorded in `docs/spec/se-calculation-test-plan.md` + `se-calc-test-results.json`
+
+
+### Consumer editors UI polish (2026-07-23)
+
+- [x] Change plots in "importierte Leistung" to rectangular style
+- [x] Collect all marker settings in consumption editors into an expander that is hidden when `EARNIE_UI_MODES` is not `live_environment`
+- [x] Put all buttons "Verbraucher-CSV entfernen" in all consumption editors right of upload in the same row (similar to historical profiles)
+
+
+### Streamlit → docs deep-links (2026-07-23)
+
+- [x] Add links to chapters in Streamlit that land on respective parts in various docs `.md` files (registry `ui/doc_links.py`, book icon + help popover, captions clickable)
+- [x] Continuous maintenance skill: `.cursor/skills/streamlit-doc-links/SKILL.md`
+
+
 ### CSV / Basislast / earnie_role alignment (2026-07-23)
 
 - [x] Clarify „Läufe pro Woche“ (=0 hint; allow 0 only for Bekannt+CSV; Gesteuert/Manual ≥1)

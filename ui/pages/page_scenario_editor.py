@@ -4,6 +4,7 @@ from __future__ import annotations
 import streamlit as st
 
 import config
+from ui.doc_links import DocLink, markdown_doc_link
 from ui.help_hint import render_page_title_with_help
 from ui.form_layout import (
     WIDE_LABEL_RATIOS,
@@ -463,7 +464,8 @@ def _render_scenarios_tab() -> None:
             "für Vollständigkeit oder Aktualität des Katalogs. Monatliche Fixkosten "
             "(Grundgebühr o. Ä.) fließen als **Näherung** in die Gesamtkosten und "
             "Monatswerte des Szenario-Explorers ein — nicht in die Live-MILP-Kosten. "
-            "Nachrechnen: docs/referenz/tarife-quellen.md."
+            f"Nachrechnen: "
+            f"{markdown_doc_link(DocLink('Tarife und Preise nachrechnen', 'docs/referenz/tarife-quellen.md'))}."
         )
 
     netzentgelt_override = None
@@ -555,7 +557,12 @@ def _render_scenarios_tab() -> None:
 
 
 def render() -> None:
-    render_page_title_with_help("🧪 Szenarieneditor", _HELP, key="scenario_editor_help")
+    render_page_title_with_help(
+        "🧪 Szenarieneditor",
+        _HELP,
+        key="scenario_editor_help",
+        page_docs_key="scenario-editor",
+    )
 
     catalog_meta = load_tariffs_catalog_meta()
     if catalog_meta.get("catalog_as_of"):

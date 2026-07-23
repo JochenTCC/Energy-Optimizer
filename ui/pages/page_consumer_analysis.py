@@ -85,6 +85,7 @@ def render() -> None:
         "📈 Analyse Verbrauch & Kosten",
         _HELP,
         key="consumer_analysis_help",
+        page_docs_key="consumer-analysis",
     )
     _render_cost_section()
     st.divider()

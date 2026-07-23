@@ -44,6 +44,7 @@ def render() -> None:
         "🔗 Loxone-Kommunikation",
         _LOXONE_DEBUG_HELP,
         key="loxone_debug_help",
+        page_docs_key="loxone-debug",
     )
     st.caption(f"Konfiguration: `{config.CONFIG.config_path}`")
     _render_cockpit_locked_notice()

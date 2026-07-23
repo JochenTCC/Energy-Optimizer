@@ -19,17 +19,10 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 
 Year-1 product depth (trust / What-If / churn). **Good-enough €** for SE and demos — invoice-grade bill reconciliation is explicitly out of scope (nice-to-have later). Thin marker/data-model prep for SAM (`2.3.f`) is done; connector rewrite remains `2.4`. SE MILP speed/tuning (`2.3.c.0a`–`2.3.c.3`) → [Backlog-Erledigt.md](Backlog-Erledigt.md). CSV / Basislast / earnie_role alignment → [Backlog-Erledigt.md](Backlog-Erledigt.md).
 
-- [ ] Change plots in "importierte Leistung" to rectangular style
-- [ ] Collect all marker settings in consumption editors into an expander that is hided when EARNIE_UI_MODES is not live_environment
-- [ ] Put all buttons "Verbraucher-CSV entfernen" in all consumption editors right to upload in the same row (similar to historical profiles)
-- [ ] Make a comprehensive test plan für SE calculation.
-  - Take local env's configuration as basis with Live scenario.
-  - Vary use of cvs import data usage for consumers and usage of historical overall consumption for calculation of Basislast to a testing matrix with good coverage
-  -Do SE-calculation for months 01/04/07/10 and do a comparison of  actual total power consumptions and non-optimized references
-
 - [ ] Pre release 2.3.0-alpha.3 for SCC
 
-- [ ] Add Energieflussmonitor and Zähler to my own Loxone Config to be able to use that as blueprint for Verbraucher-Konfiguration in Hausprofil and import all at once (may be first only csvs)
+- [x] Add Energieflussmonitor Baustein and Zähler to my own Loxone Config to be able to test csv-data-export
+  - Research (done) → [Backlog-Erledigt.md](Backlog-Erledigt.md); process blueprint plan `.cursor/plans/energieflussmonitor_hausprofil_blueprint_a.plan.md`; auto-sync deferred under **2.4** MCP
 
 
 - [ ] **2.3.0 — Release**
@@ -49,7 +42,8 @@ Year-1 product depth (trust / What-If / churn). **Good-enough €** for SE and d
   - Enhance JSON schemas to standardized interfaces between devices (heat pump, battery, EV, consumers, …) as templates for a library of communication interfaces between smarthome system and Earnie
   - Build a Loxone library as counterpart to those templates for quick interface configuration
   - Prepare similar templates for other standards (see above)
-- [ ] Integrate a MCP-based automatic communication-definition (see also Entwicklungsplan\MCP-Interfacing-für-Earnie.md) in Loxone-Kommunikation page
+- [ ] Integrate a MCP-based automatic communication-definition (see also `Earnie-Projekt/Entwicklungsplan/Entwicklungs-Plan-Earnie-cons.md` §3.1; dedicated `MCP-Interfacing-für-Earnie.md` not present) in Loxone-Kommunikation page
+  - [ ] **Research / follow-up:** Auto-sync Energieflussmonitor meter tree → Hausprofil consumers + CSV paths (interpretation C). Blocked today by no official Loxone structure export; revisit with MCP structure-scan / connector work. Manual process blueprint: `.cursor/plans/energieflussmonitor_hausprofil_blueprint_a.plan.md`
 
 - [ ] **2.4.d — Donate**
   - Add a Donate feature into sidebar

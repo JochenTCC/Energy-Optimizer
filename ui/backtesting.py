@@ -39,6 +39,7 @@ from ui.backtesting_runner import (
     suggest_test_month,
 )
 from ui.backtesting_time_ranges import render_time_range_help
+from ui.doc_links import DocLink, get_page_docs, markdown_doc_link
 from ui.scenario_form_helpers import ordered_user_scenario_ids
 from scripts.run_backtesting import BACKTESTING_YEAR, HISTORICAL_REFERENCE_LABEL
 _LEGACY_STALE_WARNING = (
@@ -537,6 +538,33 @@ def _reference_kwh_for_meta(meta: dict) -> float | None:
     return reference_kwh_for_period(cons_df, period)
 
 
+def _annual_cost_details_markdown() -> str:
+    """Clickable doc links for the Jahres Verbrauch caption."""
+    parts: list[str] = []
+    explorer_docs = get_page_docs("scenario-explorer")
+    if explorer_docs is not None:
+        parts.append(markdown_doc_link(explorer_docs.primary))
+        jahres = next(
+            (
+                link
+                for link in explorer_docs.secondaries
+                if link.fragment == "gesamtkosten-jahres-verbrauch-kwh"
+            ),
+            None,
+        )
+        if jahres is not None:
+            parts.append(markdown_doc_link(jahres))
+    parts.append(
+        markdown_doc_link(
+            DocLink(
+                "Tarife und Preise nachrechnen",
+                "docs/referenz/tarife-quellen.md",
+            )
+        )
+    )
+    return " · ".join(parts)
+
+
 def render_annual_cost_table(meta: dict) -> None:
     st.subheader("Gesamtkosten und -Verbrauch")
     ref_kwh = _reference_kwh_for_meta(meta)
@@ -561,8 +589,7 @@ def render_annual_cost_table(meta: dict) -> None:
         + fee_note
         + "Abweichung >5% vs. Live-Referenz → Warnung in Spalte Hinweis "
         "(Config-Dump über Info / About → Kontakt). "
-        "Details: Benutzer-Handbuch → Szenario-Explorer · "
-        "Tarife und Preise nachrechnen."
+        f"Details: {_annual_cost_details_markdown()}."
     )
 
 

@@ -17,7 +17,8 @@ from data.price_forecast_viz import (
     load_model_or_fit,
     split_train_test,
 )
-from ui.help_hint import render_title_with_help
+from ui.help_hint import render_page_title_with_help
+from ui.doc_links import get_page_docs, markdown_doc_link
 
 
 @st.cache_data(ttl=120, show_spinner="Lade Preis-Dataset …")
@@ -173,14 +174,19 @@ def _hourly_mae_chart(summary: pd.DataFrame) -> go.Figure:
 
 
 def render_price_forecast_block() -> None:
-    render_title_with_help(
-        "Preis-Prognose (EU-Wetter & Last)",
-        (
-            "Vergleicht **Ist-Preise** (AT Day-Ahead) mit **OLS-Prognose** "
-            "(EU-Wind/Solar/Wetter + optional Last/Residuallast) und **Spiegelung** "
-            "auf dem Holdout-Anteil. Spec: docs/spec/price-forecast-renewables.md."
-        ),
+    docs = get_page_docs("price-forecast")
+    help_text = (
+        "Vergleicht **Ist-Preise** (AT Day-Ahead) mit **OLS-Prognose** "
+        "(EU-Wind/Solar/Wetter + optional Last/Residuallast) und **Spiegelung** "
+        "auf dem Holdout-Anteil."
+    )
+    if docs is not None:
+        help_text = f"{help_text} Spec: {markdown_doc_link(docs.primary)}."
+    render_page_title_with_help(
+        "💹 Preis-Prognose (Dev)",
+        help_text,
         key="price_forecast_help",
+        page_docs_key="price-forecast",
     )
     dataset_path, train_ratio, model_path = _render_controls()
 

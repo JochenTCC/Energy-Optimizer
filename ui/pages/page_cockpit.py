@@ -29,6 +29,7 @@ def render() -> None:
         _PAGE_TITLE,
         _COCKPIT_HELP,
         key="cockpit_scope_help",
+        page_docs_key="cockpit",
     )
 
     current_soc = loxone_client.fetch_loxone_generic_value(config.get("LOXONE_SOC_NAME"))

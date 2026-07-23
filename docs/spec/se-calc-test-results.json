@@ -1,0 +1,533 @@
+{
+  "year": 2025,
+  "months": [
+    1,
+    4,
+    7,
+    10
+  ],
+  "inventory": {
+    "env": "C:\\Users\\joche\\Documents\\Smarthome\\Python\\Energy-Optimizer\\earnie_env",
+    "live_scenario_id": "live",
+    "house_profile_id": "example_efh",
+    "baseload_kwh": null,
+    "total_profile_csv": "config/uploads/example_efh_energiemonitor_verbrauch.csv",
+    "historical_csv_source": "separate",
+    "b_gate": false,
+    "controllables": [
+      {
+        "id": "waschmaschine",
+        "earnie_role": "manual",
+        "has_profile_csv": false,
+        "use_profile_csv": false
+      },
+      {
+        "id": "trockner",
+        "earnie_role": "manual",
+        "has_profile_csv": false,
+        "use_profile_csv": false
+      },
+      {
+        "id": "geschirrspueler",
+        "earnie_role": "manual",
+        "has_profile_csv": false,
+        "use_profile_csv": false
+      }
+    ],
+    "consumers": [
+      {
+        "id": "wp_heating",
+        "type": "thermal_annual",
+        "earnie_role": null,
+        "has_profile_csv": true,
+        "use_profile_csv": false
+      },
+      {
+        "id": "ev",
+        "type": "ev",
+        "earnie_role": null,
+        "has_profile_csv": true,
+        "use_profile_csv": false
+      },
+      {
+        "id": "swimspa",
+        "type": "thermal_rc",
+        "earnie_role": null,
+        "has_profile_csv": true,
+        "use_profile_csv": false
+      },
+      {
+        "id": "waschmaschine",
+        "type": "generic",
+        "earnie_role": "manual",
+        "has_profile_csv": false,
+        "use_profile_csv": false
+      },
+      {
+        "id": "trockner",
+        "type": "generic",
+        "earnie_role": "manual",
+        "has_profile_csv": false,
+        "use_profile_csv": false
+      },
+      {
+        "id": "geschirrspueler",
+        "type": "generic",
+        "earnie_role": "manual",
+        "has_profile_csv": false,
+        "use_profile_csv": false
+      },
+      {
+        "id": "kochen",
+        "type": "generic",
+        "earnie_role": "known",
+        "has_profile_csv": false,
+        "use_profile_csv": false
+      },
+      {
+        "id": "fernsehen",
+        "type": "generic",
+        "earnie_role": "known",
+        "has_profile_csv": false,
+        "use_profile_csv": false
+      },
+      {
+        "id": "swimspa_jets",
+        "type": "generic",
+        "earnie_role": "known",
+        "has_profile_csv": false,
+        "use_profile_csv": false
+      }
+    ]
+  },
+  "rows": [
+    {
+      "cell": "M0",
+      "year": 2025,
+      "month": 1,
+      "b_gate": false,
+      "actual_kwh": 1269.7,
+      "live_ref_kwh": 1257.8,
+      "optimized_kwh": 1239.9,
+      "delta_actual_vs_ref_rel": 0.0095,
+      "delta_opt_vs_ref_rel": -0.0142,
+      "ok_count": 29,
+      "total_windows": 31,
+      "failed_count": 2,
+      "status": "pass",
+      "notes": [],
+      "log_path": "C:\\Users\\joche\\Documents\\Smarthome\\Python\\Energy-Optimizer\\earnie_env\\runtime\\se_calc_test\\runs\\M0\\2025-01\\backtesting_log.json",
+      "period": {
+        "start": "2025-01-01",
+        "end": "2025-01-31",
+        "windows": 31,
+        "horizon_mode": "sunrise_window",
+        "start_month": 1,
+        "end_month": 1,
+        "backtesting_year": 2025,
+        "price_source": "api",
+        "price_strategy": "perfect",
+        "reference_by_scenario": {
+          "live": "ref:live"
+        },
+        "live_scenario_id": "live",
+        "first_ts": "2024-12-31T07:00:00",
+        "last_ts": "2025-01-31T06:00:00",
+        "hours": 744
+      }
+    },
+    {
+      "cell": "M0",
+      "year": 2025,
+      "month": 4,
+      "b_gate": false,
+      "actual_kwh": 941.2,
+      "live_ref_kwh": 953.8,
+      "optimized_kwh": 938.9,
+      "delta_actual_vs_ref_rel": -0.0132,
+      "delta_opt_vs_ref_rel": -0.0156,
+      "ok_count": 28,
+      "total_windows": 30,
+      "failed_count": 2,
+      "status": "pass",
+      "notes": [],
+      "log_path": "C:\\Users\\joche\\Documents\\Smarthome\\Python\\Energy-Optimizer\\earnie_env\\runtime\\se_calc_test\\runs\\M0\\2025-04\\backtesting_log.json",
+      "period": {
+        "start": "2025-04-01",
+        "end": "2025-04-30",
+        "windows": 30,
+        "horizon_mode": "sunrise_window",
+        "start_month": 4,
+        "end_month": 4,
+        "backtesting_year": 2025,
+        "price_source": "api",
+        "price_strategy": "perfect",
+        "reference_by_scenario": {
+          "live": "ref:live"
+        },
+        "live_scenario_id": "live",
+        "first_ts": "2025-03-31T07:00:00",
+        "last_ts": "2025-04-30T06:00:00",
+        "hours": 720
+      }
+    },
+    {
+      "cell": "M0",
+      "year": 2025,
+      "month": 7,
+      "b_gate": false,
+      "actual_kwh": 812.5,
+      "live_ref_kwh": 825.3,
+      "optimized_kwh": 812.2,
+      "delta_actual_vs_ref_rel": -0.0155,
+      "delta_opt_vs_ref_rel": -0.0159,
+      "ok_count": 30,
+      "total_windows": 31,
+      "failed_count": 1,
+      "status": "pass",
+      "notes": [],
+      "log_path": "C:\\Users\\joche\\Documents\\Smarthome\\Python\\Energy-Optimizer\\earnie_env\\runtime\\se_calc_test\\runs\\M0\\2025-07\\backtesting_log.json",
+      "period": {
+        "start": "2025-07-01",
+        "end": "2025-07-31",
+        "windows": 31,
+        "horizon_mode": "sunrise_window",
+        "start_month": 7,
+        "end_month": 7,
+        "backtesting_year": 2025,
+        "price_source": "api",
+        "price_strategy": "perfect",
+        "reference_by_scenario": {
+          "live": "ref:live"
+        },
+        "live_scenario_id": "live",
+        "first_ts": "2025-06-30T07:00:00",
+        "last_ts": "2025-07-31T06:00:00",
+        "hours": 744
+      }
+    },
+    {
+      "cell": "M0",
+      "year": 2025,
+      "month": 10,
+      "b_gate": false,
+      "actual_kwh": 1051.6,
+      "live_ref_kwh": 1061.5,
+      "optimized_kwh": 1043.2,
+      "delta_actual_vs_ref_rel": -0.0093,
+      "delta_opt_vs_ref_rel": -0.0172,
+      "ok_count": 29,
+      "total_windows": 31,
+      "failed_count": 2,
+      "status": "pass",
+      "notes": [],
+      "log_path": "C:\\Users\\joche\\Documents\\Smarthome\\Python\\Energy-Optimizer\\earnie_env\\runtime\\se_calc_test\\runs\\M0\\2025-10\\backtesting_log.json",
+      "period": {
+        "start": "2025-10-01",
+        "end": "2025-10-31",
+        "windows": 31,
+        "horizon_mode": "sunrise_window",
+        "start_month": 10,
+        "end_month": 10,
+        "backtesting_year": 2025,
+        "price_source": "api",
+        "price_strategy": "perfect",
+        "reference_by_scenario": {
+          "live": "ref:live"
+        },
+        "live_scenario_id": "live",
+        "first_ts": "2025-09-30T07:00:00",
+        "last_ts": "2025-10-31T06:00:00",
+        "hours": 744
+      }
+    },
+    {
+      "cell": "M1",
+      "year": 2025,
+      "month": 1,
+      "b_gate": false,
+      "actual_kwh": 1269.7,
+      "live_ref_kwh": 1257.8,
+      "optimized_kwh": 1239.9,
+      "delta_actual_vs_ref_rel": 0.0095,
+      "delta_opt_vs_ref_rel": -0.0142,
+      "ok_count": 29,
+      "total_windows": 31,
+      "failed_count": 2,
+      "status": "pass",
+      "notes": [],
+      "log_path": "C:\\Users\\joche\\Documents\\Smarthome\\Python\\Energy-Optimizer\\earnie_env\\runtime\\se_calc_test\\runs\\M1\\2025-01\\backtesting_log.json",
+      "period": {
+        "start": "2025-01-01",
+        "end": "2025-01-31",
+        "windows": 31,
+        "horizon_mode": "sunrise_window",
+        "start_month": 1,
+        "end_month": 1,
+        "backtesting_year": 2025,
+        "price_source": "api",
+        "price_strategy": "perfect",
+        "reference_by_scenario": {
+          "live": "ref:live"
+        },
+        "live_scenario_id": "live",
+        "first_ts": "2024-12-31T07:00:00",
+        "last_ts": "2025-01-31T06:00:00",
+        "hours": 744
+      }
+    },
+    {
+      "cell": "M1",
+      "year": 2025,
+      "month": 4,
+      "b_gate": false,
+      "actual_kwh": 941.2,
+      "live_ref_kwh": 953.8,
+      "optimized_kwh": 938.9,
+      "delta_actual_vs_ref_rel": -0.0132,
+      "delta_opt_vs_ref_rel": -0.0156,
+      "ok_count": 28,
+      "total_windows": 30,
+      "failed_count": 2,
+      "status": "pass",
+      "notes": [],
+      "log_path": "C:\\Users\\joche\\Documents\\Smarthome\\Python\\Energy-Optimizer\\earnie_env\\runtime\\se_calc_test\\runs\\M1\\2025-04\\backtesting_log.json",
+      "period": {
+        "start": "2025-04-01",
+        "end": "2025-04-30",
+        "windows": 30,
+        "horizon_mode": "sunrise_window",
+        "start_month": 4,
+        "end_month": 4,
+        "backtesting_year": 2025,
+        "price_source": "api",
+        "price_strategy": "perfect",
+        "reference_by_scenario": {
+          "live": "ref:live"
+        },
+        "live_scenario_id": "live",
+        "first_ts": "2025-03-31T07:00:00",
+        "last_ts": "2025-04-30T06:00:00",
+        "hours": 720
+      }
+    },
+    {
+      "cell": "M1",
+      "year": 2025,
+      "month": 7,
+      "b_gate": false,
+      "actual_kwh": 812.5,
+      "live_ref_kwh": 825.3,
+      "optimized_kwh": 812.2,
+      "delta_actual_vs_ref_rel": -0.0155,
+      "delta_opt_vs_ref_rel": -0.0159,
+      "ok_count": 30,
+      "total_windows": 31,
+      "failed_count": 1,
+      "status": "pass",
+      "notes": [],
+      "log_path": "C:\\Users\\joche\\Documents\\Smarthome\\Python\\Energy-Optimizer\\earnie_env\\runtime\\se_calc_test\\runs\\M1\\2025-07\\backtesting_log.json",
+      "period": {
+        "start": "2025-07-01",
+        "end": "2025-07-31",
+        "windows": 31,
+        "horizon_mode": "sunrise_window",
+        "start_month": 7,
+        "end_month": 7,
+        "backtesting_year": 2025,
+        "price_source": "api",
+        "price_strategy": "perfect",
+        "reference_by_scenario": {
+          "live": "ref:live"
+        },
+        "live_scenario_id": "live",
+        "first_ts": "2025-06-30T07:00:00",
+        "last_ts": "2025-07-31T06:00:00",
+        "hours": 744
+      }
+    },
+    {
+      "cell": "M1",
+      "year": 2025,
+      "month": 10,
+      "b_gate": false,
+      "actual_kwh": 1051.6,
+      "live_ref_kwh": 1061.5,
+      "optimized_kwh": 1043.2,
+      "delta_actual_vs_ref_rel": -0.0093,
+      "delta_opt_vs_ref_rel": -0.0172,
+      "ok_count": 29,
+      "total_windows": 31,
+      "failed_count": 2,
+      "status": "pass",
+      "notes": [],
+      "log_path": "C:\\Users\\joche\\Documents\\Smarthome\\Python\\Energy-Optimizer\\earnie_env\\runtime\\se_calc_test\\runs\\M1\\2025-10\\backtesting_log.json",
+      "period": {
+        "start": "2025-10-01",
+        "end": "2025-10-31",
+        "windows": 31,
+        "horizon_mode": "sunrise_window",
+        "start_month": 10,
+        "end_month": 10,
+        "backtesting_year": 2025,
+        "price_source": "api",
+        "price_strategy": "perfect",
+        "reference_by_scenario": {
+          "live": "ref:live"
+        },
+        "live_scenario_id": "live",
+        "first_ts": "2025-09-30T07:00:00",
+        "last_ts": "2025-10-31T06:00:00",
+        "hours": 744
+      }
+    },
+    {
+      "cell": "M2",
+      "year": 2025,
+      "month": 1,
+      "b_gate": false,
+      "actual_kwh": 1269.7,
+      "live_ref_kwh": 1337.8,
+      "optimized_kwh": 1335.6,
+      "delta_actual_vs_ref_rel": -0.0509,
+      "delta_opt_vs_ref_rel": -0.0016,
+      "ok_count": 30,
+      "total_windows": 31,
+      "failed_count": 1,
+      "status": "warn",
+      "notes": [
+        "warn actual vs Live-ref |Δ|=5.1% > 5%"
+      ],
+      "log_path": "C:\\Users\\joche\\Documents\\Smarthome\\Python\\Energy-Optimizer\\earnie_env\\runtime\\se_calc_test\\runs\\M2\\2025-01\\backtesting_log.json",
+      "period": {
+        "start": "2025-01-01",
+        "end": "2025-01-31",
+        "windows": 31,
+        "horizon_mode": "sunrise_window",
+        "start_month": 1,
+        "end_month": 1,
+        "backtesting_year": 2025,
+        "price_source": "api",
+        "price_strategy": "perfect",
+        "reference_by_scenario": {
+          "live": "ref:live"
+        },
+        "live_scenario_id": "live",
+        "first_ts": "2024-12-31T07:00:00",
+        "last_ts": "2025-01-31T06:00:00",
+        "hours": 744
+      }
+    },
+    {
+      "cell": "M2",
+      "year": 2025,
+      "month": 4,
+      "b_gate": false,
+      "actual_kwh": 941.2,
+      "live_ref_kwh": 960.6,
+      "optimized_kwh": 951.1,
+      "delta_actual_vs_ref_rel": -0.0202,
+      "delta_opt_vs_ref_rel": -0.0099,
+      "ok_count": 25,
+      "total_windows": 30,
+      "failed_count": 5,
+      "status": "pass",
+      "notes": [],
+      "log_path": "C:\\Users\\joche\\Documents\\Smarthome\\Python\\Energy-Optimizer\\earnie_env\\runtime\\se_calc_test\\runs\\M2\\2025-04\\backtesting_log.json",
+      "period": {
+        "start": "2025-04-01",
+        "end": "2025-04-30",
+        "windows": 30,
+        "horizon_mode": "sunrise_window",
+        "start_month": 4,
+        "end_month": 4,
+        "backtesting_year": 2025,
+        "price_source": "api",
+        "price_strategy": "perfect",
+        "reference_by_scenario": {
+          "live": "ref:live"
+        },
+        "live_scenario_id": "live",
+        "first_ts": "2025-03-31T07:00:00",
+        "last_ts": "2025-04-30T06:00:00",
+        "hours": 720
+      }
+    },
+    {
+      "cell": "M2",
+      "year": 2025,
+      "month": 7,
+      "b_gate": false,
+      "actual_kwh": 812.5,
+      "live_ref_kwh": 782.4,
+      "optimized_kwh": 778.2,
+      "delta_actual_vs_ref_rel": 0.0385,
+      "delta_opt_vs_ref_rel": -0.0054,
+      "ok_count": 29,
+      "total_windows": 31,
+      "failed_count": 2,
+      "status": "pass",
+      "notes": [],
+      "log_path": "C:\\Users\\joche\\Documents\\Smarthome\\Python\\Energy-Optimizer\\earnie_env\\runtime\\se_calc_test\\runs\\M2\\2025-07\\backtesting_log.json",
+      "period": {
+        "start": "2025-07-01",
+        "end": "2025-07-31",
+        "windows": 31,
+        "horizon_mode": "sunrise_window",
+        "start_month": 7,
+        "end_month": 7,
+        "backtesting_year": 2025,
+        "price_source": "api",
+        "price_strategy": "perfect",
+        "reference_by_scenario": {
+          "live": "ref:live"
+        },
+        "live_scenario_id": "live",
+        "first_ts": "2025-06-30T07:00:00",
+        "last_ts": "2025-07-31T06:00:00",
+        "hours": 744
+      }
+    },
+    {
+      "cell": "M2",
+      "year": 2025,
+      "month": 10,
+      "b_gate": false,
+      "actual_kwh": 1051.6,
+      "live_ref_kwh": 1064.6,
+      "optimized_kwh": 1056.9,
+      "delta_actual_vs_ref_rel": -0.0122,
+      "delta_opt_vs_ref_rel": -0.0072,
+      "ok_count": 26,
+      "total_windows": 31,
+      "failed_count": 5,
+      "status": "pass",
+      "notes": [],
+      "log_path": "C:\\Users\\joche\\Documents\\Smarthome\\Python\\Energy-Optimizer\\earnie_env\\runtime\\se_calc_test\\runs\\M2\\2025-10\\backtesting_log.json",
+      "period": {
+        "start": "2025-10-01",
+        "end": "2025-10-31",
+        "windows": 31,
+        "horizon_mode": "sunrise_window",
+        "start_month": 10,
+        "end_month": 10,
+        "backtesting_year": 2025,
+        "price_source": "api",
+        "price_strategy": "perfect",
+        "reference_by_scenario": {
+          "live": "ref:live"
+        },
+        "live_scenario_id": "live",
+        "first_ts": "2025-09-30T07:00:00",
+        "last_ts": "2025-10-31T06:00:00",
+        "hours": 744
+      }
+    }
+  ],
+  "summary": {
+    "pass": 11,
+    "warn": 1,
+    "hard_fail": 0,
+    "skipped": 0
+  }
+}

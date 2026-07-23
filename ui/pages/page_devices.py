@@ -75,7 +75,10 @@ def _delta_cell_color(delta_eur: float) -> str:
 
 def render() -> None:
     render_page_title_with_help(
-        "🔌 Manuelle Geräte", _DEVICES_HELP, key="devices_scope_help"
+        "🔌 Manuelle Geräte",
+        _DEVICES_HELP,
+        key="devices_scope_help",
+        page_docs_key="devices",
     )
     appliances = config.get_appliances()
     if not appliances:

@@ -25,6 +25,7 @@ def render() -> None:
         "📊 Szenario-Explorer",
         _BACKTESTING_HELP,
         key="backtesting_scope_help",
+        page_docs_key="scenario-explorer",
     )
     st.info(_RESULTS_DISCLAIMER)
     st.caption(f"Konfiguration: `{config.CONFIG.config_path}`")
