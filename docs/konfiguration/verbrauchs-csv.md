@@ -17,7 +17,7 @@ timestamp;power_kw
 | Trennzeichen | Semikolon (`;`)                                                                                                                                                    |
 | Zeitstempel  | ISO-ähnlich `YYYY-MM-DD HH:MM:SS`                                                                                                                                  |
 | Leistung     | Verbrauch bzw. PV-Ertrag in **kW**, positiv                                                                                                                        |
-| Länge        | Nach Import mindestens **8760 Stunden** (ca. 12 Monate)                                                                                                            |
+| Länge        | Kurze Serien sind erlaubt (visuelle Kontrolle). Für den **Szenario-Explorer** mit importiertem PV bzw. Meter-Bezug sind **≥8760 Stunden** (ca. 12 Monate) nötig — sonst synthetische Werte |
 | Abtastung    | Beliebig; beim Import → stündlich (Zero-Order-Hold auf 1‑Minuten-Raster, dann Stundenmittel = ∫P·dt / 1 h; Lücken halten den letzten Wert bis zum nächsten Sample) |
 
 
@@ -31,12 +31,24 @@ Unter **Historische Jahresprofile (CSV)** wählen Sie:
 | Modus                     | Inhalt                                                                                                                        |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | **Getrennte CSVs**        | Verbrauch (für Ist-vs-Modell) und optional PV-Ertrag als eigene Dateien                                                       |
-| **Loxone Energiemonitor** | Eine Statistik-Datei; Spalten `Leistung Verbrauch [kW]` (Pflicht) und `Leistung Produktion [kW]` (optional) werden übernommen |
+| **Loxone Energiemonitor** | Eine Statistik-Datei; `Leistung Verbrauch [kW]` (Pflicht, direkt), optional `Leistung Produktion [kW]` (PV), `Leistung Batterie` und `Leistung Energieversorger [kW]` (Netz). Keine Bilanz-Ableitung; SOC wird ignoriert. |
+| **Bilanz**                | PV + Batterie + Netz → abgeleiteter Verbrauch: \(P_\mathrm{Ges} = P_\mathrm{PV} + P_\mathrm{Batt} + P_\mathrm{Grid}\)       |
 
 
-Ignoriert beim Energiemonitor-Import: `Leistung Energieversorger`, `Leistung Batterie`, `Ladestand Batterie` (SOC wird nicht importiert) sowie Zähler-Spalten.
+**Bilanz-Vorzeichen:** Positiv bei Batterie und Netz bedeutet Leistung **in** das Haussystem (Entladen / Netzbezug); negativ = Laden / Einspeisung. Negatives \(P_\mathrm{Ges}\) wird auf 0 gekappt (Warnung). Optional können Vorzeichen je Serie umgekehrt werden.
 
-Gespeicherte Pfade im Hausprofil: `total_profile_csv` (Verbrauch), `pv_profile_csv` (optional PV), `historical_csv_source` (`separate` / `energiemonitor`).
+Gespeicherte Pfade im Hausprofil: `total_profile_csv` (Verbrauch), `pv_profile_csv` (optional PV), `battery_profile_csv` / `grid_profile_csv` (Bilanz), `historical_csv_source` (`separate` / `energiemonitor` / `balance`).
+
+### Historische Jahresprofile (CSV)
+
+Überschrift **Historische Jahresprofile** mit Hinweis, dass der Import **optional** ist. Darunter ein **aufklappbarer Bereich** „Historische Jahresprofile (CSV)“ für Datenimport (getrennte CSVs, Energiemonitor oder Bilanz) und QC-Leistungsplot.
+
+### Gesamtverbräuche
+
+Der Abschnitt **Gesamtverbräuche** ist unabhängig von den CSV-Importen immer sichtbar:
+
+- **Mit** Gesamtverbrauch-CSV (direkt, Energiemonitor oder Bilanz): **Monatsverbrauch** (Ist vs. gestapeltes Modell) und **stündlicher Verlauf**
+- **Ohne** CSV: nur das modellierte Hausprofil (Monats- und Wochencharts)
 
 ## Loxone-CSV (Einzelserie)
 
@@ -51,7 +63,29 @@ Akzeptierte Layouts:
 | Kombinierter Zeitstempel | `Datum/Uhrzeit;Wert` bzw. `dd.mm.YYYY HH:MM:SS;…` | Spalte `Leistung`, falls vorhanden; sonst die letzte Spalte                     |
 
 
+**Trennzeichen / Dezimal:** Üblich ist `;` mit Dezimal-`,` (z. B. `0,03`). Excel-DE-Exporte nutzen oft `,` als Spaltentrenner und ebenfalls `,` als Dezimal — dann stehen Nachkommastellen in Anführungszeichen (`"0,03"`). Earnie erkennt beide Varianten (sowie `,` + Dezimal-`.`).
+
 Dreispaltige Digitalsignale (`Datum;Zeit;0/1`) sind zulässig; beim Verbraucher-Import kann optional mit der Nennleistung skaliert werden (siehe unten).
+
+## Energiezähler-CSV (kWh)
+
+Neben Leistungszeitreihen erkennt Earnie **kumulierte Zählerstände** automatisch und rechnet sie in stündliche mittlere Leistung (kW) um:
+
+```text
+Datum;Zeit;Counter [kWh]
+01.01.2025;02:00:00;5652,226
+01.01.2025;03:00:00;5652,435
+```
+
+| Regel | Bedeutung |
+| ----- | --------- |
+| Wert | Integrierte Energie ∫P·dt in **kWh** (Zählerstand), nicht Momentanleistung |
+| Umrechnung | \(P(t_i)=(E_{i+1}-E_i)/\Delta t_i\) mit \(\Delta t_i\) in Stunden (beliebige Abtastung) |
+| Erkennung | Kopfzeile mit `[kWh]`, Namen wie `Zähler`/`Counter`/`Ertrag`, sonst Heuristik (selten nahe 0, kaum fallend, große Medianwerte) |
+| Leistung bleibt | Kopfzeile mit `[kW]` oder `Leistung` → bisheriger Leistungspfad |
+| Zähler-Reset | Negatives Intervall wird **ignoriert** (`P=0`) und als Warnung im Log vermerkt |
+
+Gilt für **Verbrauch (Gesamt)**, **PV-Ertrag** und Verbraucher-CSVs im Modus Getrennte CSVs.
 
 ## Gesamt-CSV (`total_profile_csv`)
 
@@ -65,21 +99,27 @@ Zusätzlich wird die Grundlast so **an den Ist-Jahresverbrauch angepasst**, dass
 
 ## PV-Ertrag (`pv_profile_csv`)
 
-Optionaler Jahres-PV-Ertrag als Summe über alle PV-Anlagen. Im Szenarieneditor kann pro Szenario gewählt werden, ob der Szenario-Explorer dieses Profil statt PV aus Wetterdaten (Open-Meteo) für die Berechnung nutzt. In den Verbrauchs-Charts erscheint importiertes PV zusätzlich als **punktierte** Linie.
+Optionaler Jahres-PV-Ertrag als Summe über alle PV-Anlagen. Im Szenarieneditor kann pro Szenario gewählt werden, ob der Szenario-Explorer dieses Profil statt PV aus Wetterdaten (Open-Meteo) für die Berechnung nutzt. Dafür muss die PV-CSV mindestens ca. **12 Monate** abdecken — kürzere Importe bleiben sichtbar im Hauskonfigurator, werden im SE aber **nicht** verwendet (Fallback Open-Meteo). In den Verbrauchs-Charts erscheint importiertes PV zusätzlich als **punktierte** Linie.
 
 ## Verbraucher-CSV (`profile_csv` + `use_profile_csv`)
 
 Pro Verbraucher:
 
 1. CSV-Pfad oder Upload
-2. Checkbox **„Aus Gesamt-CSV abziehen / echtes Profil nutzen“**
+2. Checkbox **„Von Basis-Last abziehen“**
 
-- **Aktiv:** Last aus der CSV statt Synthese; Abzug von der Gesamt-CSV für die Rest-Grundlast im Hauskonfigurator
+- **Aktiv:** Last aus der CSV statt Synthese; Abzug von der Basislast (HK und — bei Pfad B — SE)
 - **Inaktiv:** synthetisches Modell/Schedule (Pfad kann gespeichert bleiben, wird aber nicht für die Modellierung genutzt)
 
-Szenario-Explorer und synthetische `cons_data_hourly.csv` nutzen dieselbe **konfigurierte** Grundlast wie Verbrauchsprofil (Modell): `baseload_kwh / 8760` (nicht den Meter-Rest aus der Gesamt-CSV).
+| earnie_role | Hauskonfigurator | Szenario-Explorer | Live |
+| ----------- | ---------------- | ----------------- | ---- |
+| Bekannt | Abzug von Basislast | feste zusätzliche Last aus CSV (nicht Schedule) | wie SE |
+| Gesteuert | Abzug von Basislast | CSV-Energie über Horizont als MILP-Ziel; Timing optimieren | CSV ignorieren, Schedule |
+| Manuelles Gerät | Abzug von Basislast | wie Gesteuert | Nutzer-Tagesplan wenn aktiv; sonst weder CSV noch Default-Schedule |
 
-Im Szenario-Explorer (Tabelle **Gesamtkosten und -Verbrauch**) kommt die Spalte **Jahres Verbrauch** der Zeile **Historisch** aus dem Ist-Zähler (`cons_data`); die übrigen Zeilen aus dem Hausprofil-Modell. Siehe [Benutzer-Handbuch](../user-manual/Benutzer-Handbuch-Earnie.md#gesamtkosten-jahres-verbrauch-kwh).
+**SE-Basislast:** Pfad **B** (stündlicher Meter-Rest), wenn Gesamt-CSV vorhanden und alle Gesteuert/Manual ein aktives CSV haben; sonst Pfad **A** (flache `baseload_kwh/8760`).
+
+Synthetische `cons_data_hourly.csv` nutzt die konfigurierte Grundlast (`baseload_kwh / 8760`), außer SE läuft mit Pfad B.
 
 ### Digitale Ein/Aus-Signale (0/1)
 
@@ -89,8 +129,6 @@ Wenn die CSV nach Erkennung überwiegend nur die Werte **0** und **1** enthält 
 - **Nein:** Die Werte bleiben unverändert (0/1).
 
 Die Haus-Gesamt-CSV (`total_profile_csv`) wird nicht so skaliert — dort gibt es keine einzelne Nennleistung.
-
-Im Bereich **Verbrauchsprofil (Modell)** können Sie zwischen allen Verbrauchern und nur CSV-instrumentierten Verbrauchern umschalten.
 
 ## Test-Export aus Live-`cons_data`
 

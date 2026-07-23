@@ -13,6 +13,8 @@ from data.loxone_csv_timeseries import load_loxone_value_hourly, resample_to_hou
 logger = logging.getLogger(__name__)
 
 MIN_HOURS_FULL_YEAR = 8760
+# Soft floor for Hauskonfigurator import/normalize (short CSVs allowed for QC).
+MIN_HOURS_IMPORT = 1
 _WATT_MEDIAN_THRESHOLD_KW = 50.0
 _DIGITAL_MATCH_FRACTION = 0.95
 _DIGITAL_TOLERANCE = 1e-6
@@ -83,7 +85,7 @@ def load_hourly_profile_csv(path: str) -> list[tuple[str, float]]:
 def load_and_normalize_profile_csv(
     path: str,
     *,
-    min_hours: int = MIN_HOURS_FULL_YEAR,
+    min_hours: int = MIN_HOURS_IMPORT,
     digital_scale_kw: float | None = None,
 ) -> list[tuple[str, float]]:
     """Detect format, normalize to hourly positive kW, enforce min length."""
@@ -99,7 +101,7 @@ def load_and_normalize_profile_csv(
 def normalize_profile_csv_file(
     path: str,
     *,
-    min_hours: int = MIN_HOURS_FULL_YEAR,
+    min_hours: int = MIN_HOURS_IMPORT,
     digital_scale_kw: float | None = None,
 ) -> list[tuple[str, float]]:
     """Normalize file in place and rewrite as canonical timestamp;power_kw."""
@@ -110,6 +112,74 @@ def normalize_profile_csv_file(
     )
     write_canonical_hourly_csv(path, rows)
     return rows
+
+
+def profile_rows_bounds(
+    rows: list[tuple[str, float]],
+) -> tuple[pd.Timestamp, pd.Timestamp] | None:
+    """Return (min_ts, max_ts) for canonical profile rows, or None if empty."""
+    if not rows:
+        return None
+    stamps = pd.to_datetime(
+        [ts.replace(" ", "T", 1)[:19] for ts, _ in rows],
+        errors="coerce",
+    )
+    valid = stamps[~stamps.isna()]
+    if valid.empty:
+        return None
+    return pd.Timestamp(valid.min()), pd.Timestamp(valid.max())
+
+
+def profile_span_hours(rows: list[tuple[str, float]]) -> int:
+    """Inclusive hour count from first to last timestamp (0 if empty/invalid)."""
+    bounds = profile_rows_bounds(rows)
+    if bounds is None:
+        return 0
+    start, end = bounds
+    return int((end - start).total_seconds() // 3600) + 1
+
+
+def shared_import_span_hours(
+    verbrauch_rows: list[tuple[str, float]] | None,
+    pv_rows: list[tuple[str, float]] | None,
+) -> int:
+    """Adequacy span: intersection when both series exist, else the single series."""
+    v_bounds = profile_rows_bounds(verbrauch_rows or [])
+    p_bounds = profile_rows_bounds(pv_rows or [])
+    if v_bounds is None and p_bounds is None:
+        return 0
+    if v_bounds is None:
+        return profile_span_hours(pv_rows or [])
+    if p_bounds is None:
+        return profile_span_hours(verbrauch_rows or [])
+    start = max(v_bounds[0], p_bounds[0])
+    end = min(v_bounds[1], p_bounds[1])
+    if start > end:
+        return 0
+    return int((end - start).total_seconds() // 3600) + 1
+
+
+def import_span_adequate_for_se(
+    verbrauch_rows: list[tuple[str, float]] | None = None,
+    pv_rows: list[tuple[str, float]] | None = None,
+    *,
+    min_hours: int = MIN_HOURS_FULL_YEAR,
+) -> bool:
+    """True when shared import span is long enough for SE meter/import paths."""
+    return shared_import_span_hours(verbrauch_rows, pv_rows) >= min_hours
+
+
+def profile_csv_adequate_for_se(
+    path: str,
+    *,
+    min_hours: int = MIN_HOURS_FULL_YEAR,
+) -> bool:
+    """True when a single profile CSV spans at least ``min_hours`` (SE gate)."""
+    try:
+        rows = load_hourly_profile_csv(path)
+    except (OSError, ValueError, FileNotFoundError):
+        return False
+    return profile_span_hours(rows) >= min_hours
 
 
 def is_digital_on_off_series(series: pd.Series) -> bool:
@@ -156,11 +226,15 @@ def import_energiemonitor_to_canonical(
     *,
     verbrauch_dest: str,
     produktion_dest: str | None = None,
-    min_hours: int = MIN_HOURS_FULL_YEAR,
+    battery_dest: str | None = None,
+    grid_dest: str | None = None,
+    min_hours: int = MIN_HOURS_IMPORT,
 ) -> dict[str, str]:
-    """Parse Energiemonitor multi-column CSV; write canonical Verbrauch (+ optional PV).
+    """Parse Energiemonitor CSV; write Verbrauch (+ optional PV/Batt/Netz).
 
-    Returns paths written: ``{"total_profile_csv": ..., "pv_profile_csv": ...?}``.
+    Verbrauch is taken from ``Leistung Verbrauch`` (not derived from Bilanz).
+    Returns paths: ``total_profile_csv``, optional ``pv_profile_csv`` /
+    ``battery_profile_csv`` / ``grid_profile_csv``.
     """
     from data.energiemonitor_csv import load_energiemonitor_hourly
 
@@ -180,17 +254,169 @@ def import_energiemonitor_to_canonical(
         )
         write_canonical_hourly_csv(produktion_dest, produktion_rows)
         result["pv_profile_csv"] = produktion_dest
+    if "batterie" in series_map and battery_dest:
+        batt_rows = normalize_hourly_power_kw(
+            series_map["batterie"],
+            min_hours=min_hours,
+            source=f"{source_path}#Batterie",
+            preserve_sign=True,
+        )
+        write_canonical_hourly_csv(battery_dest, batt_rows)
+        result["battery_profile_csv"] = battery_dest
+    if "energieversorger" in series_map and grid_dest:
+        grid_rows = normalize_hourly_power_kw(
+            series_map["energieversorger"],
+            min_hours=min_hours,
+            source=f"{source_path}#Energieversorger",
+            preserve_sign=True,
+        )
+        write_canonical_hourly_csv(grid_dest, grid_rows)
+        result["grid_profile_csv"] = grid_dest
     return result
 
 
+def import_energiemonitor_balance_to_canonical(
+    source_path: str,
+    *,
+    verbrauch_dest: str,
+    pv_dest: str,
+    battery_dest: str,
+    grid_dest: str,
+    min_hours: int = MIN_HOURS_IMPORT,
+    invert_pv: bool = False,
+    invert_battery: bool = False,
+    invert_grid: bool = False,
+) -> dict[str, object]:
+    """Derive Verbrauch from Produktion + Batterie + Energieversorger.
+
+    Returns paths + ``clipped_hours`` count.
+    """
+    from data.energiemonitor_csv import load_energiemonitor_hourly
+
+    series_map = load_energiemonitor_hourly(source_path, require_verbrauch=False)
+    missing = [
+        name
+        for name, key in (
+            ("Leistung Produktion", "produktion"),
+            ("Leistung Batterie", "batterie"),
+            ("Leistung Energieversorger", "energieversorger"),
+        )
+        if key not in series_map
+    ]
+    if missing:
+        raise ValueError(
+            f"Energiemonitor-Bilanz '{source_path}': fehlende Spalten: "
+            + ", ".join(missing)
+        )
+    pv_rows = normalize_hourly_power_kw(
+        series_map["produktion"],
+        min_hours=min_hours,
+        source=f"{source_path}#Produktion",
+    )
+    batt_rows = normalize_hourly_power_kw(
+        series_map["batterie"],
+        min_hours=min_hours,
+        source=f"{source_path}#Batterie",
+        preserve_sign=True,
+    )
+    grid_rows = normalize_hourly_power_kw(
+        series_map["energieversorger"],
+        min_hours=min_hours,
+        source=f"{source_path}#Energieversorger",
+        preserve_sign=True,
+    )
+    total_rows, clipped = derive_total_from_balance(
+        pv_rows,
+        batt_rows,
+        grid_rows,
+        invert_pv=invert_pv,
+        invert_battery=invert_battery,
+        invert_grid=invert_grid,
+    )
+    if len(total_rows) < min_hours:
+        raise ValueError(
+            f"Energiemonitor-Bilanz '{source_path}': nach Schnittmenge nur "
+            f"{len(total_rows)} Stunden (mindestens {min_hours} erforderlich)."
+        )
+    write_canonical_hourly_csv(pv_dest, pv_rows)
+    write_canonical_hourly_csv(battery_dest, batt_rows)
+    write_canonical_hourly_csv(grid_dest, grid_rows)
+    write_canonical_hourly_csv(verbrauch_dest, total_rows)
+    return {
+        "total_profile_csv": verbrauch_dest,
+        "pv_profile_csv": pv_dest,
+        "battery_profile_csv": battery_dest,
+        "grid_profile_csv": grid_dest,
+        "clipped_hours": clipped,
+    }
+
+
+def derive_and_write_balance_total(
+    *,
+    pv_path: str,
+    battery_path: str,
+    grid_path: str,
+    total_dest: str,
+    min_hours: int = MIN_HOURS_IMPORT,
+    invert_pv: bool = False,
+    invert_battery: bool = False,
+    invert_grid: bool = False,
+) -> dict[str, object]:
+    """Load three canonical/raw series, derive total, write ``total_dest``."""
+    pv_rows = load_and_normalize_profile_csv(pv_path, min_hours=min_hours)
+    batt_series = detect_and_load_raw_series(battery_path)
+    grid_series = detect_and_load_raw_series(grid_path)
+    batt_rows = normalize_hourly_power_kw(
+        batt_series,
+        min_hours=min_hours,
+        source=battery_path,
+        preserve_sign=True,
+    )
+    grid_rows = normalize_hourly_power_kw(
+        grid_series,
+        min_hours=min_hours,
+        source=grid_path,
+        preserve_sign=True,
+    )
+    write_canonical_hourly_csv(battery_path, batt_rows)
+    write_canonical_hourly_csv(grid_path, grid_rows)
+    write_canonical_hourly_csv(pv_path, pv_rows)
+    total_rows, clipped = derive_total_from_balance(
+        pv_rows,
+        batt_rows,
+        grid_rows,
+        invert_pv=invert_pv,
+        invert_battery=invert_battery,
+        invert_grid=invert_grid,
+    )
+    if len(total_rows) < min_hours:
+        raise ValueError(
+            f"Bilanz-Import: nach Schnittmenge nur {len(total_rows)} Stunden "
+            f"(mindestens {min_hours} erforderlich)."
+        )
+    write_canonical_hourly_csv(total_dest, total_rows)
+    return {
+        "total_profile_csv": total_dest,
+        "clipped_hours": clipped,
+        "hours": len(total_rows),
+    }
+
+
 def detect_and_load_raw_series(path: str) -> pd.Series:
-    """Load raw power series (any sampling); Loxone meter or timestamp;power_kw."""
+    """Load raw power series (any sampling); energy counter, Loxone, or canonical."""
+    from house_config.energy_counter_csv import (
+        load_energy_counter_as_power_kw,
+        looks_like_energy_counter,
+    )
     from runtime_store.persist_paths import resolve_config_prefixed_path
 
     resolved = resolve_config_prefixed_path(path)
     file_path = Path(resolved)
     if not file_path.is_file():
         raise FileNotFoundError(f"Profil-CSV nicht gefunden: {path}")
+    # Energy counters also match Loxone layout — convert ΔE/Δt before ZOH path.
+    if looks_like_energy_counter(file_path):
+        return load_energy_counter_as_power_kw(str(file_path))
     if _looks_like_loxone_meter(file_path):
         return _load_loxone_raw_or_hourly(str(file_path))
     return _load_canonical_raw_series(path)
@@ -199,11 +425,15 @@ def detect_and_load_raw_series(path: str) -> pd.Series:
 def normalize_hourly_power_kw(
     series: pd.Series,
     *,
-    min_hours: int = MIN_HOURS_FULL_YEAR,
+    min_hours: int = MIN_HOURS_IMPORT,
     source: str = "",
     digital_scale_kw: float | None = None,
+    preserve_sign: bool = False,
 ) -> list[tuple[str, float]]:
-    """Unit/sign/resample to 1h; require min_hours samples."""
+    """Unit/sign/resample to 1h; require min_hours samples.
+
+    ``preserve_sign=True`` keeps bipolar series (battery/grid: + into system).
+    """
     if series.empty:
         raise ValueError(f"Profil-CSV '{source}' enthält keine Datenzeilen.")
     cleaned = series.dropna().sort_index()
@@ -211,18 +441,65 @@ def normalize_hourly_power_kw(
     if cleaned.empty:
         raise ValueError(f"Profil-CSV '{source}' enthält keine gültigen Werte.")
     scaled = _normalize_power_unit(cleaned, source=source)
-    signed = _normalize_consumption_sign(scaled, source=source)
+    if preserve_sign:
+        signed = scaled
+    else:
+        signed = _normalize_consumption_sign(scaled, source=source)
     signed = _maybe_scale_digital(signed, digital_scale_kw, source=source)
     hourly = _resample_to_hourly(signed)
     if len(hourly) < min_hours:
         raise ValueError(
             f"Profil-CSV '{source}' hat nach Normalisierung nur {len(hourly)} Stunden "
-            f"(mindestens {min_hours} erforderlich, ca. 12 Monate)."
+            f"(mindestens {min_hours} erforderlich)."
         )
     return [
         (ts.strftime("%Y-%m-%d %H:%M:%S"), float(value))
         for ts, value in hourly.items()
     ]
+
+
+def _rows_to_lookup(rows: list[tuple[str, float]]) -> dict[str, float]:
+    return {ts: float(kw) for ts, kw in rows}
+
+
+def derive_total_from_balance(
+    pv_rows: list[tuple[str, float]],
+    battery_rows: list[tuple[str, float]],
+    grid_rows: list[tuple[str, float]],
+    *,
+    invert_pv: bool = False,
+    invert_battery: bool = False,
+    invert_grid: bool = False,
+) -> tuple[list[tuple[str, float]], int]:
+    """Derive house load: P_Ges = P_PV + P_Batt + P_Grid (+ = into system).
+
+    Returns (rows, clipped_negative_hours). Intersection of timestamps only.
+    """
+    pv = _rows_to_lookup(pv_rows)
+    batt = _rows_to_lookup(battery_rows)
+    grid = _rows_to_lookup(grid_rows)
+    common = sorted(set(pv) & set(batt) & set(grid))
+    if not common:
+        raise ValueError(
+            "Bilanz-Import: keine gemeinsamen Zeitstempel zwischen "
+            "PV-, Batterie- und Netz-Serie."
+        )
+    sign_pv = -1.0 if invert_pv else 1.0
+    sign_batt = -1.0 if invert_battery else 1.0
+    sign_grid = -1.0 if invert_grid else 1.0
+    out: list[tuple[str, float]] = []
+    clipped = 0
+    for ts in common:
+        total = (
+            sign_pv * float(pv[ts])
+            + sign_batt * float(batt[ts])
+            + sign_grid * float(grid[ts])
+        )
+        if total < 0.0:
+            clipped += 1
+            total = 0.0
+        out.append((ts, round(total, 6)))
+    return out, clipped
 
 
 def _maybe_scale_digital(

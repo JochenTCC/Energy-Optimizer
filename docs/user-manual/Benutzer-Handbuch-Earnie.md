@@ -120,7 +120,7 @@ Ein **Hausprofil** beschreibt Standort und „Wer lebt / was verbraucht hier“:
 
 Legen Sie zuerst ein Profil an und ergänzen Sie danach die Geräte. Ohne Standort und sinnvolles Profil sind Jahresvergleiche wenig aussagekräftig. Je mehr Freiheiten sie Earnie beim Verschieben der Aktivierung der verschiedenen Verbraucher geben, umso höher sind die Einsparungspotenziale.
 
-Optional: **Historische Jahresprofile (CSV)** — Gesamtverbrauch, optional PV und Verbraucher — für Ist-vs-Modell und realistischere Explorer-Rechnungen. Details: [Historische Verbrauchs-CSV](../konfiguration/verbrauchs-csv.md).
+Optional: **Historische Jahresprofile (CSV)** — Gesamtverbrauch (direkt oder als **Bilanz** aus PV + Batterie + Netz), optional PV und Verbraucher — für Ist-vs-Modell und realistischere Explorer-Rechnungen. Pro Verbraucher: Checkbox **„Von Basis-Last abziehen“** steuert, ob die CSV-Last die Synthese ersetzt und von der Basislast abgezogen wird (Rollen: Bekannt / Gesteuert / Manuelles Gerät — siehe [Historische Verbrauchs-CSV](../konfiguration/verbrauchs-csv.md)).
 
 Änderungen im Hauskonfigurator und Szenarieneditor werden **automatisch gespeichert**. Komplette Config-Pakete (ZIP) exportieren/importieren Sie in der Sidebar unter **„Konfiguration speichern / laden“** — siehe [Speichern / Laden](../konfiguration/speichern-laden.md).
 

@@ -384,7 +384,7 @@
         },
         "use_profile_csv": {
           "type": "boolean",
-          "description": "true = historisches Profil nutzen und von Gesamt-CSV abziehen; false = synthetisches Modell."
+          "description": "true = historisches Profil nutzen und von Basislast abziehen; false = synthetisches Modell/Schedule."
         },
         "schedule": {
           "$ref": "#/definitions/schedule"
@@ -559,13 +559,22 @@
           "type": "string",
           "description": "Optionaler Pfad zu kanonischem PV-Ertragsprofil (timestamp;power_kw)."
         },
+        "battery_profile_csv": {
+          "type": "string",
+          "description": "Optional: Batterieleistung für Bilanz-Import (+ = in das Haussystem)."
+        },
+        "grid_profile_csv": {
+          "type": "string",
+          "description": "Optional: Netzleistung für Bilanz-Import (+ = in das Haussystem)."
+        },
         "historical_csv_source": {
           "type": "string",
           "enum": [
             "separate",
-            "energiemonitor"
+            "energiemonitor",
+            "balance"
           ],
-          "description": "Importmodus: getrennte CSVs oder Loxone-Energiemonitor."
+          "description": "Importmodus: getrennte CSVs, Loxone-Energiemonitor (PV+Batterie+Netz+Verbrauch) oder Bilanz PV+Batt+Netz."
         },
         "consumers": {
           "type": "array",

@@ -1,6 +1,7 @@
 """Einlesen stündlicher Loxone-CSV-Zeitreihen (Datum;Zeit;Wert oder kombiniert)."""
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -8,6 +9,10 @@ import pandas as pd
 _TIME_HEADER_NAMES = frozenset({"zeit", "uhrzeit"})
 _DATE_HEADER_NAMES = frozenset({"datum"})
 _COMBINED_TS_HINTS = ("datum/uhrzeit", "datum_uhrzeit", "timestamp")
+# Excel/DE export: field sep `,` and decimal `,` → values quoted as "0,03".
+_QUOTED_DECIMAL_COMMA = re.compile(r'"-?\d+,\d+"')
+_GERMAN_DECIMAL_TOKEN = re.compile(r"^-?\d+,\d+$")
+_SEP_SNIFF_LINES = 500
 
 
 def load_hourly_series(
@@ -38,6 +43,12 @@ def load_power_hourly(filepath: str, *, encoding: str = "latin-1") -> pd.Series:
 
 def load_loxone_value_hourly(filepath: str, *, encoding: str = "latin-1") -> pd.Series:
     """Loxone-CSV → stündliche Serie: split oder kombiniert; Leistung oder letzte Spalte."""
+    series = load_loxone_raw_value_series(filepath, encoding=encoding)
+    return resample_to_hourly_zoh(series)
+
+
+def load_loxone_raw_value_series(filepath: str, *, encoding: str = "latin-1") -> pd.Series:
+    """Loxone-CSV → Rohserie (Sample-Zeitstempel, ohne stündliches ZOH)."""
     path = Path(filepath)
     if not path.is_file():
         raise FileNotFoundError(f"Loxone-CSV nicht gefunden: {filepath}")
@@ -49,11 +60,56 @@ def load_loxone_value_hourly(filepath: str, *, encoding: str = "latin-1") -> pd.
         timestamps = _parse_split_timestamps(df)
     else:
         timestamps = _parse_combined_timestamps(df)
-    return _series_to_hourly(df, timestamps, value_column)
+    values = _to_numeric_power(df.iloc[:, value_column])
+    series = pd.Series(
+        values.values,
+        index=timestamps,
+        name=str(df.columns[value_column]),
+    )
+    series = series[~series.index.isna()].sort_index()
+    return series[~series.index.duplicated(keep="last")]
+
+
+def _detect_loxone_csv_sep(path: Path, *, encoding: str) -> tuple[str, str]:
+    """Return (sep, decimal) for Loxone/Excel exports.
+
+    Variants:
+    - ``;`` + decimal ``,`` (classic Loxone)
+    - ``,`` + decimal ``.`` (Excel EN)
+    - ``,`` + decimal ``,`` with quoted values (``"0,03"``, Excel DE)
+    """
+    try:
+        with path.open("r", encoding=encoding, errors="replace") as handle:
+            header = handle.readline()
+            sample = "".join(handle.readline() for _ in range(_SEP_SNIFF_LINES))
+    except OSError:
+        return ";", ","
+    if ";" in header:
+        return ";", ","
+    if "," not in header:
+        return ";", ","
+    if _QUOTED_DECIMAL_COMMA.search(sample):
+        return ",", ","
+    return ",", "."
+
+
+def _to_numeric_power(values: pd.Series | object) -> pd.Series:
+    """Parse power cells; recover German decimal commas left as strings."""
+    series = values if isinstance(values, pd.Series) else pd.Series(values)
+    numeric = pd.to_numeric(series, errors="coerce")
+    if not numeric.isna().any():
+        return numeric
+    as_str = series.astype(str).str.strip()
+    needs_fix = numeric.isna() & as_str.str.match(_GERMAN_DECIMAL_TOKEN.pattern)
+    if not bool(needs_fix.any()):
+        return numeric
+    rewritten = as_str.where(~needs_fix, as_str.str.replace(",", ".", regex=False))
+    return pd.to_numeric(rewritten, errors="coerce")
 
 
 def _read_loxone_frame(path: Path, *, encoding: str) -> pd.DataFrame:
-    return pd.read_csv(path, sep=";", decimal=",", header=0, encoding=encoding)
+    sep, decimal = _detect_loxone_csv_sep(path, encoding=encoding)
+    return pd.read_csv(path, sep=sep, decimal=decimal, header=0, encoding=encoding)
 
 
 def _resolve_timestamp_width(df: pd.DataFrame, filepath: str) -> int:
@@ -133,7 +189,7 @@ def _series_to_hourly(
     timestamps: pd.Series | pd.DatetimeIndex,
     value_column: int,
 ) -> pd.Series:
-    values = pd.to_numeric(df.iloc[:, value_column], errors="coerce")
+    values = _to_numeric_power(df.iloc[:, value_column])
     series = pd.Series(
         values.values,
         index=timestamps,

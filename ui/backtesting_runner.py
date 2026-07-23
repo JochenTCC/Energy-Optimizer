@@ -6,11 +6,9 @@ import subprocess
 import sys
 import threading
 import time
-from datetime import date
 from pathlib import Path
 from typing import Callable, TextIO
 
-from data import profile_manager
 from runtime_store.persist_paths import resolve_backtesting_log_dir
 from simulation.backtesting_progress import (
     clear_progress_dir,
@@ -81,23 +79,24 @@ def auto_backtesting_workers(parallel_task_count: int) -> int:
 
 
 def suggest_test_month() -> int | None:
-    """Monat für Testlauf: März wenn Daten vorhanden, sonst erster überlappender Monat."""
-    from scripts.run_backtesting import backtesting_base_year
+    """Monat für Testlauf: März im SE-Fenster, sonst erster Monat im Fenster."""
+    from data.data_loader import resolve_simulation_window
 
-    lox_min, lox_max = profile_manager.get_cons_data_date_bounds()
-    if lox_min is None or lox_max is None:
+    try:
+        start, end = resolve_simulation_window()
+    except ValueError:
         return None
-    year = backtesting_base_year()
-    year_start = date(year, 1, 1)
-    year_end = date(year, 12, 31)
-    if lox_max < year_start or lox_min > year_end:
-        return None
-    march_start = date(year, 3, 1)
-    march_end = date(year, 3, 31)
-    if lox_max >= march_start and lox_min <= march_end:
-        return 3
-    overlap_start = max(lox_min, year_start)
-    return overlap_start.month
+    cursor = start.to_period("M")
+    end_period = end.to_period("M")
+    first_month: int | None = None
+    while cursor <= end_period:
+        month = int(cursor.month)
+        if first_month is None:
+            first_month = month
+        if month == 3:
+            return 3
+        cursor += 1
+    return first_month
 
 
 _CLOUD_SESSION_PATH_OVERRIDE_SUFFIXES = (

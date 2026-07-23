@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import date
 
 import pytest
 
@@ -229,37 +228,54 @@ def test_build_backtesting_command_omits_workers_when_sequential(tmp_path):
     assert "--workers" not in cmd
 
 
-def test_suggest_test_month_from_cons_data_bounds(monkeypatch):
+def test_suggest_test_month_from_se_window(monkeypatch):
+    import pandas as pd
+
     monkeypatch.setattr(
-        "ui.backtesting_runner.profile_manager.get_cons_data_date_bounds",
-        lambda: (date(2026, 3, 10), date(2026, 8, 1)),
+        "data.data_loader.resolve_simulation_window",
+        lambda range_mode="last_12_months": (
+            pd.Timestamp("2025-06-01"),
+            pd.Timestamp("2026-05-31"),
+        ),
     )
     assert suggest_test_month() == 3
 
 
 def test_suggest_test_month_prefers_march_over_january(monkeypatch):
+    import pandas as pd
+
     monkeypatch.setattr(
-        "ui.backtesting_runner.profile_manager.get_cons_data_date_bounds",
-        lambda: (date(2026, 1, 1), date(2026, 12, 31)),
+        "data.data_loader.resolve_simulation_window",
+        lambda range_mode="last_12_months": (
+            pd.Timestamp("2026-01-01"),
+            pd.Timestamp("2026-12-31"),
+        ),
     )
     assert suggest_test_month() == 3
 
 
-def test_suggest_test_month_none_without_bounds(monkeypatch):
-    """Year tracks cons_data max, so a full calendar year always overlaps; None only if empty."""
+def test_suggest_test_month_none_without_window(monkeypatch):
+    def _raise(range_mode="last_12_months"):
+        raise ValueError("empty")
+
     monkeypatch.setattr(
-        "ui.backtesting_runner.profile_manager.get_cons_data_date_bounds",
-        lambda: (None, None),
+        "data.data_loader.resolve_simulation_window",
+        _raise,
     )
     assert suggest_test_month() is None
 
 
-def test_suggest_test_month_uses_cons_data_year(monkeypatch):
+def test_suggest_test_month_fallback_when_no_march(monkeypatch):
+    import pandas as pd
+
     monkeypatch.setattr(
-        "ui.backtesting_runner.profile_manager.get_cons_data_date_bounds",
-        lambda: (date(2025, 1, 1), date(2025, 12, 31)),
+        "data.data_loader.resolve_simulation_window",
+        lambda range_mode="last_12_months": (
+            pd.Timestamp("2025-04-01"),
+            pd.Timestamp("2026-02-28"),
+        ),
     )
-    assert suggest_test_month() == 3
+    assert suggest_test_month() == 4
 
 
 def test_write_and_read_progress_file(tmp_path):

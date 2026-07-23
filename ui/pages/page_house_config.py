@@ -23,7 +23,8 @@ def _help_text() -> str:
 def render() -> None:
     render_page_title_with_help("🏠 Hauskonfigurator", _help_text(), key="house_config_help")
 
-    if _HOUSE_CONFIG_TAB_KEY not in st.session_state:
+    # Reseed before widget when missing OR None/invalid (deselection leaves key present as None).
+    if st.session_state.get(_HOUSE_CONFIG_TAB_KEY) not in _HOUSE_CONFIG_TABS:
         st.session_state[_HOUSE_CONFIG_TAB_KEY] = _HOUSE_CONFIG_TABS[0]
     active = st.segmented_control(
         "Bereich",
@@ -31,9 +32,9 @@ def render() -> None:
         key=_HOUSE_CONFIG_TAB_KEY,
         label_visibility="collapsed",
     )
+    # Never write widget key after instantiate; next run reseeds before the widget.
     if active not in _HOUSE_CONFIG_TABS:
         active = _HOUSE_CONFIG_TABS[0]
-        st.session_state[_HOUSE_CONFIG_TAB_KEY] = active
 
     if active == "Hausprofil":
         render_house_profile_tab()

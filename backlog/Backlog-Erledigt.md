@@ -3,6 +3,53 @@
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 
+### CSV / Basislast / earnie_role alignment (2026-07-23)
+
+- [x] Clarify „Läufe pro Woche“ (=0 hint; allow 0 only for Bekannt+CSV; Gesteuert/Manual ≥1)
+- [x] Rename checkbox to **„Von Basis-Last abziehen“**; role×HK/SE/Live usage documented
+- [x] Hybrid SE Basislast: path **B** (meter residual) when Gesamt-CSV + all controllable generics have CSV; else path **A** (flat `baseload_kwh`); clip ≥ 0
+- [x] Bekannt+CSV → fixed CSV overlay; Gesteuert/Manual → MILP (CSV window energy or schedule); Live Manual = user day-plan only
+- [x] Bilanz import: `P_Ges = P_PV + P_Batt + P_Grid` (+ = into system) → derived `total_profile_csv`
+- [x] Docs: `verbrauchs-csv.md`, Handbuch, SE consumption spec, `flexible-verbraucher.md`
+
+
+### Import power plot & SE 12-month horizon (2026-07-23)
+
+- [x] After importing either Verbrauch (Gesamt) or PV-Ertrag add a plot for the power for manual control of values and time interval. Plot shows complete time horizon of both imports.
+  - If time horizon is less then 12 months give a warning, that Szenario-Explorer is needing at least 12 months
+  - If time horizon is >= 12 months take the closest 12 month to now as time horizon for SE and the march in this range for SE test calculation
+
+
+### Bugfix Hausprofil first-click tab key (2026-07-23)
+
+- [x] Greenfield: first click on subpage **Hausprofil** raised `StreamlitAPIException` — `st.session_state.house_config_active_tab` cannot be modified after widget with key `house_config_active_tab` is instantiated (`page_house_config.py`); verified live
+
+
+### 2.3.c.0a–2.3.c.3 — SE MILP speed & tuning (2026-07-23)
+
+- [x] **2.3.c.0a — SE: one MILP per window (or commit-K) instead of hourly re-solve**
+  - Open-loop / commit-K for SE perfect foresight; Live stays on periodic re-opt
+  - **TAKEAWAY** — SE defaults: `sunrise_window` (sunset2sunset) + `commit_hours=24`
+- [x] **2.3.c.0b — Trial: HiGHS vs CBC for SE**
+  - **TAKEAWAY** — Differences negligible → **HiGHS is the new default** (Live + SE). CBC fallback via `EARNIE_MILP_SOLVER=cbc` / SE `milp_solver`. Artifacts: `backtesting_logs/solver_ab_m03`, `solver_ab_last12m`
+- [x] **2.3.c.1 — Trial: fast paths for reference / trivial windows**
+  - **TAKEAWAY** — Historisch/`ref:*` already closed-form. Optimized path skips solver when `battery_capacity_kwh<=0` and remaining flex=0 (`ENERGY_OPTIMIZER_MILP_TRIVIAL_FAST_PATH`, default on). Fixture A/B dEUR=0; `python -m scripts.ab_se_trivial_fast_path`
+- [x] **2.3.c.2 — Tuning MILP for SE and Live**
+  - **TAKEAWAY (SOC anchors)** — `disable_horizon_soc_anchor`; small € win on `sunrise_window`; mixed on `fixed_24h`. **Keep product anchors on**. Artifacts: `backtesting_logs/soc_anchor_ab_last12m/`
+  - **TAKEAWAY (full SA_0-->SA_2)** — `sunrise_full_horizon_trial` without flexbook collapsed plaus (~127/365). Artifacts: `backtesting_logs/sunrise_full_ab_last12m/`
+  - **TAKEAWAY (variable sample time)** — **hard — defer** (implicit `dt ≡ 1 h`; Live already re-opts ~15 min on hourly plan)
+- [x] **2.3.c.3 — Full SA_0-->SA_2: force flex into booked slice**
+  - Clamp `flex_indices` via `flex_book_hours` when full-horizon trial on
+  - **TAKEAWAY** — last12m plaus restored 344/365; € Δ ≈ −7…−18 €/y vs truncated. **Product default:** `sunrise_full_horizon_trial` **true** (full SA_0-->SA_2 + flexbook + free SOC anchors). Artifacts: `backtesting_logs/sunrise_full_flexbook_ab_last12m/`
+
+
+### Energy-counter CSV import (PV / Verbrauch / consumers) (2026-07-23)
+
+- [x] New import for cumulative `Counter [kWh]` (Date;Time or combined) → interval-average kW via \(P=\Delta E/\Delta t\)
+- [x] Auto-detect (no radio): `[kWh]` / Zähler / Counter / Ertrag, else monotonic large-value heuristic; `[kW]` / Leistung stays power path
+- [x] Counter drop: warn and ignore interval (`P=0`); wired into `detect_and_load_raw_series`; round-trip tests + German docs (`verbrauchs-csv.md`)
+
+
 ### 2.3.f — Thin marker / data-model prep (SAM optionality) (2026-07-22)
 
 - [x] Role↔entity catalog + “Smarthome-Merker” wording (docs/schema); JSON keys `loxone_*` / `*.loxone` unchanged; Loxone sole live backend
@@ -32,9 +79,9 @@ Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes �
 - [x] Live Monitor Chart 1: explain SoC vs **SoC BL Ziel** (Lastverschiebung + Batteriestrategie) via caption/`?` + German handbook section
 - [x] Third SOC line **SoC bei Opt-Last** from `baseline_same_flex_rows` (opt flex, BL battery), Jetzt onward
 - [x] Ghost outline bars (**Original-Schedule**) for matched/BL-Ziel flex vs filled optimized bars
-- [x] Chart-1 docs (`docs/ui/charts.md`); flow-balance bar heights in **kWh** (`kW × slot duration`); ghost filter `< 1 kWh`
+- [x] Chart-1 docs (`docs/ui/charts.md`); ghost filter energy-equivalent `< 1 kWh` (later: bar heights restored to **kW** — see Bugfix Chart 1 kW axis restore)
 - [x] Known-generic duty cycle: fractional `duration_h` (e.g. Swimspa Jets) → average kW so Chart energy matches `nominal × planned duration`
-- MILP research (terminal SOC / weekend ready-by / variable sample time) remains open under **2.3.c.2** in [Backlog.md](Backlog.md); SE speed-up: **2.3.c.0a** / **2.3.c.0b** (TAKEAWAYs), **2.3.c.1** done (trivial MILP fast path + ref non-MILP guard)
+- SE MILP speed/tuning (**2.3.c.0a**–**2.3.c.3**) archived separately above (2026-07-23)
 
 
 ### 2.3.b — Approximate cost model (monthly fees) (2026-07-22)
@@ -65,6 +112,16 @@ Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes �
 
 - [x] **Finalize Version 2.2.0 after test usage and make a release** — `version.py` `2.2.0`; tag `v2.2.0` (GitHub Latest + GHCR `2.2.0` / `:latest`); chapter archived from open backlog
   - German docs polish carry-over → open `2.3.0` in [Backlog.md](Backlog.md)
+
+
+### Bugfix Chart 1 kW axis restore (2026-07-22)
+
+- [x] **Chart 1 Monitor: restore kW axis (undo global kWh bar scaling)** — heights = power again; bar width carries duration; sub-hour future consumers stay duty-cycle averaged (`nominal × duration_h` in `generic_schedule`); grey 15‑min slots unscaled (`b2a4efc`); verified live
+
+
+### Bugfix Verbrauch CSV import path + `_resampled` name (2026-07-22)
+
+- [x] **Verbrauch CSV import path + `_resampled` name** — existence check uses `resolve_config_prefixed_path`; upload target `{original}_resampled.csv` (e.g. `BEZUG-2025-22.7.2026_resampled.csv`); was: false “nicht gefunden” on `config/uploads/…` + stable `{profile}_verbrauch.csv` name (`e21e3e3`); verified live
 
 
 ### Bugfix legacy export monthly_float abort (2026-07-22)

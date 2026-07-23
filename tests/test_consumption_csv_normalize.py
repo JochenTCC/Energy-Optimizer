@@ -120,12 +120,40 @@ def test_normalize_watt_to_kw(tmp_path: Path) -> None:
     assert rows[0][1] == pytest.approx(1.5)
 
 
-def test_normalize_too_short_raises(tmp_path: Path) -> None:
+def test_normalize_too_short_raises_when_full_year_required(tmp_path: Path) -> None:
     path = tmp_path / "short.csv"
     _write_canonical_hours(path, 100)
     with pytest.raises(ValueError, match="8760"):
-        load_and_normalize_profile_csv(str(path))
+        load_and_normalize_profile_csv(str(path), min_hours=MIN_HOURS_FULL_YEAR)
 
+
+def test_normalize_short_series_allowed_by_default(tmp_path: Path) -> None:
+    path = tmp_path / "short_ok.csv"
+    _write_canonical_hours(path, 100)
+    rows = load_and_normalize_profile_csv(str(path))
+    assert len(rows) == 100
+
+
+def test_import_span_adequate_for_se_helpers(tmp_path: Path) -> None:
+    from house_config.consumption_csv import (
+        import_span_adequate_for_se,
+        profile_span_hours,
+        shared_import_span_hours,
+    )
+
+    short_path = tmp_path / "short.csv"
+    full_path = tmp_path / "full.csv"
+    _write_canonical_hours(short_path, 100)
+    _write_canonical_hours(full_path, MIN_HOURS_FULL_YEAR)
+    short_rows = load_and_normalize_profile_csv(str(short_path))
+    full_rows = load_and_normalize_profile_csv(str(full_path))
+    assert profile_span_hours(short_rows) == 100
+    assert profile_span_hours(full_rows) >= MIN_HOURS_FULL_YEAR
+    assert not import_span_adequate_for_se(short_rows, None)
+    assert import_span_adequate_for_se(full_rows, None)
+    # Intersection of full + short overlapping start is short.
+    assert shared_import_span_hours(full_rows, short_rows) == 100
+    assert not import_span_adequate_for_se(full_rows, short_rows)
 
 def test_loxone_style_import(tmp_path: Path) -> None:
     path = tmp_path / "lox.csv"

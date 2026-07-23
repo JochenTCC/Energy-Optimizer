@@ -33,14 +33,21 @@ Profile consumers are merged into `flexible_consumers` via `_planning_flex_consu
 | Profile `type` | MILP-flex when | Bridge function | MILP mechanism |
 | -------------- | -------------- | --------------- | -------------- |
 | `generic` | `earnie_role: flex` | `planning_consumer_to_milp` | `generic_flex_window` |
-| `generic` | `earnie_role: known` | — (fixed overlay only) | — |
-| `generic` | `earnie_role: manual` | — (fixed overlay like known; recommendation UI only) | — |
+| `generic` | `earnie_role: known` | — (fixed overlay; CSV shape when `use_profile_csv`) | — |
+| `generic` | `earnie_role: manual` | `planning_consumer_to_milp` | `generic_flex_window` (SE); Live = user day-plan only |
 | `ev` | `charging_schedule` present | `planning_ev_to_milp` | `charging_schedule` + deadline |
 | `thermal_annual` | — | MILP when not CSV; CSV → fixed overlay | `thermal_annual` targets or overlay |
 | `thermal_rc` | no `use_profile_csv` | `planning_thermal_rc_to_milp` | RC thermal control; `profile_spec` window target via modeled/climate kWh (`planning_thermal_rc_daily_targets`) |
 | `thermal_rc` | `use_profile_csv` | — (CSV fixed overlay, not MILP) | — |
 
-`split_planning_generic_consumers` puts **both** `known` and `manual` into the fixed baseload overlay. SE / live planning assume the user starts manuals at the recommended default schedule; `earnie_role: manual` still drives **Betrieb → Manuelle Geräte** only (not MILP shift).
+`split_planning_generic_consumers` puts **known** into the fixed baseload overlay and **flex + manual** into MILP. Live does not overlay the default manual weekly schedule — only active user plans from **Betrieb → Manuelle Geräte**.
+
+### SE Basislast path A vs B
+
+| Condition | Basislast |
+| --------- | --------- |
+| `total_profile_csv` present **and** every controllable generic (`flex` + `manual`) has active `use_profile_csv` | **B:** hourly residual `total − Σ(accounted CSV series)`, clip ≥ 0; known CSV re-added as fixed overlay |
+| otherwise | **A:** flat `baseload_kwh / 8760` + role overlays |
 
 Greenfield `config.json` keeps `flexible_consumers: []`; shiftable loads come from the house profile.
 
@@ -93,9 +100,9 @@ Per-consumer historical power series live on the house profile (not live `path_h
 | Key | Effect |
 | --- | ------ |
 | `profile_csv` | Path to normalized `timestamp;power_kw` (≥12 months after import) |
-| `use_profile_csv` | `true` → use CSV load instead of synthetic schedule/model **and** subtract that series from `total_profile_csv` when Hauskonfigurator residual helpers compute meter residual |
+| `use_profile_csv` | `true` → use CSV load instead of synthetic schedule/model **and** subtract that series when residual/Basislast helpers run (HK + SE path B); role-specific SE/Live usage as in the Hauskonfigurator table |
 
-Scenario Explorer overlays and synthetic `cons_data` generation (`build_synthetic_dataframe_from_house_profile`, `hourly_kw_by_consumer_for_timestamps`) use the same **metric** Basislast as Hauskonfigurator Verbrauchsprofil (Modell) and MILP `profile_spec`: `baseload_kwh / 8760`. They do **not** use meter residual from `total_profile_csv` (that CSV remains for Ist-vs-Modell validation in the house configurator).
+Scenario Explorer overlays and synthetic `cons_data` generation use path **A** (flat `baseload_kwh / 8760`) unless the path-B gate is met. Meter residual from `total_profile_csv` is used only for path B and HK Ist helpers.
 
 When synthesizing `cons_data`, `total_kw` = metric baseload + Σ(consumers).
 

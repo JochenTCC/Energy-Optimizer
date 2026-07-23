@@ -308,8 +308,10 @@ def _normalize_profile(raw: dict, index: int) -> dict:
     annual_kwh = float(raw.get("annual_kwh", 0.0) or 0.0)
     total_profile_csv = str(raw.get("total_profile_csv", "") or "").strip()
     pv_profile_csv = str(raw.get("pv_profile_csv", "") or "").strip()
+    battery_profile_csv = str(raw.get("battery_profile_csv", "") or "").strip()
+    grid_profile_csv = str(raw.get("grid_profile_csv", "") or "").strip()
     historical_csv_source = str(raw.get("historical_csv_source", "") or "").strip().lower()
-    if historical_csv_source not in ("separate", "energiemonitor"):
+    if historical_csv_source not in ("separate", "energiemonitor", "balance"):
         historical_csv_source = "separate"
     consumers_raw = raw.get("consumers", [])
     if not isinstance(consumers_raw, list):
@@ -372,6 +374,8 @@ def _normalize_profile(raw: dict, index: int) -> dict:
         "default_pv_azimuth": default_pv_azimuth,
         "total_profile_csv": total_profile_csv,
         "pv_profile_csv": pv_profile_csv,
+        "battery_profile_csv": battery_profile_csv,
+        "grid_profile_csv": grid_profile_csv,
         "historical_csv_source": historical_csv_source or "separate",
         "consumers": consumers,
         "baseload_kwh": baseload["baseload_kwh"],
@@ -406,6 +410,8 @@ def _serialize_profile(profile: dict) -> dict:
         "annual_kwh": profile["annual_kwh"],
         "total_profile_csv": profile.get("total_profile_csv", ""),
         "pv_profile_csv": profile.get("pv_profile_csv", ""),
+        "battery_profile_csv": profile.get("battery_profile_csv", ""),
+        "grid_profile_csv": profile.get("grid_profile_csv", ""),
         "historical_csv_source": profile.get("historical_csv_source", "separate"),
         "consumers": [_serialize_consumer(c) for c in profile["consumers"]],
     }

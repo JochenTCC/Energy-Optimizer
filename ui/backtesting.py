@@ -419,8 +419,54 @@ def _render_imported_pv_run_notice(scenarios: dict[str, dict]) -> None:
     if missing:
         names = ", ".join(labels.get(sid, sid) for sid in missing)
         st.warning(
-            f"Szenarien mit aktiviertem „Importiertes PV“, aber ohne "
-            f"`pv_profile_csv` im Hausprofil (Fallback: PV aus Wetterdaten): {names}."
+            f"Szenarien mit aktiviertem „Importiertes PV“, aber ohne ausreichende "
+            f"`pv_profile_csv` (≥12 Monate) im Hausprofil "
+            f"(Fallback: synthetisches PV aus Wetterdaten): {names}."
+        )
+
+
+def _warn_if_house_profile_imports_short_for_se() -> None:
+    """One-line reminder when live house-profile imports are too short for SE."""
+    from house_config.consumption_csv import (
+        load_hourly_profile_csv,
+        profile_csv_adequate_for_se,
+        shared_import_span_hours,
+    )
+    from house_config.scenario_resolution import DEFAULT_LIVE_SCENARIO_ID
+    from ui.house_config_io import load_house_profiles
+
+    scenarios, error = try_get_backtesting_scenarios()
+    if error or not scenarios:
+        return
+    live = scenarios.get(DEFAULT_LIVE_SCENARIO_ID) or next(iter(scenarios.values()), {})
+    profile = live.get("_house_profile") if isinstance(live, dict) else None
+    if not isinstance(profile, dict):
+        profiles = load_house_profiles().get("profiles", {})
+        hid = str((live or {}).get("house_profile_id", "") or "").strip()
+        profile = profiles.get(hid, {}) if hid else {}
+    if not isinstance(profile, dict):
+        return
+    v_path = str(profile.get("total_profile_csv", "") or "").strip()
+    p_path = str(profile.get("pv_profile_csv", "") or "").strip()
+    if not v_path and not p_path:
+        return
+    if p_path and not profile_csv_adequate_for_se(p_path):
+        st.caption(
+            "Hausprofil-PV-Import ist kürzer als 12 Monate — Szenario-Explorer "
+            "nutzt synthetisches PV (Open-Meteo), CSV nur zur visuellen Kontrolle."
+        )
+        return
+    if not v_path:
+        return
+    try:
+        v_rows = load_hourly_profile_csv(v_path)
+        p_rows = load_hourly_profile_csv(p_path) if p_path else None
+    except (OSError, ValueError, FileNotFoundError):
+        return
+    if shared_import_span_hours(v_rows, p_rows) < 8760:
+        st.caption(
+            "Hausprofil-CSV-Import kürzer als 12 Monate — nur visuelle Kontrolle; "
+            "Szenario-Explorer rechnet mit synthetischen Werten."
         )
 
 
@@ -436,8 +482,8 @@ def _render_imported_pv_results_notice(meta: dict) -> None:
     if missing:
         names = ", ".join(labels.get(sid, sid) for sid in missing)
         st.warning(
-            f"Szenarien wollten importiertes PV, hatten aber keine CSV "
-            f"(Fallback: PV aus Wetterdaten): {names}."
+            f"Szenarien wollten importiertes PV, hatten aber keine ausreichende CSV "
+            f"(≥12 Monate; Fallback: synthetisches PV aus Wetterdaten): {names}."
         )
 
 
@@ -629,6 +675,7 @@ def render_backtesting_block() -> None:
             log_exists = False
 
     cons_ready = render_cons_data_section()
+    _warn_if_house_profile_imports_short_for_se()
 
     render_configured_scenarios()
 

@@ -153,6 +153,36 @@ def _loxone_inputs_from_consumer(consumer: dict) -> dict:
     return {}
 
 
+def _live_markers_enabled() -> bool:
+    """True when EARNIE_UI_MODES includes live_environment (Daemon Control)."""
+    from ui.mode_selector import get_enabled_ui_mode_keys
+
+    return "live_environment" in get_enabled_ui_mode_keys()
+
+
+def _run_in_markers_expander(render_body):
+    """Run Merker widgets in an expander when live mode is on; else skip (return None).
+
+    Callers must omit marker keys from the edited item when this returns None so
+    ``_merge_passthrough_consumer_fields`` keeps stored bindings.
+    """
+    if not _live_markers_enabled():
+        return None
+    with st.expander("Smarthome-Merker", expanded=False):
+        return render_body()
+
+
+def _preserved_appliance_power_source(consumer: dict) -> str:
+    """power_source from appliance_recommendation when Merker UI is hidden."""
+    rec = consumer.get("appliance_recommendation") or {}
+    source = str(rec.get("power_source", "") or "").strip().lower()
+    if source in ("manual", "loxone"):
+        return source
+    if _loxone_inputs_from_consumer(consumer).get("power_name"):
+        return "loxone"
+    return "manual"
+
+
 def _render_power_source_fields(
     consumer: dict,
     index: int,
@@ -344,42 +374,37 @@ def _render_swimspa_filter_bindings(
     return assemble_filter_bindings(values)
 
 
-def _render_manual_appliance_fields(
+def _render_manual_appliance_defaults(
     consumer: dict,
     index: int,
     nominal: float,
     duration_h: float,
     *,
     session_scope: str,
-) -> tuple[dict, dict | None]:
+) -> dict:
+    """Standard power/runtime for manual appliances (not Merker UI)."""
     rec = consumer.get("appliance_recommendation") or {}
-    power_source, loxone_inputs = _render_power_source_fields(
-        consumer,
-        index,
-        session_scope=session_scope,
-        key_prefix="hc_app",
-    )
     default_power = float(rec.get("default_power_kw", nominal) or nominal)
     default_runtime = float(rec.get("default_runtime_h", duration_h) or duration_h)
-    default_power_kw = labeled_number_input(
-        "Standard-Leistung (kW)",
-        min_value=0.0,
-        value=default_power,
-        key=_scoped_key(session_scope, f"hc_app_pwr_{index}"),
-    )
-    default_runtime_h = labeled_number_input(
-        "Standard-Laufzeit (h)",
-        min_value=0.1,
-        value=default_runtime,
-        step=0.25,
-        key=_scoped_key(session_scope, f"hc_app_rt_{index}"),
-    )
-    block: dict = {
-        "power_source": power_source,
-        "default_power_kw": float(default_power_kw),
-        "default_runtime_h": float(default_runtime_h),
+    return {
+        "default_power_kw": float(
+            labeled_number_input(
+                "Standard-Leistung (kW)",
+                min_value=0.0,
+                value=default_power,
+                key=_scoped_key(session_scope, f"hc_app_pwr_{index}"),
+            )
+        ),
+        "default_runtime_h": float(
+            labeled_number_input(
+                "Standard-Laufzeit (h)",
+                min_value=0.1,
+                value=default_runtime,
+                step=0.25,
+                key=_scoped_key(session_scope, f"hc_app_rt_{index}"),
+            )
+        ),
     }
-    return block, loxone_inputs
 
 
 def _render_generic_fields(
@@ -391,18 +416,55 @@ def _render_generic_fields(
 ) -> dict:
     sched = consumer.get("schedule") or {}
     defaults = _schedule_defaults(sched)
+    st.caption(
+        "**Läufe pro Woche = 0:** kein synthetisches Wochenmuster — nur sinnvoll für "
+        "**Bekannt** mit aktivem CSV („Von Basis-Last abziehen“). "
+        "Gesteuert / Manuelles Gerät brauchen mindestens 1 Lauf."
+    )
     runs = labeled_number_input(
         "Läufe pro Woche",
         min_value=0,
         value=int(sched.get("runs_per_week", 0)),
         key=_scoped_key(session_scope, f"hc_runs_{index}"),
+        help=(
+            "0 = inaktiv / kein Wochenmuster. "
+            "Nur bei Bekannt+CSV erlaubt; sonst ≥ 1."
+        ),
+    )
+    current_role = resolve_earnie_role(consumer)
+    if current_role not in _EARNIE_ROLE_OPTIONS:
+        current_role = EARNIE_ROLE_KNOWN
+    earnie_role = labeled_selectbox(
+        "Earnie-Berücksichtigung",
+        options=_EARNIE_ROLE_OPTIONS,
+        index=_EARNIE_ROLE_OPTIONS.index(current_role),
+        format_func=lambda value: _EARNIE_ROLE_LABELS[value],
+        key=_scoped_key(session_scope, f"hc_earnie_role_{index}"),
     )
     item: dict = {
         "nominal_power_kw": nominal,
         "schedule": None,
+        "earnie_role": earnie_role,
     }
     if runs <= 0:
+        if earnie_role in (EARNIE_ROLE_FLEX, EARNIE_ROLE_MANUAL):
+            st.warning(
+                "Gesteuert / Manuelles Gerät: bitte Läufe pro Woche ≥ 1 setzen "
+                "(oder Rolle Bekannt wählen und CSV nutzen)."
+            )
         item["annual_kwh"] = 0.0
+        if earnie_role == EARNIE_ROLE_KNOWN:
+            result = _run_in_markers_expander(
+                lambda: _render_power_source_fields(
+                    consumer,
+                    index,
+                    session_scope=session_scope,
+                    key_prefix="hc_known",
+                )
+            )
+            if result is not None:
+                _, loxone_inputs = result
+                item["loxone_inputs"] = loxone_inputs or {}
         return item
     duration_h = labeled_number_input(
         "Nenndauer pro Lauf (h)",
@@ -419,17 +481,6 @@ def _render_generic_fields(
         ratios=WIDE_LABEL_RATIOS,
         key=_scoped_key(session_scope, f"hc_start_{index}"),
     )
-    current_role = resolve_earnie_role(consumer)
-    if current_role not in _EARNIE_ROLE_OPTIONS:
-        current_role = EARNIE_ROLE_KNOWN
-    earnie_role = labeled_selectbox(
-        "Earnie-Berücksichtigung",
-        options=_EARNIE_ROLE_OPTIONS,
-        index=_EARNIE_ROLE_OPTIONS.index(current_role),
-        format_func=lambda value: _EARNIE_ROLE_LABELS[value],
-        key=_scoped_key(session_scope, f"hc_earnie_role_{index}"),
-    )
-    item["earnie_role"] = earnie_role
     start_shift_h = 0.0
     if earnie_role == EARNIE_ROLE_FLEX:
         start_shift_h = labeled_number_input(
@@ -456,23 +507,45 @@ def _render_generic_fields(
             "Maximaler Vorschau-Horizont auf der Seite „Manuelle Geräte“ "
             "für die Startzeit-Empfehlung."
         )
-        appliance_rec, loxone_inputs = _render_manual_appliance_fields(
+        appliance_defaults = _render_manual_appliance_defaults(
             consumer,
             index,
             nominal,
             float(duration_h),
             session_scope=session_scope,
         )
-        item["appliance_recommendation"] = appliance_rec
-        item["loxone_inputs"] = loxone_inputs or {}
-    elif earnie_role == EARNIE_ROLE_KNOWN:
-        _, loxone_inputs = _render_power_source_fields(
-            consumer,
-            index,
-            session_scope=session_scope,
-            key_prefix="hc_known",
+        result = _run_in_markers_expander(
+            lambda: _render_power_source_fields(
+                consumer,
+                index,
+                session_scope=session_scope,
+                key_prefix="hc_app",
+            )
         )
-        item["loxone_inputs"] = loxone_inputs or {}
+        if result is not None:
+            power_source, loxone_inputs = result
+            item["appliance_recommendation"] = {
+                "power_source": power_source,
+                **appliance_defaults,
+            }
+            item["loxone_inputs"] = loxone_inputs or {}
+        else:
+            item["appliance_recommendation"] = {
+                "power_source": _preserved_appliance_power_source(consumer),
+                **appliance_defaults,
+            }
+    elif earnie_role == EARNIE_ROLE_KNOWN:
+        result = _run_in_markers_expander(
+            lambda: _render_power_source_fields(
+                consumer,
+                index,
+                session_scope=session_scope,
+                key_prefix="hc_known",
+            )
+        )
+        if result is not None:
+            _, loxone_inputs = result
+            item["loxone_inputs"] = loxone_inputs or {}
     item["schedule"] = {
         "runs_per_week": runs,
         "duration_h": float(duration_h),
@@ -763,21 +836,25 @@ def _render_ev_fields(consumer: dict, index: int, *, session_scope: str) -> dict
             session_scope=session_scope,
         ),
     }
-    loxone_inputs, loxone_outputs = _render_live_io_markers(
-        consumer,
-        index,
-        session_scope=session_scope,
-        key_prefix="hc_ev_io",
-        include_enable=False,
-        include_ev_outputs=True,
+    loxone_result = _run_in_markers_expander(
+        lambda: (
+            _render_live_io_markers(
+                consumer,
+                index,
+                session_scope=session_scope,
+                key_prefix="hc_ev_io",
+                include_enable=False,
+                include_ev_outputs=True,
+            ),
+            _render_ev_charging_loxone(sched, index, session_scope=session_scope),
+        )
     )
-    item["loxone_inputs"] = loxone_inputs
-    item["loxone_outputs"] = loxone_outputs
-    charging_loxone = _render_ev_charging_loxone(
-        sched, index, session_scope=session_scope
-    )
-    if charging_loxone:
-        item["charging_schedule"]["loxone"] = charging_loxone
+    if loxone_result is not None:
+        (loxone_inputs, loxone_outputs), charging_loxone = loxone_result
+        item["loxone_inputs"] = loxone_inputs
+        item["loxone_outputs"] = loxone_outputs
+        if charging_loxone:
+            item["charging_schedule"]["loxone"] = charging_loxone
     return item
 
 
@@ -910,26 +987,32 @@ def _render_thermal_rc_fields(
             ),
         },
     }
-    loxone_inputs, loxone_outputs = _render_live_io_markers(
-        consumer,
-        index,
-        session_scope=session_scope,
-        key_prefix="hc_rc_io",
-        include_enable=True,
-        include_subtract=True,
+    marker_result = _run_in_markers_expander(
+        lambda: (
+            _render_live_io_markers(
+                consumer,
+                index,
+                session_scope=session_scope,
+                key_prefix="hc_rc_io",
+                include_enable=True,
+                include_subtract=True,
+            ),
+            _render_thermal_control_loxone(
+                consumer, index, session_scope=session_scope
+            ),
+            _render_swimspa_filter_bindings(
+                consumer, index, session_scope=session_scope
+            ),
+        )
     )
-    item["loxone_inputs"] = loxone_inputs
-    item["loxone_outputs"] = loxone_outputs
-    thermal_control = _render_thermal_control_loxone(
-        consumer, index, session_scope=session_scope
-    )
-    if thermal_control:
-        item["thermal_control"] = thermal_control
-    filter_bindings = _render_swimspa_filter_bindings(
-        consumer, index, session_scope=session_scope
-    )
-    if filter_bindings:
-        item["swimspa_filter_bindings"] = filter_bindings
+    if marker_result is not None:
+        (loxone_inputs, loxone_outputs), thermal_control, filter_bindings = marker_result
+        item["loxone_inputs"] = loxone_inputs
+        item["loxone_outputs"] = loxone_outputs
+        if thermal_control:
+            item["thermal_control"] = thermal_control
+        if filter_bindings:
+            item["swimspa_filter_bindings"] = filter_bindings
     return item
 
 
@@ -974,12 +1057,18 @@ def _render_thermal_solar_fields(
 
 def _consumer_expander_title(consumer: dict, index: int, *, session_scope: str) -> str:
     """Prefer live Bezeichnung widget state so expander header updates for every type."""
+    from house_config.baseload import consumer_annual_kwh
+
     label_key = _scoped_key(session_scope, f"hc_label_{index}")
     live = st.session_state.get(label_key)
     if live is None:
         live = consumer.get("label")
     title = str(live or "").strip() or f"Verbraucher {index + 1}"
-    return f"Verbraucher {index + 1}: {title}"
+    try:
+        annual = float(consumer_annual_kwh(consumer))
+    except (TypeError, ValueError, OSError):
+        annual = float(consumer.get("annual_kwh", 0.0) or 0.0)
+    return f"Verbraucher {index + 1}: {title} — {annual:.0f} kWh/a"
 
 
 def _render_consumer_form(
@@ -998,154 +1087,184 @@ def _render_consumer_form(
     # Expand first consumer only when it has no saved id yet (new/empty form).
     has_saved_data = bool(str(consumer.get("id") or "").strip())
     # Stable key keeps open/closed state across Bezeichnung title changes + auto_persist rerun.
-    with st.expander(
-        expander_title,
-        expanded=index == 0 and not has_saved_data,
-        key=_scoped_key(session_scope, f"hc_consumer_expander_{index}"),
-    ):
-        cols = st.columns([5, 1])
-        with cols[1]:
-            if st.button("Entfernen", key=_scoped_key(session_scope, f"hc_remove_{index}")):
-                consumers = list(st.session_state[_SESSION_CONSUMERS_KEY])
-                del consumers[index]
-                st.session_state[_SESSION_CONSUMERS_KEY] = consumers
-                st.rerun()
-
-        type_options = _consumer_type_options(index)
-        current_type = str(consumer.get("type", "generic"))
-        if index > 0 and current_type == "thermal_annual":
-            st.warning(
-                "Typ „Haus Wärme“ ist nur für Verbraucher 1 erlaubt. "
-                "Bitte einen anderen Typ wählen."
+    exp_col, remove_col = st.columns([4, 1], vertical_alignment="top")
+    with remove_col:
+        if st.button(
+            "Entfernen",
+            key=_scoped_key(session_scope, f"hc_remove_{index}"),
+        ):
+            consumers = list(st.session_state[_SESSION_CONSUMERS_KEY])
+            del consumers[index]
+            st.session_state[_SESSION_CONSUMERS_KEY] = consumers
+            st.rerun()
+    with exp_col:
+        with st.expander(
+            expander_title,
+            expanded=index == 0 and not has_saved_data,
+            key=_scoped_key(session_scope, f"hc_consumer_expander_{index}"),
+        ):
+            return _render_consumer_form_body(
+                consumer,
+                index,
+                latitude=latitude,
+                longitude=longitude,
+                session_scope=session_scope,
+                default_pv_tilt=default_pv_tilt,
+                default_pv_azimuth=default_pv_azimuth,
             )
-        c_type = labeled_selectbox(
-            "Typ",
-            options=type_options,
-            index=_type_index(current_type, type_options),
-            format_func=lambda value: CONSUMER_TYPE_LABELS.get(value, value),
-            key=_scoped_key(session_scope, f"hc_type_{index}"),
+    # Unreachable when expander runs; keep type-checkers happy if body returns.
+    return dict(consumer)
+
+
+def _render_consumer_form_body(
+    consumer: dict,
+    index: int,
+    *,
+    latitude: float,
+    longitude: float,
+    session_scope: str,
+    default_pv_tilt: float = 18.0,
+    default_pv_azimuth: float = 0.0,
+) -> dict:
+    type_options = _consumer_type_options(index)
+    current_type = str(consumer.get("type", "generic"))
+    if index > 0 and current_type == "thermal_annual":
+        st.warning(
+            "Typ „Haus Wärme“ ist nur für Verbraucher 1 erlaubt. "
+            "Bitte einen anderen Typ wählen."
         )
-        c_label = labeled_text_input(
-            "Bezeichnung",
-            value=consumer.get("label", ""),
-            key=_scoped_key(session_scope, f"hc_label_{index}"),
+    c_type = labeled_selectbox(
+        "Typ",
+        options=type_options,
+        index=_type_index(current_type, type_options),
+        format_func=lambda value: CONSUMER_TYPE_LABELS.get(value, value),
+        key=_scoped_key(session_scope, f"hc_type_{index}"),
+    )
+    c_label = labeled_text_input(
+        "Bezeichnung",
+        value=consumer.get("label", ""),
+        key=_scoped_key(session_scope, f"hc_label_{index}"),
+    )
+    nominal = labeled_number_input(
+        "Nennleistung (kW)",
+        min_value=0.0,
+        value=float(consumer.get("nominal_power_kw", 0.0)),
+        key=_scoped_key(session_scope, f"hc_nom_{index}"),
+    )
+    item: dict = {
+        "label": c_label,
+        "type": c_type,
+        "nominal_power_kw": nominal,
+    }
+    if c_type == "generic":
+        generic_fields = _render_generic_fields(
+            consumer, index, nominal, session_scope=session_scope
         )
-        nominal = labeled_number_input(
-            "Nennleistung (kW)",
+        item.update(generic_fields)
+    elif c_type == "ev":
+        item.update(_render_ev_fields(consumer, index, session_scope=session_scope))
+    elif c_type == "thermal_rc":
+        item.update(_render_thermal_rc_fields(consumer, index, session_scope=session_scope))
+    else:
+        thermal = consumer.get("thermal") or consumer
+        item["min_on_quarterhours"] = labeled_number_input(
+            "Mindestlaufzeit (Viertelstunden)",
+            min_value=0,
+            value=int(consumer.get("min_on_quarterhours", 4)),
+            ratios=WIDE_LABEL_RATIOS,
+            key=_scoped_key(session_scope, f"hc_ta_min_qh_{index}"),
+        )
+        item["living_area_m2"] = labeled_number_input(
+            "Wohnfläche (m²)",
             min_value=0.0,
-            value=float(consumer.get("nominal_power_kw", 0.0)),
-            key=_scoped_key(session_scope, f"hc_nom_{index}"),
+            value=float(thermal.get("living_area_m2", 120.0)),
+            key=_scoped_key(session_scope, f"hc_area_{index}"),
         )
-        item: dict = {
-            "label": c_label,
-            "type": c_type,
-            "nominal_power_kw": nominal,
-        }
-        if c_type == "generic":
-            generic_fields = _render_generic_fields(
-                consumer, index, nominal, session_scope=session_scope
-            )
-            item.update(generic_fields)
-        elif c_type == "ev":
-            item.update(_render_ev_fields(consumer, index, session_scope=session_scope))
-        elif c_type == "thermal_rc":
-            item.update(_render_thermal_rc_fields(consumer, index, session_scope=session_scope))
-        else:
-            thermal = consumer.get("thermal") or consumer
-            item["min_on_quarterhours"] = labeled_number_input(
-                "Mindestlaufzeit (Viertelstunden)",
-                min_value=0,
-                value=int(consumer.get("min_on_quarterhours", 4)),
-                ratios=WIDE_LABEL_RATIOS,
-                key=_scoped_key(session_scope, f"hc_ta_min_qh_{index}"),
-            )
-            item["living_area_m2"] = labeled_number_input(
-                "Wohnfläche (m²)",
-                min_value=0.0,
-                value=float(thermal.get("living_area_m2", 120.0)),
-                key=_scoped_key(session_scope, f"hc_area_{index}"),
-            )
-            building_class = int(thermal.get("building_class", 3))
-            item["building_class"] = labeled_selectbox(
-                "Gebäudeklasse",
-                options=[1, 2, 3, 4],
-                index=max(0, min(3, building_class - 1)),
-                format_func=building_class_option_label,
-                key=_scoped_key(session_scope, f"hc_class_{index}"),
-            )
-            use_exact_hwb = labeled_checkbox(
-                "Genaue HWB-Angabe",
-                value=bool(float(thermal.get("hwb_kwh_m2", 0.0) or 0.0) > 0),
-                key=_scoped_key(session_scope, f"hc_hwb_use_{index}"),
-            )
-            if use_exact_hwb:
-                from data.heating_need import specific_heating_kwh_m2
+        building_class = int(thermal.get("building_class", 3))
+        item["building_class"] = labeled_selectbox(
+            "Gebäudeklasse",
+            options=[1, 2, 3, 4],
+            index=max(0, min(3, building_class - 1)),
+            format_func=building_class_option_label,
+            key=_scoped_key(session_scope, f"hc_class_{index}"),
+        )
+        use_exact_hwb = labeled_checkbox(
+            "Genaue HWB-Angabe",
+            value=bool(float(thermal.get("hwb_kwh_m2", 0.0) or 0.0) > 0),
+            key=_scoped_key(session_scope, f"hc_hwb_use_{index}"),
+        )
+        if use_exact_hwb:
+            from data.heating_need import specific_heating_kwh_m2
 
-                default_hwb = float(thermal.get("hwb_kwh_m2", 0.0) or 0.0)
-                if default_hwb <= 0:
-                    default_hwb = specific_heating_kwh_m2(int(item["building_class"]))
-                item["hwb_kwh_m2"] = labeled_number_input(
-                    "HWB (kWh/m²a)",
-                    min_value=0.1,
-                    value=default_hwb,
-                    step=1.0,
-                    key=_scoped_key(session_scope, f"hc_hwb_{index}"),
-                )
-            item["heat_pump_type"] = labeled_selectbox(
-                "WP-Typ",
-                options=["luft", "erde"],
-                index=0 if thermal.get("heat_pump_type") != "erde" else 1,
-                key=_scoped_key(session_scope, f"hc_wp_{index}"),
+            default_hwb = float(thermal.get("hwb_kwh_m2", 0.0) or 0.0)
+            if default_hwb <= 0:
+                default_hwb = specific_heating_kwh_m2(int(item["building_class"]))
+            item["hwb_kwh_m2"] = labeled_number_input(
+                "HWB (kWh/m²a)",
+                min_value=0.1,
+                value=default_hwb,
+                step=1.0,
+                key=_scoped_key(session_scope, f"hc_hwb_{index}"),
             )
-            item["persons"] = labeled_number_input(
-                "Personen",
-                min_value=0,
-                value=int(thermal.get("persons", 2)),
-                key=_scoped_key(session_scope, f"hc_persons_{index}"),
+        item["heat_pump_type"] = labeled_selectbox(
+            "WP-Typ",
+            options=["luft", "erde"],
+            index=0 if thermal.get("heat_pump_type") != "erde" else 1,
+            key=_scoped_key(session_scope, f"hc_wp_{index}"),
+        )
+        item["persons"] = labeled_number_input(
+            "Personen",
+            min_value=0,
+            value=int(thermal.get("persons", 2)),
+            key=_scoped_key(session_scope, f"hc_persons_{index}"),
+        )
+        item.update(
+            _render_thermal_solar_fields(
+                thermal,
+                index,
+                session_scope=session_scope,
+                default_tilt=default_pv_tilt,
+                default_azimuth=default_pv_azimuth,
             )
-            item.update(
-                _render_thermal_solar_fields(
-                    thermal,
-                    index,
-                    session_scope=session_scope,
-                    default_tilt=default_pv_tilt,
-                    default_azimuth=default_pv_azimuth,
-                )
-            )
-            loxone_inputs, loxone_outputs = _render_live_io_markers(
+        )
+        loxone_result = _run_in_markers_expander(
+            lambda: _render_live_io_markers(
                 consumer,
                 index,
                 session_scope=session_scope,
                 key_prefix="hc_ta_io",
                 include_enable=True,
             )
+        )
+        if loxone_result is not None:
+            loxone_inputs, loxone_outputs = loxone_result
             item["loxone_inputs"] = loxone_inputs
             item["loxone_outputs"] = loxone_outputs
-            from data.modeled_climate import thermal_annual_kwh_from_archive
+        from data.modeled_climate import thermal_annual_kwh_from_archive
 
-            thermal_preview = {**item, "latitude": latitude, "longitude": longitude}
-            wp_annual, ref_year = thermal_annual_kwh_from_archive(
-                thermal_preview,
-                house_profile={
-                    "latitude": latitude,
-                    "longitude": longitude,
-                    "default_pv_tilt": default_pv_tilt,
-                    "default_pv_azimuth": default_pv_azimuth,
-                },
-            )
-            st.metric("Geschätzter WP-Jahresbedarf (kWh/a)", f"{wp_annual:.0f}")
-            st.caption(
-                f"Basis: Open-Meteo-Archiv {ref_year} "
-                f"({latitude:.4f}°N, {longitude:.4f}°E)"
-            )
-        item.update(
-            _render_consumer_profile_csv_fields(
-                consumer,
-                index,
-                session_scope=session_scope,
-                nominal_power_kw=float(nominal),
-            )
+        thermal_preview = {**item, "latitude": latitude, "longitude": longitude}
+        wp_annual, ref_year = thermal_annual_kwh_from_archive(
+            thermal_preview,
+            house_profile={
+                "latitude": latitude,
+                "longitude": longitude,
+                "default_pv_tilt": default_pv_tilt,
+                "default_pv_azimuth": default_pv_azimuth,
+            },
         )
+        st.metric("Geschätzter WP-Jahresbedarf (kWh/a)", f"{wp_annual:.0f}")
+        st.caption(
+            f"Basis: Open-Meteo-Archiv {ref_year} "
+            f"({latitude:.4f}°N, {longitude:.4f}°E)"
+        )
+    item.update(
+        _render_consumer_profile_csv_fields(
+            consumer,
+            index,
+            session_scope=session_scope,
+            nominal_power_kw=float(nominal),
+        )
+    )
     return item
 
 
@@ -1250,7 +1369,10 @@ def _render_consumer_profile_csv_fields(
     st.markdown("**Historisches Verbrauchsprofil (CSV)**")
     st.caption(
         "Gleiches Format wie Jahres-CSV (`timestamp;power_kw`). "
-        "Wenn aktiv: echtes Profil statt Synthese, Abzug von der Gesamt-CSV. "
+        "Wenn aktiv („Von Basis-Last abziehen“): CSV-Last statt Synthese; "
+        "Abzug von der Basislast (HK und SE). "
+        "Bekannt → feste Last; Gesteuert/Manual → SE nutzt CSV-Energie als Ziel; "
+        "Live Gesteuert ignoriert CSV. "
         "Digitale 0/1-Signale: beim Import optional × Nennleistung."
     )
     path_key = _scoped_key(session_scope, f"hc_profile_csv_path_{index}")
@@ -1277,11 +1399,18 @@ def _render_consumer_profile_csv_fields(
         key=input_key,
     )
     st.session_state[path_key] = csv_path.strip()
-    upload = single_csv_upload(
-        "Verbraucher-CSV hochladen",
-        key=csv_upload_widget_key(upload_base, upload_nonce_key),
-        help="Nur eine CSV-Datei je Verbraucher.",
-    )
+    up_col, clear_col = st.columns([4, 1], vertical_alignment="bottom")
+    with up_col:
+        upload = single_csv_upload(
+            "Verbraucher-CSV hochladen",
+            key=csv_upload_widget_key(upload_base, upload_nonce_key),
+            help="Nur eine CSV-Datei je Verbraucher.",
+        )
+    with clear_col:
+        clear = st.button(
+            "Verbraucher-CSV entfernen",
+            key=_scoped_key(session_scope, f"hc_profile_csv_clear_{index}"),
+        )
     consumer_slug = slug_id(str(consumer.get("id") or consumer.get("label") or f"c{index}"))
     profile_slug = slug_id(
         str(
@@ -1310,10 +1439,7 @@ def _render_consumer_profile_csv_fields(
             st.rerun()
         except (ValueError, OSError, FileNotFoundError) as exc:
             st.error(f"CSV ungültig: {exc}")
-    if st.button(
-        "Verbraucher-CSV entfernen",
-        key=_scoped_key(session_scope, f"hc_profile_csv_clear_{index}"),
-    ):
+    if clear:
         queue_csv_path_update(
             pending_key,
             "",
@@ -1333,10 +1459,14 @@ def _render_consumer_profile_csv_fields(
             )
     if active:
         use_csv = labeled_checkbox(
-            "Aus Gesamt-CSV abziehen / echtes Profil nutzen",
+            "Von Basis-Last abziehen",
             value=bool(consumer.get("use_profile_csv", False)),
             key=use_key,
-            help="Aktiv: CSV-Last statt Synthese; Abzug von total_profile_csv für die Rest-Grundlast.",
+            help=(
+                "Aktiv: CSV-Last nutzen und von der Basislast abziehen. "
+                "HK/SE: Residual bzw. Overlay je Rolle; "
+                "Live Gesteuert: Schedule; Live Manual: nur Nutzer-Tagesplan."
+            ),
         )
     else:
         st.session_state[use_key] = False
@@ -1409,57 +1539,6 @@ def _initial_profile_index(profile_ids: list[str]) -> int | None:
     return None
 
 
-def _render_modeled_consumption_section(
-    *,
-    preview_id: str,
-    annual_kwh: float,
-    resolved: list[dict],
-    preview: dict,
-) -> None:
-    from house_config.consumption_csv import consumer_uses_profile_csv
-    from ui.consumption_display import ConsumptionDisplayMode, render_consumption_display
-
-    st.subheader("Verbrauchsprofil (Modell)")
-    st.caption("Modelliertes Hausprofil — ohne Ist-CSV und ohne cons_data.")
-    view_mode = st.radio(
-        "Anzeige",
-        options=["all", "csv_only"],
-        format_func=lambda value: (
-            "Alle Verbraucher"
-            if value == "all"
-            else "Nur CSV-instrumentierte Verbraucher"
-        ),
-        horizontal=True,
-        key=f"house_profile_model_view_{preview_id}",
-    )
-    consumers = list(resolved)
-    if view_mode == "csv_only":
-        consumers = [c for c in consumers if consumer_uses_profile_csv(c)]
-        if not consumers:
-            st.info(
-                "Keine Verbraucher mit aktivem historischen CSV "
-                "(`use_profile_csv`). Wechseln Sie zu „Alle Verbraucher“ "
-                "oder laden Sie ein CSV und aktivieren Sie den Abzug."
-            )
-            return
-    modeled_profile = {
-        "annual_kwh": annual_kwh,
-        "baseload_kwh": preview["baseload_kwh"],
-        "consumers": consumers,
-        # Intentionally omit total_profile_csv: Modell uses metric baseload, not meter residual.
-    }
-    reset_token = (
-        f"{preview_id}:{view_mode}:{annual_kwh:.0f}:{preview['consumer_kwh']:.0f}:"
-        f"{preview['baseload_kwh']:.0f}:{len(consumers)}"
-    )
-    render_consumption_display(
-        ConsumptionDisplayMode.MODELED_PROFILE,
-        key_prefix=f"house_profile_model_{preview_id}",
-        profile=modeled_profile,
-        reset_token=reset_token,
-    )
-
-
 def _render_consumption_csv_section(
     *,
     existing: dict,
@@ -1469,6 +1548,11 @@ def _render_consumption_csv_section(
     preview: dict,
 ) -> None:
     from ui.house_config_historical_csv import render_historical_csv_section
+    from house_config.consumption_csv import consumer_uses_profile_csv
+    from house_config.profile_csv_policy import (
+        controllable_generics,
+        se_uses_meter_residual_baseload,
+    )
 
     render_historical_csv_section(
         existing=existing,
@@ -1477,6 +1561,32 @@ def _render_consumption_csv_section(
         resolved=resolved,
         preview=preview,
     )
+    probe = {
+        **existing,
+        "total_profile_csv": st.session_state.get(
+            f"house_profile_csv_path_{preview_id}",
+            existing.get("total_profile_csv", ""),
+        ),
+        "consumers": resolved,
+    }
+    if str(probe.get("total_profile_csv", "") or "").strip():
+        if se_uses_meter_residual_baseload(probe):
+            st.caption(
+                "SE-Basislast: **Pfad B** (stündlicher Meter-Rest aus Gesamt-CSV "
+                "nach Abzug instrumentierter Verbraucher-CSVs)."
+            )
+        else:
+            missing = [
+                str(c.get("label") or c.get("id") or "?")
+                for c in controllable_generics(probe)
+                if not consumer_uses_profile_csv(c)
+            ]
+            if missing:
+                st.caption(
+                    "SE-Basislast: **Pfad A** (flache `baseload_kwh`). "
+                    "Für Meter-Rest (Pfad B) brauchen alle Gesteuert/Manual "
+                    f"ein aktives CSV: {', '.join(missing)}."
+                )
 
 
 def _perform_house_profile_save(
@@ -1514,6 +1624,8 @@ def _perform_house_profile_save(
                 "consumers": resolved,
                 "total_profile_csv": hist["total_profile_csv"],
                 "pv_profile_csv": hist["pv_profile_csv"],
+                "battery_profile_csv": hist.get("battery_profile_csv", ""),
+                "grid_profile_csv": hist.get("grid_profile_csv", ""),
                 "historical_csv_source": hist["historical_csv_source"],
             }
         )
@@ -1574,6 +1686,8 @@ def _render_house_profile_save(
         "consumers": resolved,
         "total_profile_csv": hist["total_profile_csv"],
         "pv_profile_csv": hist["pv_profile_csv"],
+        "battery_profile_csv": hist.get("battery_profile_csv", ""),
+        "grid_profile_csv": hist.get("grid_profile_csv", ""),
         "historical_csv_source": hist["historical_csv_source"],
     }
 
@@ -1681,13 +1795,15 @@ def render_house_profile_tab() -> None:
         )
         for index, consumer in enumerate(consumers)
     ]
-    # Keep session list Bezeichnung/type in sync so titles stay correct after save.
+    # Keep session list Bezeichnung/type/annual in sync so expander titles stay correct.
     synced_consumers = []
     for index, original in enumerate(consumers):
         merged = dict(original)
         if index < len(edited):
             merged["label"] = edited[index].get("label", original.get("label"))
             merged["type"] = edited[index].get("type", original.get("type"))
+            if "annual_kwh" in edited[index]:
+                merged["annual_kwh"] = edited[index]["annual_kwh"]
         synced_consumers.append(merged)
     st.session_state[_SESSION_CONSUMERS_KEY] = synced_consumers
     resolved = _resolve_consumer_ids(synced_consumers, edited)
@@ -1724,13 +1840,6 @@ def render_house_profile_tab() -> None:
         resolved=resolved,
         existing=existing,
         preview_id=preview_id,
-    )
-
-    _render_modeled_consumption_section(
-        preview_id=preview_id,
-        annual_kwh=float(annual_kwh),
-        resolved=resolved_for_preview,
-        preview=preview,
     )
 
     _render_consumption_csv_section(

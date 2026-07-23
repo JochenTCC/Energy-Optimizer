@@ -10,8 +10,9 @@ from house_config.consumption_csv import consumer_uses_profile_csv
 from house_config.earnie_role import is_earnie_flex, is_earnie_known, is_earnie_manual
 from house_config.generic_schedule import (
     generic_daily_target_kwh_for_day,
-    generic_hourly_kw_for_day,
 )
+from house_config.profile_csv_policy import se_uses_meter_residual_baseload
+
 
 if TYPE_CHECKING:
     from data.modeled_climate import ModeledClimateContext
@@ -39,11 +40,16 @@ def profile_flat_baseload_kw(house_profile: dict) -> float:
 
 
 def _house_generic_consumers(house_profile: dict) -> list[dict]:
-    return [
-        consumer
-        for consumer in house_profile.get("consumers", [])
-        if consumer.get("type") == "generic" and consumer.get("schedule")
-    ]
+    """Generic consumers with a schedule, or known+CSV (schedule optional)."""
+    out: list[dict] = []
+    for consumer in house_profile.get("consumers", []):
+        if consumer.get("type") != "generic":
+            continue
+        if consumer.get("schedule"):
+            out.append(consumer)
+        elif is_earnie_known(consumer) and consumer_uses_profile_csv(consumer):
+            out.append(consumer)
+    return out
 
 
 def split_planning_generic_consumers(
@@ -51,17 +57,17 @@ def split_planning_generic_consumers(
 ) -> tuple[list[dict], list[dict]]:
     """Split generic consumers into fixed overlay vs MILP flex.
 
-    ``known`` and ``manual`` both feed the fixed baseload overlay (SE and live
-    planning assume the user starts manuals at the recommended schedule).
-    ``earnie_role: manual`` still selects the recommendation UI only — it is not
-    MILP-flex.
+    ``known`` feeds the fixed baseload overlay. ``flex`` and ``manual`` are
+    MILP-flex (manual timing optimized in SE; Live uses user day-plans only).
     """
     fixed: list[dict] = []
     flex: list[dict] = []
     for consumer in _house_generic_consumers(house_profile):
-        if is_earnie_known(consumer) or is_earnie_manual(consumer):
+        if is_earnie_known(consumer):
             fixed.append(consumer)
-        elif is_earnie_flex(consumer):
+        elif is_earnie_flex(consumer) or is_earnie_manual(consumer):
+            if not consumer.get("schedule"):
+                continue
             flex.append(planning_consumer_to_milp(consumer))
     return fixed, flex
 
@@ -572,7 +578,12 @@ def house_profile_baseload_overlay(
         historical_totals,
         cons_data_consumer_ids=cons_data_consumer_ids,
     )
-    generic = fixed_generic_hourly_overlay(house_profile, slot_datetimes, skip_ids=skip_ids)
+    generic = fixed_generic_hourly_overlay(
+        house_profile,
+        slot_datetimes,
+        skip_ids=skip_ids,
+        meter_residual_mode=se_uses_meter_residual_baseload(house_profile),
+    )
     thermal = thermal_hourly_overlay(
         house_profile,
         slot_datetimes,
@@ -588,23 +599,84 @@ def fixed_generic_hourly_overlay(
     slot_datetimes: list[datetime],
     *,
     skip_ids: set[str] | None = None,
+    meter_residual_mode: bool | None = None,
 ) -> list[float]:
-    """Summiert kW fixer generic-Verbraucher je Slot."""
+    """Summiert kW fixer generic-Verbraucher je Slot (CSV wins over schedule).
+
+    In meter-residual mode (path B), known without CSV stay inside residual —
+    do not also overlay their weekly schedule.
+    """
     fixed, _flex = split_planning_generic_consumers(house_profile)
     if not fixed:
         return [0.0] * len(slot_datetimes)
+    use_residual = (
+        se_uses_meter_residual_baseload(house_profile)
+        if meter_residual_mode is None
+        else bool(meter_residual_mode)
+    )
     skip = skip_ids or set()
+    from data.consumption_profiles import modeled_consumer_kw_at_datetime
+
     overlay = [0.0] * len(slot_datetimes)
     for slot_index, slot_dt in enumerate(slot_datetimes):
-        day = slot_dt.date()
-        hour = slot_dt.hour
         for consumer in fixed:
             cid = str(consumer.get("id") or "")
             if cid in skip:
                 continue
-            day_hourly = generic_hourly_kw_for_day(consumer, day)
-            overlay[slot_index] += day_hourly[hour]
+            if use_residual and not consumer_uses_profile_csv(consumer):
+                continue
+            overlay[slot_index] += float(
+                modeled_consumer_kw_at_datetime(consumer, slot_dt) or 0.0
+            )
     return overlay
+
+
+def meter_residual_baseload_kw(
+    house_profile: dict,
+    slot_datetimes: list[datetime],
+    *,
+    climate: ModeledClimateContext | None = None,
+) -> tuple[list[float], int]:
+    """Path B: hourly residual = total_profile_csv − Σ(accounted CSV series).
+
+    Controllable CSVs are peeled (MILP re-adds). Known CSV peeled and re-added
+    via fixed overlay. Returns (residual_kw, clipped_hours).
+    """
+    from house_config.consumption_csv import load_hourly_profile_csv
+    from house_config.profile_csv_policy import accounted_csv_consumers
+    from data.consumption_profiles import (
+        csv_kw_at_datetime,
+        modeled_consumer_kw_at_datetime,
+    )
+
+    csv_path = str(house_profile.get("total_profile_csv", "") or "").strip()
+    if not csv_path:
+        raise ValueError("meter residual requires total_profile_csv")
+    lookup = {ts: float(kw) for ts, kw in load_hourly_profile_csv(csv_path)}
+    accounted = accounted_csv_consumers(house_profile)
+    residual: list[float] = []
+    clipped = 0
+    for slot_dt in slot_datetimes:
+        key = slot_dt.strftime("%Y-%m-%d %H:%M:%S")
+        naive = slot_dt.replace(tzinfo=None) if slot_dt.tzinfo else slot_dt
+        total = float(lookup.get(key, lookup.get(naive.strftime("%Y-%m-%d %H:%M:%S"), 0.0)))
+        peel = 0.0
+        for consumer in accounted:
+            if consumer_uses_profile_csv(consumer):
+                peel += float(csv_kw_at_datetime(consumer["profile_csv"], slot_dt) or 0.0)
+            else:
+                peel += float(
+                    modeled_consumer_kw_at_datetime(
+                        consumer, slot_dt, climate=climate
+                    )
+                    or 0.0
+                )
+        value = total - peel
+        if value < 0.0:
+            clipped += 1
+            value = 0.0
+        residual.append(round(value, 6))
+    return residual, clipped
 
 
 def planning_flex_daily_targets(
@@ -614,7 +686,10 @@ def planning_flex_daily_targets(
     *,
     window_end: datetime | None = None,
 ) -> dict[str, float]:
-    """Tagesziele (kWh) für Planungs-Flex-Verbraucher im Fenster."""
+    """Tagesziele (kWh) für Planungs-Flex-Verbraucher im Fenster.
+
+    With ``use_profile_csv``, use CSV window energy; otherwise schedule energy.
+    """
     if not flex_consumers:
         return {}
     from house_config.generic_schedule import (
@@ -623,12 +698,19 @@ def planning_flex_daily_targets(
     )
 
     by_id = {consumer["id"]: consumer for consumer in _house_generic_consumers(house_profile)}
+    # Also map flex/manual that only have schedule via full consumer list
+    for consumer in house_profile.get("consumers", []):
+        if consumer.get("type") == "generic" and consumer.get("id"):
+            by_id.setdefault(consumer["id"], consumer)
     targets: dict[str, float] = {}
     dates = {slot_dt.date() for slot_dt in slot_datetimes}
     anchor = window_end or (slot_datetimes[-1] + timedelta(hours=1) if slot_datetimes else None)
     for milp_consumer in flex_consumers:
         source = by_id.get(milp_consumer["id"])
         if not source:
+            continue
+        if consumer_uses_profile_csv(source):
+            targets[milp_consumer["id"]] = _consumer_window_kwh(source, slot_datetimes)
             continue
         if anchor is not None:
             total = generic_flex_target_kwh_for_window(source, slot_datetimes, anchor)

@@ -234,7 +234,7 @@ def save_profile_consumption_csv(
     *,
     consumer_id: str = "",
     normalize: bool = True,
-    min_hours: int = 8760,
+    min_hours: int = 0,
     role: str = "",
 ) -> str:
     """Speichert Verbrauchs-CSV unter uploads/ neben der aktiven Config; optional normalisiert.
@@ -243,9 +243,12 @@ def save_profile_consumption_csv(
     is empty/invalid, falls back to a stable ``{profile}_{role|consumer}.csv`` name.
     Same original basename re-uploaded overwrites that resampled file.
     Returns a portable ``config/uploads/…`` path for storage in house profiles.
+
+    ``min_hours``: ``0`` / omitted → soft import floor (``MIN_HOURS_IMPORT``);
+    pass ``MIN_HOURS_FULL_YEAR`` when a full year is required.
     """
     from house_config.consumption_csv import (
-        MIN_HOURS_FULL_YEAR,
+        MIN_HOURS_IMPORT,
         normalize_profile_csv_file,
     )
 
@@ -258,7 +261,7 @@ def save_profile_consumption_csv(
     target.write_bytes(content)
     portable = f"config/uploads/{target.name}"
     if normalize:
-        hours = min_hours if min_hours > 0 else MIN_HOURS_FULL_YEAR
+        hours = min_hours if min_hours > 0 else MIN_HOURS_IMPORT
         normalize_profile_csv_file(portable, min_hours=hours)
     return portable
 
@@ -268,11 +271,11 @@ def save_energiemonitor_profile_csvs(
     content: bytes,
     filename: str,
     *,
-    min_hours: int = 8760,
+    min_hours: int = 0,
 ) -> dict[str, str]:
-    """Import Energiemonitor upload → canonical Verbrauch (+ optional PV) under uploads/."""
+    """Import Energiemonitor → Verbrauch (+ optional PV/Batt/Netz) under uploads/."""
     from house_config.consumption_csv import (
-        MIN_HOURS_FULL_YEAR,
+        MIN_HOURS_IMPORT,
         import_energiemonitor_to_canonical,
     )
 
@@ -283,16 +286,86 @@ def save_energiemonitor_profile_csvs(
         safe_name = f"{safe_name}.csv"
     raw_path = uploads_dir / f"{profile_id}_energiemonitor_raw_{safe_name}"
     raw_path.write_bytes(content)
-    hours = min_hours if min_hours > 0 else MIN_HOURS_FULL_YEAR
-    verbrauch_name = f"{profile_id}_energiemonitor_verbrauch.csv"
-    produktion_name = f"{profile_id}_energiemonitor_produktion.csv"
-    verbrauch_dest = f"config/uploads/{verbrauch_name}"
-    produktion_dest = f"config/uploads/{produktion_name}"
+    hours = min_hours if min_hours > 0 else MIN_HOURS_IMPORT
+    verbrauch_dest = f"config/uploads/{profile_id}_energiemonitor_verbrauch.csv"
+    produktion_dest = f"config/uploads/{profile_id}_energiemonitor_produktion.csv"
+    battery_dest = f"config/uploads/{profile_id}_energiemonitor_battery.csv"
+    grid_dest = f"config/uploads/{profile_id}_energiemonitor_grid.csv"
     return import_energiemonitor_to_canonical(
         raw_path.as_posix(),
         verbrauch_dest=verbrauch_dest,
         produktion_dest=produktion_dest,
+        battery_dest=battery_dest,
+        grid_dest=grid_dest,
         min_hours=hours,
+    )
+
+
+def save_energiemonitor_balance_profile_csvs(
+    profile_id: str,
+    content: bytes,
+    filename: str,
+    *,
+    min_hours: int = 0,
+    invert_pv: bool = False,
+    invert_battery: bool = False,
+    invert_grid: bool = False,
+) -> dict[str, object]:
+    """Energiemonitor → Bilanz (PV+Batt+Grid) → derived Verbrauch."""
+    from house_config.consumption_csv import (
+        MIN_HOURS_IMPORT,
+        import_energiemonitor_balance_to_canonical,
+    )
+
+    uploads_dir = Path(resolve_uploads_dir())
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    safe_name = Path(filename).name or "energiemonitor.csv"
+    if not safe_name.lower().endswith(".csv"):
+        safe_name = f"{safe_name}.csv"
+    raw_path = uploads_dir / f"{profile_id}_energiemonitor_balance_raw_{safe_name}"
+    raw_path.write_bytes(content)
+    hours = min_hours if min_hours > 0 else MIN_HOURS_IMPORT
+    return import_energiemonitor_balance_to_canonical(
+        raw_path.as_posix(),
+        verbrauch_dest=f"config/uploads/{profile_id}_balance_verbrauch.csv",
+        pv_dest=f"config/uploads/{profile_id}_balance_pv.csv",
+        battery_dest=f"config/uploads/{profile_id}_balance_battery.csv",
+        grid_dest=f"config/uploads/{profile_id}_balance_grid.csv",
+        min_hours=hours,
+        invert_pv=invert_pv,
+        invert_battery=invert_battery,
+        invert_grid=invert_grid,
+    )
+
+
+def save_balance_total_from_component_paths(
+    profile_id: str,
+    *,
+    pv_path: str,
+    battery_path: str,
+    grid_path: str,
+    min_hours: int = 0,
+    invert_pv: bool = False,
+    invert_battery: bool = False,
+    invert_grid: bool = False,
+) -> dict[str, object]:
+    """Derive total_profile_csv from three already-stored component paths."""
+    from house_config.consumption_csv import (
+        MIN_HOURS_IMPORT,
+        derive_and_write_balance_total,
+    )
+
+    hours = min_hours if min_hours > 0 else MIN_HOURS_IMPORT
+    total_dest = f"config/uploads/{profile_id}_balance_verbrauch.csv"
+    return derive_and_write_balance_total(
+        pv_path=pv_path,
+        battery_path=battery_path,
+        grid_path=grid_path,
+        total_dest=total_dest,
+        min_hours=hours,
+        invert_pv=invert_pv,
+        invert_battery=invert_battery,
+        invert_grid=invert_grid,
     )
 
 

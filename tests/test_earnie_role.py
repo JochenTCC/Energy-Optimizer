@@ -79,7 +79,7 @@ def test_normalize_assigns_earnie_role_known():
     assert consumer["schedule"]["start_shift_h"] == 0.0
 
 
-def test_normalize_manual_in_fixed_overlay_not_milp():
+def test_normalize_manual_is_milp_flex():
     doc = normalize_house_profiles_document(
         {
             "profiles": [
@@ -123,9 +123,8 @@ def test_normalize_manual_in_fixed_overlay_not_milp():
     )
     profile = doc["profiles"]["p1"]
     fixed, flex = split_planning_generic_consumers(profile)
-    assert [c["id"] for c in fixed] == ["wm"]
-    assert len(flex) == 1
-    assert flex[0]["id"] == "flex_load"
+    assert fixed == []
+    assert {c["id"] for c in flex} == {"wm", "flex_load"}
 
 
 def test_normalize_flex_requires_positive_shift():
@@ -164,8 +163,8 @@ def test_resolve_explicit_role():
     assert not is_earnie_flex(consumer)
 
 
-def test_split_planning_treats_manual_as_fixed_overlay():
-    """manual stays recommendation UI, but SE/live overlay includes schedule energy."""
+def test_split_planning_treats_manual_as_milp_flex():
+    """manual is MILP-flex in SE (like Gesteuert); Live uses user day-plans only."""
     profile = {
         "consumers": [
             {
@@ -195,9 +194,8 @@ def test_split_planning_treats_manual_as_fixed_overlay():
         ]
     }
     fixed, flex = split_planning_generic_consumers(profile)
-    assert [c["id"] for c in fixed] == ["wm"]
-    assert len(flex) == 1
-    assert flex[0]["id"] == "flex_load"
+    assert fixed == []
+    assert {c["id"] for c in flex} == {"wm", "flex_load"}
 
 
 def test_normalize_migrates_legacy_loxone_power_name_to_inputs():

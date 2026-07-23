@@ -27,6 +27,18 @@ _PRODUKTION_ALIASES = frozenset(
         "leistungproduktion",
     }
 )
+_BATTERY_ALIASES = frozenset(
+    {
+        "leistung batterie",
+        "leistungbatterie",
+    }
+)
+_GRID_ALIASES = frozenset(
+    {
+        "leistung energieversorger",
+        "leistungenergieversorger",
+    }
+)
 
 
 def _normalize_header(name: object) -> str:
@@ -44,17 +56,31 @@ def _find_column_index(df: pd.DataFrame, aliases: frozenset[str]) -> int | None:
     return None
 
 
+def _optional_hourly_column(
+    df: pd.DataFrame,
+    timestamps: pd.Series,
+    aliases: frozenset[str],
+) -> pd.Series | None:
+    col = _find_column_index(df, aliases)
+    if col is None:
+        return None
+    series = _series_to_hourly(df, timestamps, col).astype(float)
+    return series if not series.empty else None
+
+
 def load_energiemonitor_hourly(
     filepath: str,
     *,
     encoding: str = "latin-1",
+    require_verbrauch: bool = True,
 ) -> dict[str, pd.Series]:
-    """Load Energiemonitor CSV; return hourly series for Verbrauch (required) and Produktion (optional).
+    """Load Energiemonitor CSV; return hourly series by role key.
+
+    Keys: ``verbrauch`` (required unless ``require_verbrauch=False``),
+    optional ``produktion``, ``batterie``, ``energieversorger``.
 
     Expected columns (among others):
     Datum;Zeit;Leistung Produktion [kW];Leistung Verbrauch [kW];…
-
-    Ignores Energieversorger, Batterie, Ladestand, and energy counters.
     """
     path = Path(filepath)
     if not path.is_file():
@@ -67,27 +93,30 @@ def load_energiemonitor_hourly(
     else:
         timestamps = _parse_combined_timestamps(df)
 
-    verbrauch_col = _find_column_index(df, _VERBRAUCH_ALIASES)
-    if verbrauch_col is None:
+    result: dict[str, pd.Series] = {}
+    verbrauch = _optional_hourly_column(df, timestamps, _VERBRAUCH_ALIASES)
+    if verbrauch is not None:
+        result["verbrauch"] = verbrauch
+    elif require_verbrauch:
         raise ValueError(
             f"Energiemonitor-CSV '{filepath}': Spalte "
             "'Leistung Verbrauch [kW]' fehlt."
         )
 
-    result: dict[str, pd.Series] = {
-        "verbrauch": _series_to_hourly(df, timestamps, verbrauch_col).astype(float),
-    }
-    if result["verbrauch"].empty:
+    produktion = _optional_hourly_column(df, timestamps, _PRODUKTION_ALIASES)
+    if produktion is not None:
+        result["produktion"] = produktion
+    batterie = _optional_hourly_column(df, timestamps, _BATTERY_ALIASES)
+    if batterie is not None:
+        result["batterie"] = batterie
+    grid = _optional_hourly_column(df, timestamps, _GRID_ALIASES)
+    if grid is not None:
+        result["energieversorger"] = grid
+
+    if not result:
         raise ValueError(
-            f"Energiemonitor-CSV '{filepath}': Verbrauchsserie ist leer."
+            f"Energiemonitor-CSV '{filepath}': keine Leistungsspalten gefunden."
         )
-
-    produktion_col = _find_column_index(df, _PRODUKTION_ALIASES)
-    if produktion_col is not None:
-        produktion = _series_to_hourly(df, timestamps, produktion_col).astype(float)
-        if not produktion.empty:
-            result["produktion"] = produktion
-
     return result
 
 
@@ -102,4 +131,11 @@ def looks_like_energiemonitor(path: Path | str) -> bool:
     lower = first.lower()
     has_verbrauch = "verbrauch" in lower and "leistung" in lower
     has_produktion = "produktion" in lower and "leistung" in lower
-    return has_verbrauch and (has_produktion or "energiemonitor" in lower or ";" in first)
+    has_balance = (
+        "batterie" in lower
+        and "energieversorger" in lower
+        and "leistung" in lower
+    )
+    return (has_verbrauch and (has_produktion or "energiemonitor" in lower or ";" in first)) or (
+        has_balance and has_produktion
+    )

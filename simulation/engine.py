@@ -205,7 +205,11 @@ class HistoricalDataCache:
 
 
 def scenario_uses_imported_pv(scenario_params: dict | None) -> bool:
-    """True when scenario requests house-profile PV CSV and a path is configured."""
+    """True when scenario requests house-profile PV CSV and a path is configured.
+
+    Short PV CSVs (< ``MIN_HOURS_FULL_YEAR`` span) do not qualify — SE stays
+    on synthetic Open-Meteo PV.
+    """
     if not isinstance(scenario_params, dict):
         return False
     if not scenario_params.get("use_imported_pv"):
@@ -213,7 +217,12 @@ def scenario_uses_imported_pv(scenario_params: dict | None) -> bool:
     profile = scenario_params.get("_house_profile")
     if not isinstance(profile, dict):
         return False
-    return bool(str(profile.get("pv_profile_csv", "") or "").strip())
+    path = str(profile.get("pv_profile_csv", "") or "").strip()
+    if not path:
+        return False
+    from house_config.consumption_csv import profile_csv_adequate_for_se
+
+    return profile_csv_adequate_for_se(path)
 
 
 def _imported_pv_kw_for_slots(
@@ -221,7 +230,7 @@ def _imported_pv_kw_for_slots(
     scenario_params: dict,
 ) -> list[float] | None:
     """Return imported PV kW series, or None to fall back to weather PV."""
-    if not scenario_params.get("use_imported_pv"):
+    if not scenario_uses_imported_pv(scenario_params):
         return None
     profile = scenario_params.get("_house_profile")
     if not isinstance(profile, dict):
@@ -411,11 +420,13 @@ def build_historical_matrix_for_slots(
     from house_config.planning_flex_bridge import (
         PROFILE_SPEC,
         house_profile_baseload_overlay,
+        meter_residual_baseload_kw,
         milp_flex_thermal_annual_ids,
         profile_flat_baseload_kw,
         resolve_consumption_source,
         resolve_profile_spec_flex_targets,
     )
+    from house_config.profile_csv_policy import se_uses_meter_residual_baseload
 
     consumption_source = resolve_consumption_source(scenario_params)
     profile = (scenario_params or {}).get("_house_profile")
@@ -437,6 +448,7 @@ def build_historical_matrix_for_slots(
     )
     reference_total_kwh = round(sum(reference_total_load), 3)
 
+    residual_clipped_hours = 0
     if consumption_source == PROFILE_SPEC:
         if not profile:
             raise ValueError(
@@ -445,7 +457,6 @@ def build_historical_matrix_for_slots(
         from data.modeled_climate import ModeledClimateContext
 
         climate = ModeledClimateContext.from_scenario(scenario_params)
-        flat_kw = profile_flat_baseload_kw(profile)
         thermal_milp_ids = milp_flex_thermal_annual_ids(flexible_consumers)
         overlay = house_profile_baseload_overlay(
             profile,
@@ -455,7 +466,16 @@ def build_historical_matrix_for_slots(
             milp_flex_thermal_ids=thermal_milp_ids,
             climate=climate,
         )
-        baseload_kw = [round(flat_kw + extra, 3) for extra in overlay]
+        if se_uses_meter_residual_baseload(profile):
+            residual, residual_clipped_hours = meter_residual_baseload_kw(
+                profile,
+                slot_datetimes,
+                climate=climate,
+            )
+            baseload_kw = [round(base + extra, 3) for base, extra in zip(residual, overlay)]
+        else:
+            flat_kw = profile_flat_baseload_kw(profile)
+            baseload_kw = [round(flat_kw + extra, 3) for extra in overlay]
         historical_baseload_kwh = round(sum(baseload_kw), 3)
         matrix_total_kw = list(baseload_kw)
         consumer_daily_targets_kwh = resolve_profile_spec_flex_targets(
@@ -565,6 +585,7 @@ def build_historical_matrix_for_slots(
             stored_baseload_kwh - historical_baseload_kwh, 3
         ),
         "consumer_daily_targets_kwh": consumer_daily_targets_kwh,
+        "residual_clipped_hours": residual_clipped_hours,
     }
     if flexible_consumers:
         meta["_flexible_consumers"] = flexible_consumers

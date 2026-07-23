@@ -7,7 +7,6 @@ from typing import Any
 import pandas as pd
 
 from house_config.earnie_role import is_earnie_known
-from house_config.generic_schedule import generic_hourly_kw_for_day
 from house_config.planning_flex_bridge import (
     _allocate_chart_color_index,
     _used_chart_color_indices,
@@ -18,9 +17,8 @@ from house_config.planning_flex_bridge import (
 def _known_fixed_for_chart(house_profile: dict) -> list[dict]:
     """Fixed overlay consumers that get named Chart-1 peel (known only).
 
-    ``earnie_role: manual`` stays in the planning baseload overlay for SE/live
-    energy totals, but named bars come only from ``appliance_schedules.json``
-    (user-planned runs) — not from the assumed weekly default schedule.
+    ``earnie_role: manual`` is MILP-flex in SE; on Live, named bars come only
+    from ``appliance_schedules.json`` (user-planned runs).
     """
     fixed, _flex = split_planning_generic_consumers(house_profile)
     return [consumer for consumer in fixed if is_earnie_known(consumer)]
@@ -103,13 +101,15 @@ def apply_known_generic_to_chart_rows(
     house_profile: dict | None = None,
 ) -> None:
     """
-    Split known schedule power out of Verbrauch-Prognose into named kW columns.
+    Split known power out of Verbrauch-Prognose into named kW columns.
 
-    Optimization still treats known as Grundlast; this is display-only.
+    Uses CSV when ``use_profile_csv`` is active, otherwise the weekly schedule.
     Manuals are not peeled here — use ``apply_appliance_schedules_to_chart_rows``.
     """
     if not chart_rows:
         return
+    from data.consumption_profiles import modeled_consumer_kw_at_datetime
+
     profile = _resolve_house_profile(house_profile)
     fixed = _known_fixed_for_chart(profile)
     if not fixed:
@@ -119,14 +119,12 @@ def apply_known_generic_to_chart_rows(
         slot = _slot_datetime(chart_row)
         if slot is None:
             continue
-        day_hourly_by_id = {
-            str(consumer["id"]): generic_hourly_kw_for_day(consumer, slot.date())
-            for consumer in fixed
-        }
         moved_kw = 0.0
         for consumer in fixed:
             col = known_column_name(consumer)
-            scheduled = float(day_hourly_by_id[str(consumer["id"])][slot.hour])
+            scheduled = float(
+                modeled_consumer_kw_at_datetime(consumer, slot) or 0.0
+            )
             if scheduled <= 1e-9:
                 continue
             if float(chart_row.get(col, 0.0) or 0.0) > 1e-9:

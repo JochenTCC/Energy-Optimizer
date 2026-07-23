@@ -251,19 +251,34 @@ def _apply_house_profile_baseload_overlay(
     target_hours: List,
     baseload: List[float],
 ) -> List[float]:
-    """Generic-Verbraucher mit earnie_role=known aus Hausprofil auf Grundlast."""
+    """Bekannt-Verbraucher aus Hausprofil auf Live-Grundlast (CSV wenn aktiv).
+
+    Manuelles Gerät is not overlaid here — only user day-plans via
+    appliance_schedules. Live always uses path-A style overlay (not meter residual).
+    """
     profile = config.get_resolved_runtime_settings().get("_house_profile")
     if not profile:
         return baseload
     from house_config.planning_flex_bridge import (
         fixed_generic_hourly_overlay,
-        house_profile_baseload_overlay,
+        thermal_hourly_overlay,
     )
 
     if config.CONFIG._raw_config.get("flexible_consumers"):
-        overlay = fixed_generic_hourly_overlay(profile, target_hours)
+        overlay = fixed_generic_hourly_overlay(
+            profile,
+            target_hours,
+            meter_residual_mode=False,
+        )
     else:
-        overlay = house_profile_baseload_overlay(profile, target_hours)
+        # Greenfield: include thermal fixed overlays; force non-residual for live.
+        generic = fixed_generic_hourly_overlay(
+            profile,
+            target_hours,
+            meter_residual_mode=False,
+        )
+        thermal = thermal_hourly_overlay(profile, target_hours)
+        overlay = [round(g + t, 6) for g, t in zip(generic, thermal)]
     return [round(base + extra, 3) for base, extra in zip(baseload, overlay)]
 
 

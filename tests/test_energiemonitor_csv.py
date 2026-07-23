@@ -92,22 +92,36 @@ def test_import_energiemonitor_to_canonical(tmp_path: Path) -> None:
     _write_energiemonitor(source, hours=MIN_HOURS_FULL_YEAR)
     verbrauch_dest = tmp_path / "verbrauch.csv"
     produktion_dest = tmp_path / "pv.csv"
+    battery_dest = tmp_path / "battery.csv"
+    grid_dest = tmp_path / "grid.csv"
     result = import_energiemonitor_to_canonical(
         str(source),
         verbrauch_dest=str(verbrauch_dest),
         produktion_dest=str(produktion_dest),
+        battery_dest=str(battery_dest),
+        grid_dest=str(grid_dest),
     )
     assert result["total_profile_csv"] == str(verbrauch_dest)
     assert result["pv_profile_csv"] == str(produktion_dest)
+    assert result["battery_profile_csv"] == str(battery_dest)
+    assert result["grid_profile_csv"] == str(grid_dest)
     rows_v = load_hourly_profile_csv(str(verbrauch_dest))
     rows_p = load_hourly_profile_csv(str(produktion_dest))
+    rows_b = load_hourly_profile_csv(str(battery_dest))
+    rows_g = load_hourly_profile_csv(str(grid_dest))
     assert len(rows_v) >= MIN_HOURS_FULL_YEAR
     assert len(rows_p) >= MIN_HOURS_FULL_YEAR
+    assert len(rows_b) >= MIN_HOURS_FULL_YEAR
+    assert len(rows_g) >= MIN_HOURS_FULL_YEAR
     assert rows_v[0][1] == pytest.approx(0.5)
     assert rows_p[0][1] == pytest.approx(1.2)
+    assert rows_b[0][1] == pytest.approx(0.0)
+    assert rows_g[0][1] == pytest.approx(0.0)
 
 
-def test_import_energiemonitor_too_short_raises(tmp_path: Path) -> None:
+def test_import_energiemonitor_too_short_raises_when_full_year_required(
+    tmp_path: Path,
+) -> None:
     source = tmp_path / "em_short.csv"
     _write_energiemonitor(source, hours=100)
     with pytest.raises(ValueError, match="Stunden"):
@@ -115,4 +129,18 @@ def test_import_energiemonitor_too_short_raises(tmp_path: Path) -> None:
             str(source),
             verbrauch_dest=str(tmp_path / "v.csv"),
             produktion_dest=str(tmp_path / "p.csv"),
+            min_hours=MIN_HOURS_FULL_YEAR,
         )
+
+
+def test_import_energiemonitor_short_allowed_by_default(tmp_path: Path) -> None:
+    source = tmp_path / "em_short_ok.csv"
+    _write_energiemonitor(source, hours=100)
+    verbrauch_dest = tmp_path / "v.csv"
+    result = import_energiemonitor_to_canonical(
+        str(source),
+        verbrauch_dest=str(verbrauch_dest),
+        produktion_dest=str(tmp_path / "p.csv"),
+    )
+    rows_v = load_hourly_profile_csv(result["total_profile_csv"])
+    assert len(rows_v) == 100

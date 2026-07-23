@@ -212,6 +212,40 @@ def build_modeled_hourly_kw_by_consumer(
     return result
 
 
+def _modeled_kw_series_for_timestamps(
+    consumer: dict,
+    timestamps: list[str],
+) -> list[float]:
+    """Series aligned to ``timestamps``; expensive year models built once."""
+    if consumer_uses_profile_csv(consumer):
+        lookup = _csv_kw_lookup(str(consumer["profile_csv"]))
+        return [
+            float(
+                lookup.get(
+                    _timestamp_hour_key(_parse_profile_timestamp(ts)),
+                    0.0,
+                )
+            )
+            for ts in timestamps
+        ]
+    ctype = consumer.get("type")
+    # thermal_*: modeled_consumer_kw_at_datetime rebuilt the full year per slot.
+    if ctype in ("thermal_annual", "thermal_rc"):
+        year = _modeled_consumer_hourly_kw(
+            consumer,
+            hours=MODELED_PROFILE_HOURS_PER_YEAR,
+        )
+        values: list[float] = []
+        for ts in timestamps:
+            idx = _modeled_hour_index(_parse_profile_timestamp(ts))
+            values.append(float(year[idx]) if idx < len(year) else 0.0)
+        return values
+    return [
+        modeled_consumer_kw_at_datetime(consumer, _parse_profile_timestamp(ts))
+        for ts in timestamps
+    ]
+
+
 def build_modeled_kw_for_timestamps(
     profile: dict,
     timestamps: list[str],
@@ -225,10 +259,7 @@ def build_modeled_kw_for_timestamps(
     result: dict[str, list[float]] = {}
     for index, consumer in enumerate(profile.get("consumers", [])):
         cid = _consumer_id(consumer, index)
-        result[cid] = [
-            modeled_consumer_kw_at_datetime(consumer, _parse_profile_timestamp(ts))
-            for ts in timestamps
-        ]
+        result[cid] = _modeled_kw_series_for_timestamps(consumer, timestamps)
     result["baseload"] = [baseload_kw] * len(timestamps)
     return result
 

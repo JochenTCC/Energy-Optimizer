@@ -43,14 +43,16 @@ def render_consumption_display(
     scenario_consumer_overlays: ScenarioConsumerOverlayBundle | None = None,
     scenarios_for_pv: dict[str, dict] | None = None,
     live_scenario_id: str | None = None,
+    bundle: ConsumptionSeriesBundle | None = None,
 ) -> None:
     """Einheitliche Verbrauchsvisualisierung für drei Modi."""
-    bundle = _build_bundle(
-        mode,
-        profile=profile,
-        csv_series=csv_series,
-        cons_data=cons_data,
-    )
+    if bundle is None:
+        bundle = _build_bundle(
+            mode,
+            profile=profile,
+            csv_series=csv_series,
+            cons_data=cons_data,
+        )
     if scenarios_for_pv is not None:
         bundle = with_modeled_pv_from_all_scenarios(
             bundle,
