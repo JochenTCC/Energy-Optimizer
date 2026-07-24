@@ -59,6 +59,25 @@ def test_season_mirror_prefers_most_recent_source_year():
     assert float(mirrored["total_kw"].iloc[0]) == 4.0
 
 
+def test_season_mirror_skips_incomplete_newer_source_year():
+    """Partial newest July must not win over a complete older July."""
+    partial_2026 = _hourly_month(2026, 7, 9.0).loc[: pd.Timestamp("2026-07-23 23:00:00")]
+    source = pd.concat(
+        [
+            _hourly_month(2025, 7, 5.0),
+            partial_2026,
+        ]
+    )
+    mirrored = season_mirror_cons_dataframe(
+        source,
+        target_start=pd.Timestamp("2025-07-01"),
+        target_end=pd.Timestamp("2025-07-31"),
+    )
+    assert float(mirrored["total_kw"].iloc[0]) == 5.0
+    assert float(mirrored.loc[pd.Timestamp("2025-07-31 12:00:00"), "total_kw"]) == 5.0
+    assert len(mirrored) == 31 * 24
+
+
 def test_season_mirror_missing_month_raises():
     source = _hourly_month(2024, 1, 1.0)
     with pytest.raises(ValueError, match="Kalendermonat 06"):

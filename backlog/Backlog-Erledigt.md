@@ -3,6 +3,12 @@
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 
+### Bugfix SE Season-Mirror page hang (2026-07-24)
+
+- [x] SE rendering of subpage will not finish after mirroring for months was activated — `season_mirror_to_last_month` was written to `config.json` but omitted from `load_sim_path_params` / `scenario_explorer_conf_snapshot`, so `is_season_mirror_enabled()` stayed false and the checkbox path infinite-`st.rerun()`’d
+- [x] Season-Mirror raised `Quellstunden fehlen` on incomplete newest calendar month (e.g. partial July 2026) — source year now prefers the most recent year that fully covers required target days
+
+
 ### SE / SK polish (Backlog L22–30) (2026-07-24)
 
 - [x] HK Standort: Breitengrad / Längengrad / Land in one row

@@ -27,14 +27,53 @@ def wall_clock_simulation_window(
     return start, end
 
 
-def _source_year_for_month(df: pd.DataFrame, month: int) -> int:
-    years = sorted({int(ts.year) for ts in df.index if int(ts.month) == month}, reverse=True)
+def _year_covers_month_days(
+    index: pd.DatetimeIndex,
+    *,
+    year: int,
+    month: int,
+    required_days: set[int],
+) -> bool:
+    for day in required_days:
+        for hour in range(24):
+            try:
+                src_ts = pd.Timestamp(year=year, month=month, day=day, hour=hour)
+            except ValueError:
+                return False
+            if src_ts not in index:
+                return False
+    return True
+
+
+def _source_year_for_month(
+    df: pd.DataFrame,
+    month: int,
+    *,
+    required_days: set[int],
+) -> int:
+    """Most recent year whose calendar month fully covers *required_days* (24h each)."""
+    years = sorted(
+        {int(ts.year) for ts in df.index if int(ts.month) == month},
+        reverse=True,
+    )
     if not years:
         raise ValueError(
             f"Season-Mirror: in cons_data fehlt Kalendermonat {month:02d} "
             "(kein Quelljahr verfügbar)."
         )
-    return years[0]
+    for year in years:
+        if _year_covers_month_days(
+            df.index,
+            year=year,
+            month=month,
+            required_days=required_days,
+        ):
+            return year
+    raise ValueError(
+        f"Season-Mirror: kein Quelljahr deckt Kalendermonat {month:02d} "
+        f"vollständig ab (benötigte Tage: {sorted(required_days)[:8]}"
+        f"{'…' if len(required_days) > 8 else ''})."
+    )
 
 
 def season_mirror_cons_dataframe(
@@ -46,9 +85,9 @@ def season_mirror_cons_dataframe(
     """
     Map hourly rows by calendar month onto [target_start, target_end] (inclusive days).
 
-    For each target month, use the most recent same calendar month in *df*.
-    Hours that do not exist in the target month are dropped. Missing source days
-    raise a clear error.
+    For each target month, use the most recent same calendar month in *df* that
+    fully covers the required target days. Hours that do not exist in the target
+    month are dropped. Missing source days raise a clear error.
     """
     if df.empty:
         raise ValueError("Season-Mirror: cons_data ist leer.")
@@ -71,10 +110,17 @@ def season_mirror_cons_dataframe(
     rows: list[pd.Series] = []
     missing: list[str] = []
 
-    months = pd.period_range(start.to_period("M"), end.to_period("M"), freq="M")
+    required_days_by_month: dict[int, set[int]] = {}
+    for ts in target_index:
+        required_days_by_month.setdefault(int(ts.month), set()).add(int(ts.day))
+
     source_year_by_month = {
-        int(period.month): _source_year_for_month(source, int(period.month))
-        for period in months
+        month: _source_year_for_month(
+            source,
+            month,
+            required_days=days,
+        )
+        for month, days in required_days_by_month.items()
     }
 
     for ts in target_index:

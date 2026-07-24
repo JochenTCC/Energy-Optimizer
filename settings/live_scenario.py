@@ -296,5 +296,8 @@ def scenario_explorer_conf_snapshot(obj: Any) -> dict:
         "price_source": obj.PRICE_SOURCE,
         "price_provider": obj.PRICE_PROVIDER,
         "price_range": obj.PRICE_RANGE,
+        "season_mirror_to_last_month": bool(
+            getattr(obj, "SEASON_MIRROR_TO_LAST_MONTH", False)
+        ),
         "energy_charts_bzn": obj.ENERGY_CHARTS_BZN,
     }

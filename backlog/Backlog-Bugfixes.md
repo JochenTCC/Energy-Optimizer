@@ -26,7 +26,8 @@ Fix is **implemented** (code + tests + optional PATCH in `version.py`), but **pr
 ## New Bugs (Do not remove this chapter — even if empty)
 
 - [ ] SOC line shows a vertical part near 11:00. Here is the dump: "chart_debug_review\debug_dump_20260724_110005"
-- [ ] Recognition of still connected EV is not leading to a proper scheduling (because EV is still fully charged). Problem in the actual setting ist, that there is no trustable information about the real SOC of EV. Are there still possibilities for improvement or is real SOC a necessity?
+- [ ] faulty Recognition of still connected EV (since last charging) is not leading to a proper scheduling (because EV is still fully charged but Earnie thinks that it must be charged again). Problem in the actual setting ist, that there is no trustable information about the real SOC of EV. Are there still possibilities for improvement or is real SOC a necessity?
+- [ ] Do a profiling on rendering of "Detaillierte Simulationsansicht" - look for speed up potentials
 
 
 ## Organizational Changes - no bugs (but still no development issue)

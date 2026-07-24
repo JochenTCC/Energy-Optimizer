@@ -129,6 +129,9 @@ def load_sim_path_params(raw_config: dict) -> dict[str, Any]:
         "PRICE_SOURCE": sim_paths.get("price_source", "csv"),
         "PRICE_PROVIDER": sim_paths.get("price_provider", "awattar"),
         "PRICE_RANGE": sim_paths.get("price_range", "last_12_months"),
+        "SEASON_MIRROR_TO_LAST_MONTH": bool(
+            sim_paths.get("season_mirror_to_last_month", False)
+        ),
         "ENERGY_CHARTS_BZN": sim_paths.get("energy_charts_bzn", "DE-LU"),
     }
 

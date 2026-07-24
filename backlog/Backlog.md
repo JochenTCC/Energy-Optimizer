@@ -20,6 +20,10 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 Year-1 product depth (trust / What-If / churn). **Good-enough €** for SE and demos — invoice-grade bill reconciliation is explicitly out of scope (nice-to-have later). Thin marker/data-model prep for SAM (`2.3.f`) is done; connector rewrite remains `2.4`. SE MILP speed/tuning (`2.3.c.0a`–`2.3.c.3`) → [Backlog-Erledigt.md](Backlog-Erledigt.md). CSV / Basislast / earnie_role alignment → [Backlog-Erledigt.md](Backlog-Erledigt.md). UI polish → [Backlog-Erledigt.md](Backlog-Erledigt.md). Energieflussmonitor Baustein / CSV research → [Backlog-Erledigt.md](Backlog-Erledigt.md). Basislast Jahres-/Monats-Rest radio → [Backlog-Erledigt.md](Backlog-Erledigt.md). Mandatory Land + `supplier_id` monthly fees → [Backlog-Erledigt.md](Backlog-Erledigt.md). SE / SK polish (Standort row, rename SK, Verbrauchsdaten fingerprint, season-mirror, scenario `enabled`) → [Backlog-Erledigt.md](Backlog-Erledigt.md).
 
 - [ ] Remove SOC-bei-Opt-Last because it does not have a practical meaning (All inverters maximizes already own consumption of PV)
+- [ ] UI polish in SK
+  - Make a 2 x 3 matrix (Similar to tariff edit below)
+    | "Bezeichung" + Edit Field | "Aktiv für Szenario Explorer" | "Importieres PV-Profil ..." |
+    | "Hausprofil" + List | "Batterie" + List | "PV-Anlagen" + List |
 
 - [ ] **2.3.0 — Release**
   - Finalize after SCC / community test of `2.3.0-alpha.3`; update German docs as needed (carry-over from 2.2.0 finalize)
