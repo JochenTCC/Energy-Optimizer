@@ -42,23 +42,20 @@ def ordered_user_scenario_ids(
     live_scenario_id: str,
     labels: Mapping[str, str] | None = None,
 ) -> list[str]:
-    """Live first, then remaining scenarios A–Z by label (case-insensitive).
+    """Live first, then remaining scenarios in input iteration order (file order).
 
     Display-order helper only — does not mutate JSON / file order.
+    ``labels`` is accepted for call-site compatibility and ignored.
     """
+    del labels  # API compat; order is file/array order, not label A–Z.
     unique = list(
         dict.fromkeys(str(sid).strip() for sid in scenario_ids if str(sid).strip())
     )
     live = str(live_scenario_id or "").strip()
     rest = [sid for sid in unique if sid != live]
-
-    def sort_key(sid: str) -> str:
-        return str((labels or {}).get(sid, sid) or sid).casefold()
-
-    rest_sorted = sorted(rest, key=sort_key)
     if live and live in unique:
-        return [live, *rest_sorted]
-    return rest_sorted
+        return [live, *rest]
+    return rest
 
 
 def entity_human_label(item: dict) -> str:
@@ -346,11 +343,14 @@ def normalize_scenario_form_snapshot(scenario: dict) -> dict:
         netzentgelt_cent_kwh_override=raw_settings.get("netzentgelt_cent_kwh_override"),
         use_imported_pv=bool(raw_settings.get("use_imported_pv")),
     )
-    return {
+    out = {
         "label": str(scenario.get("label", "") or "").strip(),
         "enabled": scenario.get("enabled", True) is not False,
         "settings": settings,
     }
+    if "own_reference" in scenario:
+        out["own_reference"] = bool(scenario.get("own_reference"))
+    return out
 
 
 def read_scenario_form_snapshot(
@@ -397,15 +397,17 @@ def read_scenario_form_snapshot(
     draft_label = str(
         session_state.get(scoped_widget_key(session_scope, "scenario_label"), "") or ""
     ).strip()
-    return normalize_scenario_form_snapshot(
-        {
-            "label": draft_label,
-            "enabled": bool(
-                session_state.get(scoped_widget_key(session_scope, "scenario_enabled"), True)
-            ),
-            "settings": settings,
-        },
-    )
+    snapshot_src: dict = {
+        "label": draft_label,
+        "enabled": bool(
+            session_state.get(scoped_widget_key(session_scope, "scenario_enabled"), True)
+        ),
+        "settings": settings,
+    }
+    own_ref_key = scoped_widget_key(session_scope, "scenario_own_reference")
+    if own_ref_key in session_state:
+        snapshot_src["own_reference"] = bool(session_state.get(own_ref_key))
+    return normalize_scenario_form_snapshot(snapshot_src)
 
 
 def store_scenario_form_baseline(

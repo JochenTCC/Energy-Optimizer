@@ -15,6 +15,7 @@ from ui.house_config_io import (
     delete_scenario,
     get_planning_tariff_selection,
     load_backtesting_scenarios_raw,
+    reorder_scenarios,
     save_planning_tariff_selection,
     upsert_battery,
     upsert_house_profile,
@@ -374,6 +375,90 @@ def test_upsert_scenario_keeps_live_label(tmp_path, monkeypatch):
     saved = load_backtesting_scenarios_raw()
     live = next(item for item in saved["scenarios"] if item["id"] == "live")
     assert live["label"] == "Live"
+
+
+def test_upsert_scenario_preserves_array_position(tmp_path, monkeypatch):
+    config_dir = _bind_paths(tmp_path, monkeypatch)
+    monkeypatch.setattr("ui.house_config_io.config.reinit_config", lambda **kwargs: None)
+    monkeypatch.setattr(
+        "ui.house_config_io.config.get_live_scenario_id",
+        lambda: "live",
+    )
+    config_dir.joinpath("backtesting_scenarios.json").write_text(
+        json.dumps(
+            {
+                "scenarios": [
+                    {
+                        "id": "live",
+                        "label": "Live",
+                        "settings": default_live_settings(),
+                    },
+                    {
+                        "id": "alpha",
+                        "label": "Alpha",
+                        "settings": default_live_settings(),
+                    },
+                    {
+                        "id": "beta",
+                        "label": "Beta",
+                        "settings": default_live_settings(),
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    upsert_scenario(
+        {
+            "id": "alpha",
+            "label": "Alpha 2",
+            "enabled": True,
+            "settings": default_live_settings(),
+        }
+    )
+
+    saved = load_backtesting_scenarios_raw()
+    assert [item["id"] for item in saved["scenarios"]] == ["live", "alpha", "beta"]
+    assert saved["scenarios"][1]["label"] == "Alpha 2"
+
+
+def test_reorder_scenarios_live_first_then_requested(tmp_path, monkeypatch):
+    config_dir = _bind_paths(tmp_path, monkeypatch)
+    monkeypatch.setattr("ui.house_config_io.config.reinit_config", lambda **kwargs: None)
+    monkeypatch.setattr(
+        "ui.house_config_io.config.get_live_scenario_id",
+        lambda: "live",
+    )
+    config_dir.joinpath("backtesting_scenarios.json").write_text(
+        json.dumps(
+            {
+                "scenarios": [
+                    {
+                        "id": "beta",
+                        "label": "Beta",
+                        "settings": default_live_settings(),
+                    },
+                    {
+                        "id": "live",
+                        "label": "Live",
+                        "settings": default_live_settings(),
+                    },
+                    {
+                        "id": "alpha",
+                        "label": "Alpha",
+                        "settings": default_live_settings(),
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    reorder_scenarios(["alpha", "beta"])
+
+    saved = load_backtesting_scenarios_raw()
+    assert [item["id"] for item in saved["scenarios"]] == ["live", "alpha", "beta"]
 
 
 def test_save_planning_tariff_selection(tmp_path, monkeypatch):

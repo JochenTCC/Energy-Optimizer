@@ -804,6 +804,7 @@ def main(argv: list[str] | None = None):
             scenarios,
             live_scenario_id=live_scenario_id,
             scenario_labels=scenario_labels,
+            own_reference_by_scenario=config.get_own_reference_flags(),
         )
     )
     labels.update(extra_ref_labels)
@@ -877,6 +878,7 @@ def main(argv: list[str] | None = None):
                 scenarios,
                 live_scenario_id=live_scenario_id,
                 scenario_labels=scenario_labels,
+                own_reference_by_scenario=config.get_own_reference_flags(),
             )
         )
         sim_results.update(extra_refs)

@@ -76,6 +76,10 @@
           "type": "boolean",
           "description": "Wenn false, wird das Szenario im Szenario-Explorer nicht berechnet. Standard true wenn fehlend."
         },
+        "own_reference": {
+          "type": "boolean",
+          "description": "Wenn true: eigene Nicht-Opt-Referenz. Wenn false: Live-Ref/Historisch teilen. Fehlt: Auto (Tarif+pv_kwp-Heuristik)."
+        },
         "settings": {
           "type": "object",
           "description": "Parameter-Override (flache Felder oder Referenzen auf Entitäten). Standort/Zeitzone kommen aus dem Hausprofil (house_profile_id), nicht aus settings.",

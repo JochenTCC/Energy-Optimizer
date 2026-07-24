@@ -212,6 +212,22 @@ def get_backtesting_scenarios(
     }
 
 
+def get_own_reference_flags(scenarios: list[dict]) -> dict[str, bool | None]:
+    """Per enabled scenario: True/False override, None = Auto heuristic."""
+    flags: dict[str, bool | None] = {}
+    for scenario in scenarios:
+        if scenario.get("enabled", True) is False:
+            continue
+        sid = str(scenario.get("id") or "").strip()
+        if not sid:
+            continue
+        if "own_reference" in scenario:
+            flags[sid] = bool(scenario.get("own_reference"))
+        else:
+            flags[sid] = None
+    return flags
+
+
 def get_planning_pv_systems(
     *,
     planning_pv_systems: list | None,

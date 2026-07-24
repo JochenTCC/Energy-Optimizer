@@ -209,7 +209,7 @@ Beispiele für Vergleiche:
 - Fixpreis vs. Spot-Tarif  
 - ohne Batterie, aber mit PV  
 
-Das **Live-Szenario** (meist ID `live`) ist die Basis für den späteren Produktivbetrieb. Weitere Szenarien dienen der Analyse im Szenario-Explorer. Pro Szenario können Sie **Aktiv für Szenario-Explorer** setzen; deaktivierte Varianten werden in der Explorer-Rechnung übersprungen (vorhandene Ergebnisse werden dadurch ungültig).
+Das **Live-Szenario** (meist ID `live`) ist die Basis für den späteren Produktivbetrieb. Weitere Szenarien dienen der Analyse im Szenario-Explorer. Pro Szenario können Sie **Aktiv für Szenario-Explorer** setzen; deaktivierte Varianten werden in der Explorer-Rechnung übersprungen (vorhandene Ergebnisse werden dadurch ungültig). Mit **Eigene Referenz ohne Optimierung** legen Sie fest, ob für die Variante eine eigene Nicht-Opt-Referenz berechnet wird (Vorbelegung nach Tarif/PV-Heuristik; Batterie-only-Varianten teilen standardmäßig die Live-Referenz). Die Reihenfolge der weiteren Szenarien stellen Sie im Szenarienkonfigurator mit ↑/↓ ein (Live bleibt oben) — so erscheinen sie später in Listen und Kostenvergleichen.
 
 Tarife wählen Sie aus dem Tarifkatalog (Bezug/Einspeise). Nach der Auswahl zeigt der Editor die **Katalogparameter** des gewählten Tarifs (read-only). Bitte prüfen Sie diese Werte — es gibt **keine Garantie** für Vollständigkeit oder Aktualität. **Monatliche Fixkosten** (Grundgebühr o. Ä.) fließen als **Näherung** in die Gesamt- und Monatskosten des Szenario-Explorers ein, nicht in die Live-Optimierung. Nachrechnen: [Tarife und Preise nachrechnen](../referenz/tarife-quellen.md). Technik: [Preise & aWATTar](../konfiguration/preise.md).
 
@@ -220,7 +220,7 @@ Unter **Konfiguration → Szenario-Explorer** (erscheint nach ausreichender Plan
 Hier analysieren Sie **Langzeitvergleiche** typischerweise über die letzten 12 Monate (für Tests auch kürzer, z. B. nur März) zwischen Referenzen und Ihren Szenarien:
 
 - **Historisch** — „nacktes Haus“ ohne PV und ohne Speicher (Live-Tarife, Last ohne Flex-Optimierung)  
-- **pro Szenario ohne Optimierung** — gleiche Lastlogik wie das Szenario, aber ohne Earnie-Verschiebung (bei PV-Szenarien inkl. deren PV-Ertrag)  
+- **Referenzen ohne Optimierung** — je nach Szenario-Einstellung und Heuristik: Live-Referenz und ggf. eigene Spalten bei abweichendem Tarif/PV (steuerbar im Szenarienkonfigurator)  
 - **optimierte Szenarien** — mit Earnie-Planung (Batterie/Flex, sofern im Szenario vorhanden)
 
 Das ist **kein** tägliches Live-Cockpit und ändert keine Steuerwerte an Loxone.
@@ -244,7 +244,7 @@ Optional: Checkbox **Verbrauchsdaten auf letzten Kalendermonat spiegeln (aktuell
 2. Rechnung starten (kann je nach Umfang länger dauern).  
 3. Warten, bis die Auswertung fertig ist; Ergebnisse landen in der Laufzeitablage für den Explorer.
 
-Die Zeile **Historisch** rechnet die Last am Live-Tarif **ohne** PV und **ohne** Batterie. Pro Szenario gibt es zusätzlich eine Referenz ohne Optimierung (bei PV-Szenarien mit dem PV-Ertrag dieses Szenarios). Batterie und Lastverschiebung gehören zur **optimierten** Variante — nicht zur Historisch-Zeile.
+Die Zeile **Historisch** rechnet die Last am Live-Tarif **ohne** PV und **ohne** Batterie. Zusätzliche Referenzen ohne Optimierung entstehen nach Heuristik bzw. der Einstellung **Eigene Referenz ohne Optimierung** (bei PV-Szenarien mit dem PV-Ertrag dieses Szenarios). Batterie und Lastverschiebung gehören zur **optimierten** Variante — nicht zur Historisch-Zeile.
 
 #### Ergebnisse des Szenario-Explorers
 

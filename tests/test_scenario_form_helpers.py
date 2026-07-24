@@ -368,31 +368,42 @@ def test_normalize_scenario_form_snapshot_keeps_enabled_false():
     assert snapshot["enabled"] is False
 
 
-def test_ordered_user_scenario_ids_live_first_then_label_alpha():
+def test_normalize_scenario_form_snapshot_keeps_own_reference():
+    snapshot = normalize_scenario_form_snapshot(
+        {
+            "label": "Ref",
+            "own_reference": True,
+            "settings": {"battery_id": "bat1"},
+        },
+    )
+    assert snapshot["own_reference"] is True
+
+
+def test_ordered_user_scenario_ids_live_first_then_file_order():
     ordered = ordered_user_scenario_ids(
         ["zebra", "live", "alpha"],
         live_scenario_id="live",
         labels={"zebra": "Zebra", "live": "Live", "alpha": "Alpha"},
     )
-    assert ordered == ["live", "alpha", "zebra"]
+    assert ordered == ["live", "zebra", "alpha"]
 
 
-def test_ordered_user_scenario_ids_case_insensitive_by_label():
+def test_ordered_user_scenario_ids_preserves_non_live_input_order():
     ordered = ordered_user_scenario_ids(
         ["b", "a", "live"],
         live_scenario_id="live",
         labels={"b": "beta", "a": "Alpha", "live": "Live"},
     )
-    assert ordered == ["live", "a", "b"]
+    assert ordered == ["live", "b", "a"]
 
 
-def test_ordered_user_scenario_ids_missing_live_still_alpha():
+def test_ordered_user_scenario_ids_missing_live_keeps_input_order():
     ordered = ordered_user_scenario_ids(
         ["z", "a"],
         live_scenario_id="live",
         labels={"z": "Zed", "a": "Able"},
     )
-    assert ordered == ["a", "z"]
+    assert ordered == ["z", "a"]
 
 
 def test_ordered_user_scenario_ids_dedupes_and_skips_blank():
@@ -401,4 +412,4 @@ def test_ordered_user_scenario_ids_dedupes_and_skips_blank():
         live_scenario_id="live",
         labels={"live": "Live", "b": "B", "a": "A"},
     )
-    assert ordered == ["live", "a", "b"]
+    assert ordered == ["live", "b", "a"]

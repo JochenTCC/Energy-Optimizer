@@ -208,13 +208,20 @@ def test_reorder_results_by_ids_appends_unknown():
 def test_count_backtesting_parallel_tasks_includes_reference(monkeypatch):
     monkeypatch.setattr(
         "simulation.engine.plan_per_scenario_reference_tasks",
-        lambda scenarios, *, live_scenario_id, scenario_labels=None: (
+        lambda scenarios, *, live_scenario_id, scenario_labels=None, own_reference_by_scenario=None: (
             {},
             {},
             [("ref:pv", {}, "Referenz (PV)")],
         ),
     )
-    assert count_backtesting_parallel_tasks({"a": {}, "b": {}}, live_scenario_id="a") == 4
+    assert (
+        count_backtesting_parallel_tasks(
+            {"a": {}, "b": {}},
+            live_scenario_id="a",
+            own_reference_by_scenario={},
+        )
+        == 4
+    )
 
 
 def test_build_backtesting_command_includes_workers_when_parallel(tmp_path):

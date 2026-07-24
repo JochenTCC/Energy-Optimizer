@@ -3,6 +3,12 @@
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 
+### SK scenario order + own_reference (2026-07-24)
+
+- [x] Scenarios order editable in SK (↑/↓; `scenarios[]` array order; Live pinned first) for user-centric SE visualization
+- [x] Per-scenario `own_reference` toggle (heuristic default; force on/off) for non-optimized reference calculation; `enabled` pass-through in `normalize_scenario`
+
+
 ### Bugfix SE Season-Mirror page hang (2026-07-24)
 
 - [x] SE rendering of subpage will not finish after mirroring for months was activated — `season_mirror_to_last_month` was written to `config.json` but omitted from `load_sim_path_params` / `scenario_explorer_conf_snapshot`, so `is_season_mirror_enabled()` stayed false and the checkbox path infinite-`st.rerun()`’d

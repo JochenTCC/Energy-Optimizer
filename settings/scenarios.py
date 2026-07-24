@@ -75,11 +75,15 @@ def normalize_scenario(raw: dict, index: int) -> dict:
         )
 
     label = str(raw.get("label") or scenario_id).strip() or scenario_id
-    return {
+    out = {
         "id": scenario_id,
         "label": label,
+        "enabled": raw.get("enabled", True) is not False,
         "settings": dict(settings),
     }
+    if "own_reference" in raw:
+        out["own_reference"] = bool(raw.get("own_reference"))
+    return out
 
 
 def get_backtesting_cbc_gap_rel(backtesting_scenarios_path: str) -> float:

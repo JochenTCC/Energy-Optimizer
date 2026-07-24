@@ -646,9 +646,47 @@ def upsert_scenario(scenario: dict) -> None:
                 existing.get("label") or existing.get("id") or live_id
             ).strip()
     assert_unique_label(payload.get("label"), scenarios, exclude_id=scenario_id)
-    updated = [s for s in scenarios if s.get("id") != payload["id"]]
-    updated.append(payload)
+    replaced = False
+    updated: list[dict] = []
+    for item in scenarios:
+        if str(item.get("id", "")).strip() == payload["id"]:
+            updated.append(payload)
+            replaced = True
+        else:
+            updated.append(item)
+    if not replaced:
+        updated.append(payload)
     doc["scenarios"] = updated
+    save_backtesting_scenarios(doc)
+
+
+def reorder_scenarios(ordered_non_live_ids: list[str]) -> None:
+    """Rewrite scenarios[] as Live (if any) then non-Live in the given order."""
+    live_id = str(config.get_live_scenario_id() or "").strip()
+    requested = [str(sid).strip() for sid in ordered_non_live_ids if str(sid).strip()]
+    if live_id and live_id in requested:
+        raise ValueError("Das Live-Szenario kann nicht umsortiert werden.")
+    doc = load_backtesting_scenarios_raw()
+    scenarios = list(doc.get("scenarios", []))
+    by_id = {
+        str(item.get("id", "")).strip(): item
+        for item in scenarios
+        if str(item.get("id", "")).strip()
+    }
+    live_item = by_id.get(live_id) if live_id else None
+    non_live_ids = [sid for sid in by_id if sid != live_id]
+    unknown = [sid for sid in requested if sid not in by_id or sid == live_id]
+    if unknown:
+        raise ValueError(f"Unbekanntes Szenario in Reihenfolge: {unknown[0]!r}.")
+    missing = [sid for sid in non_live_ids if sid not in requested]
+    ordered: list[dict] = []
+    if live_item is not None:
+        ordered.append(live_item)
+    for sid in requested:
+        ordered.append(by_id[sid])
+    for sid in missing:
+        ordered.append(by_id[sid])
+    doc["scenarios"] = ordered
     save_backtesting_scenarios(doc)
 
 

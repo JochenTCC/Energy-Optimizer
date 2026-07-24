@@ -20,6 +20,7 @@ from ui.house_config_io import (
     load_backtesting_scenarios_raw,
     load_house_profiles,
     load_tariffs_catalog_meta,
+    reorder_scenarios,
     upsert_scenario,
 )
 from ui.tariff_filter_helpers import (
@@ -144,6 +145,40 @@ def _seed_scenario_widget_state(
     st.session_state[scoped_widget_key(session_scope, "scenario_enabled")] = (
         scenario.get("enabled", True) is not False
     )
+    _seed_own_reference_widget(session_scope, scenario)
+
+
+def _seed_own_reference_widget(session_scope: str, scenario: dict) -> None:
+    key = scoped_widget_key(session_scope, "scenario_own_reference")
+    if "own_reference" in scenario:
+        st.session_state[key] = bool(scenario.get("own_reference"))
+        return
+    from simulation.engine import default_own_reference
+
+    live_id = str(config.get_live_scenario_id() or "").strip()
+    sid = str(scenario.get("id") or "").strip()
+    try:
+        params = config.CONFIG.resolve_scenario_settings_dict(
+            dict(scenario.get("settings") or {})
+        )
+        live_params = None
+        if live_id:
+            for entry in config.get_scenarios():
+                if str(entry.get("id") or "").strip() == live_id:
+                    live_params = config.CONFIG.resolve_scenario_settings_dict(
+                        dict(entry.get("settings") or {})
+                    )
+                    break
+            if live_params is None and sid == live_id:
+                live_params = params
+        st.session_state[key] = default_own_reference(
+            sid or live_id,
+            params,
+            live_scenario_id=live_id,
+            live_params=live_params if live_params is not None else params,
+        )
+    except (ValueError, KeyError, TypeError, AttributeError):
+        st.session_state[key] = False
 
 
 def _scenario_widget_state_missing(session_scope: str) -> bool:
@@ -184,10 +219,17 @@ def _sync_scenario_session(
             import_tariffs=import_tariffs,
             export_tariffs=export_tariffs,
         )
+        baseline_scenario = dict(scenario)
+        baseline_scenario["own_reference"] = bool(
+            st.session_state.get(
+                scoped_widget_key(session_scope, "scenario_own_reference"),
+                False,
+            )
+        )
         store_scenario_form_baseline(
             st.session_state,
             session_scope,
-            scenario,
+            baseline_scenario,
         )
         st.session_state[_SESSION_SYNC_KEY] = session_scope
         st.session_state[_SESSION_FILE_STAMP_KEY] = file_stamp
@@ -300,6 +342,55 @@ def _resolve_scenario_selection(
     return requested
 
 
+def _render_scenario_reorder_controls(
+    *,
+    selected: str,
+    scenario_ids: list[str],
+    live_id: str,
+) -> None:
+    if selected == NEW_SCENARIO_OPTION:
+        return
+    non_live = [sid for sid in scenario_ids if sid != live_id]
+    if selected == live_id or selected not in non_live:
+        st.caption("Reihenfolge: Live bleibt oben; weitere Szenarien mit ↑/↓ sortieren.")
+        return
+    idx = non_live.index(selected)
+    st.caption("Reihenfolge im Szenario-Explorer (Live bleibt oben).")
+    col_up, col_down, _ = st.columns([1, 1, 6])
+    if col_up.button(
+        "↑",
+        key="scenario_reorder_up",
+        disabled=idx <= 0,
+        help="Szenario nach oben verschieben",
+    ):
+        ordered = list(non_live)
+        ordered[idx - 1], ordered[idx] = ordered[idx], ordered[idx - 1]
+        try:
+            reorder_scenarios(ordered)
+        except ValueError as exc:
+            st.error(str(exc))
+            return
+        st.session_state[_SESSION_SELECT_PENDING_KEY] = selected
+        st.session_state[_SESSION_FILE_STAMP_KEY] = backtesting_scenarios_file_stamp()
+        st.rerun()
+    if col_down.button(
+        "↓",
+        key="scenario_reorder_down",
+        disabled=idx >= len(non_live) - 1,
+        help="Szenario nach unten verschieben",
+    ):
+        ordered = list(non_live)
+        ordered[idx + 1], ordered[idx] = ordered[idx], ordered[idx + 1]
+        try:
+            reorder_scenarios(ordered)
+        except ValueError as exc:
+            st.error(str(exc))
+            return
+        st.session_state[_SESSION_SELECT_PENDING_KEY] = selected
+        st.session_state[_SESSION_FILE_STAMP_KEY] = backtesting_scenarios_file_stamp()
+        st.rerun()
+
+
 def _render_scenarios_tab() -> None:
     live_id = config.get_live_scenario_id()
     st.subheader("Szenarien")
@@ -316,8 +407,13 @@ def _render_scenarios_tab() -> None:
         for s in scenarios
         if str(s.get("id", "")).strip()
     }
+    file_order_ids = [
+        str(s.get("id", "")).strip()
+        for s in scenarios
+        if str(s.get("id", "")).strip()
+    ]
     scenario_ids = ordered_user_scenario_ids(
-        scenario_labels.keys(),
+        file_order_ids,
         live_scenario_id=live_id,
         labels=scenario_labels,
     )
@@ -336,6 +432,12 @@ def _render_scenarios_tab() -> None:
         pv_systems=pv_systems,
         import_tariffs=import_tariffs,
         export_tariffs=export_tariffs,
+    )
+
+    _render_scenario_reorder_controls(
+        selected=selected,
+        scenario_ids=scenario_ids,
+        live_id=live_id,
     )
 
     is_new = selected == NEW_SCENARIO_OPTION
@@ -376,6 +478,17 @@ def _render_scenarios_tab() -> None:
         key=scoped_widget_key(session_scope, "scenario_enabled"),
         help=(
             "Deaktivierte Szenarien erscheinen nicht in der SE-Berechnung. "
+            "Änderungen machen vorhandene SE-Ergebnisse ungültig."
+        ),
+    )
+    labeled_checkbox(
+        "Eigene Referenz ohne Optimierung",
+        key=scoped_widget_key(session_scope, "scenario_own_reference"),
+        help=(
+            "Berechnet eine eigene Nicht-Opt-Referenz (Tarif + PV) für dieses Szenario. "
+            "Ohne gespeicherten Wert vorbelegt aus Earnies Heuristik "
+            "(eigene Referenz nur bei abweichendem Tarif/PV; Batterie-Varianten teilen "
+            "die Live-Referenz). Aus = Live-Referenz bzw. Historisch teilen. "
             "Änderungen machen vorhandene SE-Ergebnisse ungültig."
         ),
     )
@@ -581,6 +694,12 @@ def _render_scenarios_tab() -> None:
             st.session_state.get(
                 scoped_widget_key(session_scope, "scenario_enabled"),
                 True,
+            )
+        ),
+        "own_reference": bool(
+            st.session_state.get(
+                scoped_widget_key(session_scope, "scenario_own_reference"),
+                False,
             )
         ),
         "settings": settings,

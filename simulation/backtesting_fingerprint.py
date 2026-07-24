@@ -79,6 +79,7 @@ def compute_backtesting_fingerprint(
     period: dict | None = None,
     *,
     awattar_pricing: dict | None = None,
+    own_reference_by_id: dict[str, bool] | None = None,
 ) -> str:
     """Hash über Szenario-IDs und kanonische aufgelöste Parameter."""
     payload: dict[str, Any] = {
@@ -89,6 +90,11 @@ def compute_backtesting_fingerprint(
             if sid in resolved_settings_by_id
         },
     }
+    if own_reference_by_id:
+        payload["own_reference"] = {
+            sid: bool(own_reference_by_id[sid])
+            for sid in sorted(own_reference_by_id)
+        }
     # Keep payload key name for cache compatibility with older fingerprints.
     if awattar_pricing:
         payload["awattar_pricing"] = awattar_pricing
@@ -114,6 +120,11 @@ def fingerprint_for_current_config(*, period: dict | None = None) -> str:
     from data.cons_data_season_mirror import is_season_mirror_enabled
 
     scenarios = config.get_backtesting_scenarios()
+    own_reference_by_id = {
+        sid: flag
+        for sid, flag in config.get_own_reference_flags().items()
+        if flag is not None
+    }
     awattar_pricing = (
         _merged_spot_export_fees(scenarios)
         if _needs_spot_export_fees(scenarios)
@@ -126,4 +137,5 @@ def fingerprint_for_current_config(*, period: dict | None = None) -> str:
         scenarios,
         period=period_payload,
         awattar_pricing=awattar_pricing or None,
+        own_reference_by_id=own_reference_by_id or None,
     )

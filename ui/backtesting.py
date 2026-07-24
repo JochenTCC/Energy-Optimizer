@@ -229,10 +229,12 @@ def _execute_backtesting_run(
     workers = auto_backtesting_workers(parallel_task_count)
     progress_file = default_progress_file_path()
     scenario_labels = config.get_scenario_labels()
+    own_ref_flags = config.get_own_reference_flags()
     _, extra_ref_labels, extra_ref_specs = plan_per_scenario_reference_tasks(
         scenarios or {},
         live_scenario_id=live_scenario_id,
         scenario_labels=scenario_labels,
+        own_reference_by_scenario=own_ref_flags,
     )
     labels_for_order = {
         HISTORICAL_REFERENCE_ID: HISTORICAL_REFERENCE_LABEL,

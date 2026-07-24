@@ -58,13 +58,20 @@ def count_backtesting_parallel_tasks(
     scenarios: dict[str, dict],
     *,
     live_scenario_id: str,
+    own_reference_by_scenario: dict[str, bool | None] | None = None,
 ) -> int:
     """Parallele Tasks: Haupt-Referenz + Extra-Referenzen + optimierte Szenarien."""
     from simulation.engine import plan_per_scenario_reference_tasks
 
+    flags = own_reference_by_scenario
+    if flags is None:
+        import config
+
+        flags = config.get_own_reference_flags()
     _, _, extra_specs = plan_per_scenario_reference_tasks(
         scenarios,
         live_scenario_id=live_scenario_id,
+        own_reference_by_scenario=flags,
     )
     return 1 + len(extra_specs) + len(scenarios)
 
