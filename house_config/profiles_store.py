@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import os
 
-from house_config.baseload import compute_baseload_kwh
+from house_config.baseload import compute_baseload_kwh, normalize_baseload_distribution
 from house_config.earnie_role import (
     DEFAULT_MANUAL_HORIZON_H,
     EARNIE_ROLE_FLEX,
@@ -326,6 +326,8 @@ def _normalize_profile(raw: dict, index: int) -> dict:
             f"profiles '{profile_id}': latitude und longitude sind bei "
             "thermal_annual-Verbraucher erforderlich."
         )
+    land_raw = str(raw.get("land", "") or "").strip().upper()
+    land = land_raw if land_raw in {"AT", "DE", "CH"} else "AT"
     latitude = float(raw.get("latitude", 48.0) or 48.0)
     longitude = float(raw.get("longitude", 10.0) or 10.0)
     timezone_name = lookup_timezone_name(latitude, longitude)
@@ -367,6 +369,7 @@ def _normalize_profile(raw: dict, index: int) -> dict:
         "id": profile_id,
         "label": label,
         "annual_kwh": annual_kwh,
+        "land": land,
         "latitude": latitude,
         "longitude": longitude,
         "timezone_name": timezone_name,
@@ -377,6 +380,9 @@ def _normalize_profile(raw: dict, index: int) -> dict:
         "battery_profile_csv": battery_profile_csv,
         "grid_profile_csv": grid_profile_csv,
         "historical_csv_source": historical_csv_source or "separate",
+        "baseload_distribution": normalize_baseload_distribution(
+            raw.get("baseload_distribution")
+        ),
         "consumers": consumers,
         "baseload_kwh": baseload["baseload_kwh"],
         "consumer_kwh": baseload["consumer_kwh"],
@@ -413,8 +419,11 @@ def _serialize_profile(profile: dict) -> dict:
         "battery_profile_csv": profile.get("battery_profile_csv", ""),
         "grid_profile_csv": profile.get("grid_profile_csv", ""),
         "historical_csv_source": profile.get("historical_csv_source", "separate"),
+        "baseload_distribution": profile.get("baseload_distribution", "equal"),
         "consumers": [_serialize_consumer(c) for c in profile["consumers"]],
     }
+    land = str(profile.get("land") or "AT").strip().upper()
+    out["land"] = land if land in {"AT", "DE", "CH"} else "AT"
     if profile.get("latitude") is not None:
         out["latitude"] = profile["latitude"]
     if profile.get("longitude") is not None:

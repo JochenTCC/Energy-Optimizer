@@ -38,7 +38,7 @@ def render_deferred_loxone_sidebar() -> None:
         if credentials_ready:
             st.success("Zugangsdaten hinterlegt.")
             st.caption(
-                "Merker testen: **Echtzeit-Umgebung → Loxone-Kommunikation**."
+                "Merker testen: **Echtzeit-Umgebung → Loxone-Com**."
             )
         else:
             st.caption(
@@ -58,7 +58,7 @@ def render_setup_progress_notice() -> None:
         st.sidebar.success(
             "Planungs-Konfiguration vollständig — Analyse ist freigeschaltet. "
             "Live-Cockpit folgt nach korrekter Loxone-Merker-Konfiguration "
-            "(**Daemon Control → Loxone-Kommunikation**)."
+            "(**Daemon Control → Loxone-Com**)."
         )
         return
     if not is_setup_navigation_restricted():
@@ -70,7 +70,7 @@ def render_setup_progress_notice() -> None:
         lines.append("**Hauskonfigurator:**")
         lines.extend(f"- {item}" for item in house_missing)
     if is_house_config_ready() and runtime_missing:
-        lines.append("**Szenarieneditor (Live-Szenario):**")
+        lines.append("**Szenarienkonfigurator (Live-Szenario):**")
         lines.extend(f"- {item}" for item in runtime_missing)
     if not lines:
         missing = missing_planning_setup_items()

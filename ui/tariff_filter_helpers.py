@@ -12,7 +12,6 @@ EXPORT_MONTHLY_UI_TYPES = frozenset({"monthly_table"})
 EXPORT_MONTHLY_UI_KEY = "monthly_table"
 
 IMPORT_TYPE_LABELS = {
-    "awattar": "aWATTar (EPEX + Aufschlag aus tariffs.json)",
     "fixed_cent": "Fixpreis Bezug",
     "spot_hourly": "Spot stündlich",
     "ex_post_spot": "Spot ex-post",
@@ -22,7 +21,6 @@ IMPORT_TYPE_LABELS = {
 
 EXPORT_TYPE_LABELS = {
     "fixed": "Fixpreis Einspeise",
-    "dynamic_epex": "Dynamisch EPEX (Legacy)",
     "monthly_table": "Monatspreis",
     "spot_hourly": "Spot stündlich",
     "ex_post_spot": "Spot ex-post",
@@ -127,6 +125,9 @@ def _append_common_meta(rows: list[tuple[str, str]], tariff: dict) -> None:
         "Monatsgebühr (ca.)",
         suffix=" €/Monat",
     )
+    supplier_id = tariff.get("supplier_id")
+    if supplier_id:
+        rows.append(("Anbieter (supplier_id)", str(supplier_id)))
     notes = tariff.get("notes")
     if notes:
         rows.append(("Hinweis", str(notes)))
@@ -152,32 +153,23 @@ def _append_type_specific_rows(
             rows, tariff, "price_cent_kwh", "Arbeitspreis", suffix=" Cent/kWh"
         )
     elif tariff_type in {
-        "awattar",
         "spot_hourly",
         "ex_post_spot",
         "monthly_market",
     }:
         _append_fee_vat_fields(rows, tariff)
-        if tariff_type == "awattar":
-            _append_if_present(
-                rows, tariff, "fix_aufschlag_cent", "Fix-Aufschlag", suffix=" Cent/kWh"
-            )
-            _append_if_present(rows, tariff, "netzverlust_faktor", "Netzverlust-Faktor")
-            _append_if_present(
-                rows, tariff, "mwst_austria_faktor", "USt-Faktor (AT)"
-            )
+        _append_if_present(
+            rows, tariff, "feed_in_fee_factor", "Einspeise-Gebührenfaktor"
+        )
+        _append_if_present(
+            rows, tariff, "feed_in_fix_cent", "Einspeise-Fix", suffix=" Cent/kWh"
+        )
     elif tariff_type == "monthly_table":
         _append_fee_vat_fields(rows, tariff)
         _append_monthly_rates_summary(rows, tariff)
     elif tariff_type == "fixed":
         _append_if_present(
             rows, tariff, "k_push_cent", "Einspeisevergütung", suffix=" Cent/kWh"
-        )
-        _append_fee_vat_fields(rows, tariff)
-    elif tariff_type == "dynamic_epex":
-        _append_if_present(rows, tariff, "feed_in_fee_factor", "Einspeise-Gebührenfaktor")
-        _append_if_present(
-            rows, tariff, "feed_in_fix_cent", "Einspeise-Fix", suffix=" Cent/kWh"
         )
         _append_fee_vat_fields(rows, tariff)
     else:
@@ -206,14 +198,16 @@ def render_tariff_parameter_preview(
     *,
     title: str,
     kind: Literal["import", "export"],
+    container=None,
 ) -> None:
-    """Show compact read-only tariff parameters under a Scenario Editor select."""
+    """Show compact read-only tariff parameters under a Szenarienkonfigurator select."""
+    root = container if container is not None else st
     rows = tariff_parameter_rows(tariff, kind=kind)
     if not rows:
         return
-    st.caption(title)
+    root.caption(title)
     for label, value in rows:
-        st.caption(f"{label}: {value}")
+        root.caption(f"{label}: {value}")
 
 
 def lands_present(tariffs: list[dict]) -> list[str]:
@@ -312,11 +306,22 @@ def render_shared_land_filter(
     key: str,
     import_tariffs: list[dict],
     export_tariffs: list[dict],
-) -> str | None:
-    """Single Land selectbox for import and export. Returns None if Alle."""
-    land_options = [ALL_FILTER, *lands_union(import_tariffs, export_tariffs)]
-    land_pick = st.selectbox("Land", options=land_options, key=key)
-    return None if land_pick == ALL_FILTER else land_pick
+    default_land: str = "AT",
+    container=None,
+) -> str:
+    """Single mandatory Land selectbox (AT/DE/CH). Never returns Alle/None."""
+    root = container if container is not None else st
+    available = lands_union(import_tariffs, export_tariffs)
+    land_options = available if available else ["AT", "DE", "CH"]
+    preferred = (default_land or "AT").strip().upper()
+    if preferred not in {"AT", "DE", "CH"}:
+        preferred = "AT"
+    if preferred not in land_options:
+        preferred = land_options[0]
+    if key not in st.session_state or st.session_state[key] not in land_options:
+        st.session_state[key] = preferred
+    land_pick = root.selectbox("Land", options=land_options, key=key)
+    return str(land_pick).strip().upper()
 
 
 def render_tariff_type_filter(
@@ -327,15 +332,17 @@ def render_tariff_type_filter(
     land: str | None = None,
     current_id: str | None = None,
     label_prefix: str = "",
+    container=None,
 ) -> list[dict]:
     """Render Typ filter (after shared Land); return filtered tariffs."""
+    root = container if container is not None else st
     type_labels = _type_labels_for(kind)
     after_land = filter_tariffs(tariffs, land=land, kind=kind)
     type_options = [ALL_FILTER, *types_present(after_land, kind=kind)]
     type_key = f"{key_prefix}_type"
     if type_key in st.session_state and st.session_state[type_key] not in type_options:
         st.session_state[type_key] = ALL_FILTER
-    type_pick = st.selectbox(
+    type_pick = root.selectbox(
         f"{label_prefix}Typ".strip(),
         options=type_options,
         key=type_key,
@@ -345,7 +352,7 @@ def render_tariff_type_filter(
     filtered = filter_tariffs(after_land, tariff_type=type_filter, kind=kind)
     result, outside = with_current_tariff(filtered, tariffs, current_id)
     if outside:
-        st.caption(
+        root.caption(
             "Aktuelle Auswahl liegt außerhalb der Filter — Tarif bleibt wählbar."
         )
     return result

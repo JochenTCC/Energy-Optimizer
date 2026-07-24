@@ -5,8 +5,7 @@ from datetime import datetime
 from typing import Any
 
 IMPORT_SPOT_TYPES = frozenset({"spot_hourly", "ex_post_spot", "monthly_market"})
-EXPORT_SPOT_TYPES = frozenset({"spot_hourly", "ex_post_spot", "dynamic_epex"})
-IMPORT_LEGACY_AWATTAR = "awattar"
+EXPORT_SPOT_TYPES = frozenset({"spot_hourly", "ex_post_spot"})
 IMPORT_FIXED = "fixed_cent"
 IMPORT_MONTHLY = "monthly_table"
 EXPORT_FIXED = "fixed"
@@ -37,18 +36,6 @@ def _apply_vat(
     if prices_include_vat:
         return float(price_cent)
     return float(price_cent) * (1.0 + float(vat_percent) / 100.0)
-
-
-def _awattar_export_cfg(tariff: dict[str, Any]) -> dict[str, Any]:
-    if "feed_in_fee_factor" not in tariff:
-        raise ValueError(
-            "Tarif type 'dynamic_epex' erfordert feed_in_fee_factor im Tarif-Eintrag "
-            "(tariffs.json)."
-        )
-    return {
-        "feed_in_fee_factor": float(tariff["feed_in_fee_factor"]),
-        "feed_in_fix_cent": float(tariff.get("feed_in_fix_cent", 0.0)),
-    }
 
 
 def _monthly_table_lookup(tariff: dict[str, Any]) -> dict[tuple[int, int], float]:
@@ -92,13 +79,6 @@ def import_cent_kwh(
 ) -> float:
     """EPEX Cent/kWh → Bezugspreis Cent/kWh laut Tarif-Spec."""
     tariff_type = str(tariff.get("type", "")).strip().lower()
-    if tariff_type == IMPORT_LEGACY_AWATTAR:
-        # Same surcharge model as spot_hourly (settlement_fee / markup / VAT).
-        return _spot_import_cent(
-            epex_cent,
-            tariff,
-            netzentgelt_override=netzentgelt_override,
-        )
     if tariff_type == IMPORT_MONTHLY:
         if slot_datetime is None:
             raise ValueError(
@@ -141,14 +121,15 @@ def import_cent_kwh(
     raise ValueError(f"Unbekannter Import-Tariftyp '{tariff_type}'.")
 
 
-def _legacy_dynamic_export(
-    epex_cent: float,
-    legacy_awattar: dict[str, Any],
-) -> float:
-    fee_factor = float(legacy_awattar["feed_in_fee_factor"])
-    fix_cent = float(legacy_awattar.get("feed_in_fix_cent", 0.0))
+def _spot_export_cent(epex_cent: float, tariff: dict[str, Any]) -> float:
+    """EPEX − fee_factor×|EPEX| − settlement + fix_cent (before VAT)."""
+    fee_factor = float(tariff.get("feed_in_fee_factor", 0.0) or 0.0)
+    if fee_factor < 0.0:
+        raise ValueError("feed_in_fee_factor muss >= 0 sein.")
+    settlement = float(tariff.get("settlement_fee_cent_kwh", 0.0) or 0.0)
+    fix_cent = float(tariff.get("feed_in_fix_cent", 0.0) or 0.0)
     epex = float(epex_cent)
-    return round(epex - fee_factor * abs(epex) + fix_cent, 4)
+    return epex - fee_factor * abs(epex) - settlement + fix_cent
 
 
 def export_cent_kwh(
@@ -184,18 +165,10 @@ def export_cent_kwh(
                 f"Kein Monatseintrag für {key[0]}-{key[1]:02d} im Export-Tarif.{available}."
             )
         price = monthly_lookup[key]
-    elif tariff_type == "dynamic_epex":
-        if epex_cent is None:
-            raise ValueError("Export-Tarif type 'dynamic_epex' erfordert EPEX Cent/kWh.")
-        return _legacy_dynamic_export(
-            epex_cent,
-            _awattar_export_cfg(tariff),
-        )
-    elif tariff_type in EXPORT_SPOT_TYPES - {"dynamic_epex"}:
+    elif tariff_type in EXPORT_SPOT_TYPES:
         if epex_cent is None:
             raise ValueError(f"Export-Tarif type '{tariff_type}' erfordert EPEX Cent/kWh.")
-        settlement = float(tariff.get("settlement_fee_cent_kwh", 0.0) or 0.0)
-        price = float(epex_cent) - settlement
+        price = _spot_export_cent(epex_cent, tariff)
     else:
         raise ValueError(f"Unbekannter Export-Tariftyp '{tariff_type}'.")
 

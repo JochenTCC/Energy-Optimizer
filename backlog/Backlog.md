@@ -17,12 +17,9 @@ Open bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md)
 
 ### Version 2.3 — Enhance consumer visualization and cost analysis - sharpen tariffs handling
 
-Year-1 product depth (trust / What-If / churn). **Good-enough €** for SE and demos — invoice-grade bill reconciliation is explicitly out of scope (nice-to-have later). Thin marker/data-model prep for SAM (`2.3.f`) is done; connector rewrite remains `2.4`. SE MILP speed/tuning (`2.3.c.0a`–`2.3.c.3`) → [Backlog-Erledigt.md](Backlog-Erledigt.md). CSV / Basislast / earnie_role alignment → [Backlog-Erledigt.md](Backlog-Erledigt.md).
+Year-1 product depth (trust / What-If / churn). **Good-enough €** for SE and demos — invoice-grade bill reconciliation is explicitly out of scope (nice-to-have later). Thin marker/data-model prep for SAM (`2.3.f`) is done; connector rewrite remains `2.4`. SE MILP speed/tuning (`2.3.c.0a`–`2.3.c.3`) → [Backlog-Erledigt.md](Backlog-Erledigt.md). CSV / Basislast / earnie_role alignment → [Backlog-Erledigt.md](Backlog-Erledigt.md). UI polish → [Backlog-Erledigt.md](Backlog-Erledigt.md). Energieflussmonitor Baustein / CSV research → [Backlog-Erledigt.md](Backlog-Erledigt.md). Basislast Jahres-/Monats-Rest radio → [Backlog-Erledigt.md](Backlog-Erledigt.md). Mandatory Land + `supplier_id` monthly fees → [Backlog-Erledigt.md](Backlog-Erledigt.md). SE / SK polish (Standort row, rename SK, Verbrauchsdaten fingerprint, season-mirror, scenario `enabled`) → [Backlog-Erledigt.md](Backlog-Erledigt.md).
 
-- [x] Add Energieflussmonitor Baustein and Zähler to my own Loxone Config to be able to test csv-data-export
-  - Research (done) → [Backlog-Erledigt.md](Backlog-Erledigt.md); process blueprint plan `.cursor/plans/energieflussmonitor_hausprofil_blueprint_a.plan.md`; auto-sync deferred under **2.4** MCP
-  - **Note (2026-07-23):** Loxone Energieflussmonitor does **not** export a multi-column Statistik-CSV with all Leistungsflüsse. A planned HK import mode + exclusive Zähler↔Verbraucher mapping (plan `.cursor/plans/efm_meter_mapping_ui_9107b317.plan.md`, branch `feature/efm-meter-mapping-ui`) was **abandoned** — keep using per-series CSV / existing Energiemonitor (alter Baustein) / Bilanz workflows.
-
+- [ ] Remove SOC-bei-Opt-Last because it does not have a practical meaning (All inverters maximizes already own consumption of PV)
 
 - [ ] **2.3.0 — Release**
   - Finalize after SCC / community test of `2.3.0-alpha.3`; update German docs as needed (carry-over from 2.2.0 finalize)
@@ -60,6 +57,7 @@ Year-1 product depth (trust / What-If / churn). **Good-enough €** for SE and d
 
 ### Version 2.+1 — Introducing nested data models
 
+- [ ] For manual consumers take also PV into account - not just tariffs (check)
 - [ ] Enhance data model to nested structures. E.g. pool can consist of multiple "inner" consumers or house consists also of multiple "inner" consumers
   - Move Loxone markers to data model - remove flat definition in config.json where possible
   - **Note:** Thin marker↔role prep and UI editability are in **2.3.f**; full connector extraction in **2.4**. This chapter owns nesting / structure, not the SAM interface rewrite.

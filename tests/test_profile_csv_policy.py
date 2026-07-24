@@ -13,12 +13,15 @@ from house_config.consumption_csv import (
 from house_config.planning_flex_bridge import (
     collect_planning_flex_consumers,
     fixed_generic_hourly_overlay,
+    monthly_residual_baseload_kw,
     planning_flex_daily_targets,
+    profile_flat_baseload_kw,
     split_planning_generic_consumers,
 )
 from house_config.profile_csv_policy import (
     controllable_generics,
     se_uses_meter_residual_baseload,
+    se_uses_monthly_baseload,
 )
 
 
@@ -57,6 +60,77 @@ def test_se_uses_meter_residual_requires_controllable_csv(tmp_path: Path) -> Non
     profile["consumers"][0]["profile_csv"] = str(flex_csv)
     profile["consumers"][0]["use_profile_csv"] = True
     assert se_uses_meter_residual_baseload(profile)
+
+
+def test_se_uses_monthly_baseload_when_not_path_b(tmp_path: Path) -> None:
+    total = tmp_path / "total.csv"
+    rows = []
+    start = datetime(2025, 1, 1)
+    for i in range(24):
+        rows.append(((start + timedelta(hours=i)).strftime("%Y-%m-%d %H:%M:%S"), 3.0))
+    start_feb = datetime(2025, 2, 1)
+    for i in range(24):
+        rows.append(
+            ((start_feb + timedelta(hours=i)).strftime("%Y-%m-%d %H:%M:%S"), 0.5)
+        )
+    write_canonical_hourly_csv(str(total), rows)
+    flex_blocker = {
+        "id": "wm",
+        "type": "generic",
+        "earnie_role": "flex",
+        "nominal_power_kw": 2.0,
+        "schedule": {
+            "runs_per_week": 3,
+            "duration_h": 2.0,
+            "start_hour": 8,
+            "start_shift_h": 4.0,
+        },
+    }
+    profile = {
+        "baseload_kwh": 8760.0,
+        "baseload_distribution": "monthly",
+        "total_profile_csv": str(total),
+        "consumers": [flex_blocker],
+    }
+    assert not se_uses_meter_residual_baseload(profile)
+    assert se_uses_monthly_baseload(profile)
+    profile["baseload_distribution"] = "equal"
+    assert not se_uses_monthly_baseload(profile)
+    profile["baseload_distribution"] = "monthly"
+    # Path B wins over monthly when all controllable have CSV
+    flex_csv = tmp_path / "flex.csv"
+    _hourly_csv(flex_csv, start, 48, 1.0)
+    profile["consumers"][0]["profile_csv"] = str(flex_csv)
+    profile["consumers"][0]["use_profile_csv"] = True
+    assert se_uses_meter_residual_baseload(profile)
+    assert not se_uses_monthly_baseload(profile)
+
+
+def test_monthly_residual_baseload_kw_shapes_months(tmp_path: Path) -> None:
+    total = tmp_path / "total.csv"
+    rows = []
+    start = datetime(2025, 1, 1)
+    for i in range(24):
+        rows.append(((start + timedelta(hours=i)).strftime("%Y-%m-%d %H:%M:%S"), 3.0))
+    start_feb = datetime(2025, 2, 1)
+    for i in range(24):
+        rows.append(
+            ((start_feb + timedelta(hours=i)).strftime("%Y-%m-%d %H:%M:%S"), 0.5)
+        )
+    write_canonical_hourly_csv(str(total), rows)
+    profile = {
+        "baseload_kwh": 8760.0,
+        "baseload_distribution": "monthly",
+        "total_profile_csv": str(total),
+        "consumers": [],
+    }
+    slots = [start + timedelta(hours=i) for i in range(24)] + [
+        start_feb + timedelta(hours=i) for i in range(24)
+    ]
+    series = monthly_residual_baseload_kw(profile, slots)
+    assert series[:24] == pytest.approx([3.0] * 24)
+    assert series[24:] == pytest.approx([0.5] * 24)
+    assert series[0] != pytest.approx(profile_flat_baseload_kw(profile))
 
 
 def test_manual_is_milp_flex_not_fixed_overlay() -> None:

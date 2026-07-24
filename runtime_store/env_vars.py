@@ -40,7 +40,7 @@ def is_explicit_offline() -> bool:
 def is_planning_offline_gated() -> bool:
     """
     Greenfield stays offline until the Live scenario is complete
-    (entity refs in backtesting_scenarios.json via Szenarieneditor).
+    (entity refs in backtesting_scenarios.json via Szenarienkonfigurator).
     """
     from ui.setup_readiness import (
         is_live_configuration_complete,

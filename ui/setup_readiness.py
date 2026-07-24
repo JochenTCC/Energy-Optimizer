@@ -169,7 +169,7 @@ def missing_runtime_scenario_items_for(
         live_settings = find_scenario_settings(scenarios_path, live_id)
     except ValueError:
         missing.append(
-            f"Live-Szenario '{live_id}' anlegen (Szenarieneditor → Szenarien)"
+            f"Live-Szenario '{live_id}' anlegen (Szenarienkonfigurator → Szenarien)"
         )
         return missing
 
@@ -287,7 +287,7 @@ def is_runtime_scenario_ready() -> bool:
 
 
 def is_live_configuration_complete() -> bool:
-    """Live-Szenario vollständig (Entitäts-Referenzen im Szenarieneditor)."""
+    """Live-Szenario vollständig (Entitäts-Referenzen im Szenarienkonfigurator)."""
     return is_runtime_scenario_ready()
 
 
@@ -316,7 +316,7 @@ def _loxone_markers_complete() -> bool:
 
 
 def is_scenario_editor_unlocked() -> bool:
-    """Szenarieneditor nach vollständigem Hauskonfigurator-Schritt (Profil + Batterie)."""
+    """Szenarienkonfigurator nach vollständigem Hauskonfigurator-Schritt (Profil + Batterie)."""
     if not needs_planning_onboarding():
         return True
     return is_house_config_ready()

@@ -1,4 +1,4 @@
-# tests/test_greenfield_bootstrap.py
+﻿# tests/test_greenfield_bootstrap.py
 """Smoke-Tests für Greenfield-Ersteinrichtung (Bootstrap + Setup-Übergang)."""
 from __future__ import annotations
 
@@ -84,7 +84,7 @@ def _prepare_greenfield_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
         json.dumps(
             {
                 "import_tariffs": [
-                    {"id": "awattar_at", "label": "aWATTar", "type": "awattar"},
+                    {"id": "awattar_at", "label": "aWATTar", "type": "spot_hourly", "land": "AT"},
                 ],
                 "export_tariffs": [
                     {"id": "fixed_37ct", "label": "Fix Export", "type": "fixed", "k_push_cent": 3.7},

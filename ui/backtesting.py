@@ -131,7 +131,7 @@ def _format_config_error(message: str) -> str:
     if "export_tariff_id" in message or "import_tariff_id" in message:
         return (
             f"{message}\n\n"
-            "Prüfe im **Szenarieneditor → Runtime**, ob Bezugs- und Einspeisetarif "
+            "Prüfe im **Szenarienkonfigurator → Runtime**, ob Bezugs- und Einspeisetarif "
             "noch im Tarifkatalog existieren (Tarif-IDs wurden mit 1.24.f teils umbenannt, "
             "z. B. `awattar_sunny_float` → `dynamic_epex`)."
         )
@@ -169,7 +169,11 @@ def render_configured_scenarios() -> None:
         labels=labels,
     ):
         st.write(f"- **{labels.get(scenario_id, scenario_id)}** (`{scenario_id}`)")
-
+    if not scenarios:
+        st.caption(
+            "Keine aktiven Szenarien für den Szenario-Explorer. "
+            "Im Szenarienkonfigurator „Aktiv für Szenario-Explorer“ setzen."
+        )
 
 _HORIZON_MODE_LABELS = {
     FIXED_24H: "24h (E-Auto-Anker)",
@@ -328,6 +332,35 @@ def render_backtesting_run_controls(
     test_month = suggest_test_month()
     if log_exists and meta is not None:
         sync_horizon_selectbox_from_log(meta)
+
+    from data.cons_data_season_mirror import is_season_mirror_enabled
+    from ui.house_config_io import load_main_config, save_main_config
+
+    mirror_key = "backtesting_season_mirror_to_last_month"
+    if mirror_key not in st.session_state:
+        st.session_state[mirror_key] = is_season_mirror_enabled()
+    mirror_checked = st.checkbox(
+        "Verbrauchsdaten auf letzten Kalendermonat spiegeln (aktuelle Tarife)",
+        key=mirror_key,
+        help=(
+            "Kalendermonate aus cons_data auf die letzten 12 vollständigen Monate "
+            "(Wanduhr) abbilden, damit Spot-/Tarifpreise aktuell sind. "
+            "Die CSV-Datei auf der Festplatte bleibt unverändert."
+        ),
+    )
+    if bool(mirror_checked) != is_season_mirror_enabled():
+        cfg = load_main_config()
+        sim = dict(cfg.get("scenario_explorer_conf") or {})
+        sim["season_mirror_to_last_month"] = bool(mirror_checked)
+        cfg["scenario_explorer_conf"] = sim
+        save_main_config(cfg)
+        st.rerun()
+    if mirror_checked:
+        st.caption(
+            "Season-Mirror aktiv: Verbrauch/PV nach Kalendermonat auf den "
+            "aktuellen 12-Monats-Horizont gespiegelt."
+        )
+
     selectbox_index = [FIXED_24H, SUNRISE_WINDOW].index(DEFAULT_HORIZON_MODE)
     if "backtesting_horizon_mode" not in st.session_state:
         log_horizon = log_horizon_mode(meta) if log_exists else None

@@ -158,8 +158,59 @@ def test_cons_data_consumer_match_reason_profile_mismatch(tmp_path, monkeypatch)
         "data.cons_data_house_profile.resolve_runtime_house_profile",
         lambda: profile,
     )
+    monkeypatch.setattr(
+        "data.cons_data_house_profile.config.get",
+        lambda key, cast=None, **_kw: 6.0 if key == "PV_KWP" else None,
+    )
     cons_data_store.save_cons_data(_sample_df(), str(path), apply_retention=False)
     profile["annual_kwh"] = 12000.0
+    assert cons_data_store.cons_data_consumer_match_reason(str(path)) == "profile_mismatch"
+
+
+def test_cons_data_consumer_match_reason_baseload_mismatch(tmp_path, monkeypatch):
+    path = tmp_path / "cons_data_hourly.csv"
+    profile = {
+        "id": "efh",
+        "annual_kwh": 11000.0,
+        "baseload_kwh": 2000.0,
+        "consumers": [{"id": "ev", "type": "ev", "nominal_power_kw": 3.5}],
+    }
+    _patch_config_flex_ids(monkeypatch, ["ev"])
+    monkeypatch.setattr(
+        "data.cons_data_house_profile.resolve_runtime_house_profile",
+        lambda: profile,
+    )
+    monkeypatch.setattr(
+        "data.cons_data_house_profile.config.get",
+        lambda key, cast=None, **_kw: 6.0 if key == "PV_KWP" else None,
+    )
+    cons_data_store.save_cons_data(_sample_df(), str(path), apply_retention=False)
+    profile["baseload_kwh"] = 2500.0
+    assert cons_data_store.cons_data_consumer_match_reason(str(path)) == "profile_mismatch"
+
+
+def test_cons_data_consumer_match_reason_pv_kwp_mismatch(tmp_path, monkeypatch):
+    path = tmp_path / "cons_data_hourly.csv"
+    profile = {
+        "id": "efh",
+        "annual_kwh": 11000.0,
+        "consumers": [{"id": "ev", "type": "ev", "nominal_power_kw": 3.5}],
+    }
+    _patch_config_flex_ids(monkeypatch, ["ev"])
+    monkeypatch.setattr(
+        "data.cons_data_house_profile.resolve_runtime_house_profile",
+        lambda: profile,
+    )
+    kwp = {"value": 6.0}
+
+    def _get(key, cast=None, **_kw):
+        if key == "PV_KWP":
+            return kwp["value"]
+        return None
+
+    monkeypatch.setattr("data.cons_data_house_profile.config.get", _get)
+    cons_data_store.save_cons_data(_sample_df(), str(path), apply_retention=False)
+    kwp["value"] = 10.0
     assert cons_data_store.cons_data_consumer_match_reason(str(path)) == "profile_mismatch"
 
 
@@ -184,9 +235,18 @@ def test_cons_data_monthly_kwh():
     assert monthly["2024-01"] == pytest.approx(6.0)
 
 
-def test_cons_data_ready_delegates(monkeypatch):
+def test_cons_data_ready_requires_match(monkeypatch):
     monkeypatch.setattr(
         "ui.backtesting_cons_data.cons_data_store.is_cons_data_populated",
         lambda: True,
+    )
+    monkeypatch.setattr(
+        "ui.backtesting_cons_data.cons_data_store.cons_data_consumer_match_reason",
+        lambda: "profile_mismatch",
+    )
+    assert cons_data_ready() is False
+    monkeypatch.setattr(
+        "ui.backtesting_cons_data.cons_data_store.cons_data_consumer_match_reason",
+        lambda: None,
     )
     assert cons_data_ready() is True

@@ -1,4 +1,4 @@
-"""Step 1: profile_spec matrix — Hausprofil-Spec statt cons_data für Optimierung."""
+﻿"""Step 1: profile_spec matrix — Hausprofil-Spec statt cons_data für Optimierung."""
 from __future__ import annotations
 
 import os
@@ -394,7 +394,7 @@ def test_build_per_scenario_reference_costs_adds_tariff_specific_ref(
 
     scenarios = {
         "live": {
-            "_import_tariff_spec": {"id": "awattar_at", "type": "awattar"},
+            "_import_tariff_spec": {"id": "awattar_at", "type": "spot_hourly", "land": "AT"},
             "_export_tariff_spec": {"id": "fixed_37ct", "type": "fixed", "k_push_cent": 37.0},
             "feed_in_mode": "fixed",
             "k_push_cent": 37.0,
@@ -477,11 +477,11 @@ def test_plan_per_scenario_reference_tasks_battery_variant_uses_live_ref():
     )
 
     shared = {
-        "_import_tariff_spec": {"id": "awattar_at", "type": "awattar"},
+        "_import_tariff_spec": {"id": "awattar_at", "type": "spot_hourly", "land": "AT"},
         "_export_tariff_spec": {"id": "monthly_sunny", "type": "fixed", "k_push_cent": 0.0},
         "feed_in_mode": "fixed",
         "k_push_cent": 0.0,
-        "import_tariff_type": "awattar",
+        "import_tariff_type": "spot_hourly",
         "pv_kwp": 6.0,
     }
     scenarios = {

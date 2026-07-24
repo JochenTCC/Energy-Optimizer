@@ -12,12 +12,12 @@ Ohne diese Variable stehen in der Entwicklung **Sunset-2-Sunset** (Seite **Monit
 |-----|-------|-----------|------------|
 | `sunset2sunset` | **Monitor**, **Manuelle Geräte** | Live-Cockpit | ja (Hauptansicht; ohne Key kein Live-Cockpit-Abschnitt) |
 | `scenario_explorer` | **Szenario-Explorer** | Konfiguration | optional (Dev / Community Cloud) |
-| `live_environment` | **Optimierer-Dienst**, **Loxone-Kommunikation**, **Analyse Verbrauch & Kosten** (Live-Cockpit) | Daemon Control / Live-Cockpit | ja (Prod; ohne Key kein Live-/Daemon-Anteil) |
+| `live_environment` | **Optimierer-Dienst**, **Loxone-Com**, **Analyse Verbrauch & Kosten** (Live-Cockpit) | Daemon Control / Live-Cockpit | ja (Prod; ohne Key kein Live-/Daemon-Anteil) |
 | `price_forecast` | **Preis-Prognose (Dev)** | Live-Cockpit | Dev-only |
 
 Beispiel Community Cloud (nur Szenario-Explorer): `EARNIE_UI_MODES=scenario_explorer` — Live-Cockpit und Daemon Control entfallen.
 
-Weitere Seiten (nicht über `EARNIE_UI_MODES` gesteuert): **Hauskonfigurator**, **Szenarieneditor** — Freischaltung abhängig vom Setup-Fortschritt (`ui/setup_readiness.py`). **Analyse Verbrauch & Kosten** erscheint nur mit `live_environment` und nur im Abschnitt Live-Cockpit; ohne Live-Verbindung zur Smarthome-Steuerung zeigt die Seite einen Hinweis statt der Analyse.
+Weitere Seiten (nicht über `EARNIE_UI_MODES` gesteuert): **Hauskonfigurator**, **Szenarienkonfigurator** — Freischaltung abhängig vom Setup-Fortschritt (`ui/setup_readiness.py`). **Analyse Verbrauch & Kosten** erscheint nur mit `live_environment` und nur im Abschnitt Live-Cockpit; ohne Live-Verbindung zur Smarthome-Steuerung zeigt die Seite einen Hinweis statt der Analyse.
 
 In der Sidebar (unten): Abschnitt **Info / About** (Banner der Wahrheit, Version, Kontaktformular an `mail@techcreacon.com` — ZIP sammeln und der E-Mail manuell anhängen), oben Setup-Hinweise und **„Konfiguration speichern / laden“** (ZIP-Export/Import der Config-Sidecars und `uploads/` — siehe [Speichern / Laden](../konfiguration/speichern-laden.md)).
 
@@ -26,8 +26,8 @@ In der Sidebar (unten): Abschnitt **Info / About** (Banner der Wahrheit, Version
 | Abschnitt | Seiten |
 |-----------|--------|
 | **Live-Cockpit** | Monitor, Manuelle Geräte, Analyse Verbrauch & Kosten (bei `live_environment`), Preis-Prognose (Dev) |
-| **Konfiguration** | Hauskonfigurator, Szenarieneditor, Szenario-Explorer (wenn freigeschaltet) |
-| **Daemon Control** | Optimierer-Dienst, Loxone-Kommunikation |
+| **Konfiguration** | Hauskonfigurator, Szenarienkonfigurator, Szenario-Explorer (wenn freigeschaltet) |
+| **Daemon Control** | Optimierer-Dienst, Loxone-Com |
 
 Während der Greenfield-Ersteinrichtung sind zunächst nur **Konfiguration** und **Daemon Control** sichtbar (Daemon-Seiten werden für die Ersteinrichtung auch ohne `live_environment` in der Env erzwungen).
 
@@ -79,7 +79,7 @@ Stunde 0 stammt aus dem **Produktiv-Durchlauf** (`main.py` → `live_optimizatio
 
 ### Live-Szenario (Entitäts-Referenzen)
 
-PV-, Batterie- und Einspeise-Parameter werden über Entitäts-IDs im **Live-Szenario** (`backtesting_scenarios.json`, gewählt via `live_scenario_id` in `config.json`) konfiguriert — Seite **Szenarieneditor**. **Kein** adaptives PV-Tuning mehr — neuer Adaptions-Ansatz separat im Backlog.
+PV-, Batterie- und Einspeise-Parameter werden über Entitäts-IDs im **Live-Szenario** (`backtesting_scenarios.json`, gewählt via `live_scenario_id` in `config.json`) konfiguriert — Seite **Szenarienkonfigurator**. **Kein** adaptives PV-Tuning mehr — neuer Adaptions-Ansatz separat im Backlog.
 
 ### Panels
 
@@ -108,6 +108,8 @@ Ersparnis-, Kosten-Kennzahlen und Energievergleich beziehen sich auf **Jetzt →
 
 - Gesamt- und Monatskostenvergleich (Referenz vs. optimierte Szenarien)
 - Plausibilisierung und Stundenverläufe pro Monat
+- Optional **Season-Mirror** (`scenario_explorer_conf.season_mirror_to_last_month`): Verbrauch/PV nach Kalendermonat auf die letzten 12 vollständigen Wanduhr-Monate spiegeln (CSV unverändert), damit aktuelle Tarife gelten
+- Nur Szenarien mit `enabled` (Standard true) aus dem Szenarienkonfigurator; Verbrauchsdaten-Start nur bei passendem Synthese-Fingerprint
 
 **Kein** S-2-Navigation, **kein** Produktiv-Log-Merge. Nicht für den täglichen Produktivbetrieb gedacht.
 

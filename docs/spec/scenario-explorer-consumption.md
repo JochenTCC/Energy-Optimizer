@@ -47,7 +47,8 @@ Profile consumers are merged into `flexible_consumers` via `_planning_flex_consu
 | Condition | Basislast |
 | --------- | --------- |
 | `total_profile_csv` present **and** every controllable generic (`flex` + `manual`) has active `use_profile_csv` | **B:** hourly residual `total − Σ(accounted CSV series)`, clip ≥ 0; known CSV re-added as fixed overlay |
-| otherwise | **A:** flat `baseload_kwh / 8760` + role overlays |
+| otherwise, `baseload_distribution=monthly` and Gesamt-CSV resolvable | **A monthly:** per-calendar-month residual `max(0, Ist_m − Σ model consumers_m) / hours_m` + role overlays |
+| otherwise | **A flat:** `baseload_kwh / 8760` + role overlays |
 
 Greenfield `config.json` keeps `flexible_consumers: []`; shiftable loads come from the house profile.
 

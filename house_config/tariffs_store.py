@@ -10,7 +10,6 @@ from data.tariff_pricing import market_zone_for_land
 
 IMPORT_TYPES = frozenset(
     {
-        "awattar",
         "fixed_cent",
         "spot_hourly",
         "ex_post_spot",
@@ -22,7 +21,6 @@ EXPORT_TYPES = frozenset(
     {
         "fixed",
         "monthly_table",
-        "dynamic_epex",
         "spot_hourly",
         "ex_post_spot",
     }
@@ -33,12 +31,15 @@ VALID_CURRENCIES = frozenset({"EUR", "CHF"})
 _EXPORT_TARIFF_ID_ALIASES: dict[str, str] = {
     "awattar_sunny_float": "dynamic_epex",
 }
-_AWATTAR_IMPORT_KEYS = (
-    "fix_aufschlag_cent",
-    "netzverlust_faktor",
-    "mwst_austria_faktor",
-)
-_AWATTAR_EXPORT_KEYS = (
+# Legacy tariff ids that must share one supplier_id for monthly-fee dedupe.
+_SUPPLIER_ID_BY_TARIFF_ID: dict[str, str] = {
+    "awattar_at": "awattar_at",
+    "dynamic_epex": "awattar_at",
+    "monthly_sunny": "awattar_at",
+    "monthly_sunny_web_recherche": "awattar_at",
+    "de_awattar_de_hourly_de": "awattar_de",
+}
+_SPOT_EXPORT_FEE_KEYS = (
     "feed_in_fee_factor",
     "feed_in_fix_cent",
 )
@@ -66,6 +67,45 @@ def _optional_float(raw: dict, key: str) -> float | None:
     if key not in raw or raw[key] is None:
         return None
     return float(raw[key])
+
+
+def slugify_tariff_id(*parts: str) -> str:
+    raw = "_".join(str(part).strip().lower() for part in parts if str(part).strip())
+    slug = re.sub(r"[^a-z0-9]+", "_", raw).strip("_")
+    return slug[:80] or "tariff"
+
+
+def _supplier_id_from_label(label: str) -> str:
+    text = str(label or "").strip()
+    for sep in (" — ", " – ", " - "):
+        if sep in text:
+            text = text.split(sep, 1)[0].strip()
+            break
+    return slugify_tariff_id(text)
+
+
+def resolve_supplier_id(
+    raw: dict,
+    *,
+    tariff_id: str,
+    label: str,
+) -> str:
+    """Required supplier slug; soft-fills from legacy map / label when missing."""
+    explicit = str(raw.get("supplier_id") or "").strip()
+    if explicit:
+        sid = slugify_tariff_id(explicit)
+        if not sid or sid == "tariff":
+            raise ValueError(
+                f"Tarif '{tariff_id}': supplier_id ist leer oder ungültig."
+            )
+        return sid
+    mapped = _SUPPLIER_ID_BY_TARIFF_ID.get(tariff_id)
+    if mapped:
+        return mapped
+    sid = _supplier_id_from_label(label)
+    if not sid or sid == "tariff":
+        raise ValueError(f"Tarif '{tariff_id}': supplier_id fehlt.")
+    return sid
 
 
 def _normalize_dach_fields(raw: dict, spec: dict) -> None:
@@ -96,14 +136,8 @@ def _normalize_dach_fields(raw: dict, spec: dict) -> None:
         spec["notes"] = str(notes).strip()
 
 
-def _copy_awattar_import_fields(raw: dict, spec: dict) -> None:
-    for key in _AWATTAR_IMPORT_KEYS:
-        if key in raw and raw[key] is not None:
-            spec[key] = float(raw[key])
-
-
-def _copy_awattar_export_fields(raw: dict, spec: dict) -> None:
-    for key in _AWATTAR_EXPORT_KEYS:
+def _copy_spot_export_fee_fields(raw: dict, spec: dict) -> None:
+    for key in _SPOT_EXPORT_FEE_KEYS:
         if key in raw and raw[key] is not None:
             spec[key] = float(raw[key])
 
@@ -122,10 +156,11 @@ def _import_tariff_spec(raw: dict, index: int) -> dict:
     label = str(raw.get("label", tariff_id)).strip() or tariff_id
     spec: dict = {"id": tariff_id, "label": label, "type": tariff_type}
     _normalize_dach_fields(raw, spec)
+    spec["supplier_id"] = resolve_supplier_id(raw, tariff_id=tariff_id, label=label)
     if tariff_type == "fixed_cent":
         if "fix_cent_kwh" not in raw:
             raise ValueError(
-                f"import_tariffs[{index}] ('{tariff_id}'): fix_cent_kwh fehlt."
+                f"import_tariffs[{index}] ('{tariff_id}'): price_cent_kwh fehlt."
             )
         spec["fix_cent_kwh"] = float(raw["fix_cent_kwh"])
     elif tariff_type == "monthly_table":
@@ -135,8 +170,6 @@ def _import_tariff_spec(raw: dict, index: int) -> dict:
                 f"import_tariffs[{index}] ('{tariff_id}'): monthly_rates fehlt."
             )
         spec["monthly_rates"] = validate_fixed_monthly_feed_in_rates(rates)
-    elif tariff_type == "awattar":
-        _copy_awattar_import_fields(raw, spec)
     elif tariff_type in {"spot_hourly", "ex_post_spot", "monthly_market"}:
         if "land" not in spec:
             raise ValueError(
@@ -159,6 +192,7 @@ def _export_tariff_spec(raw: dict, index: int) -> dict:
     label = str(raw.get("label", tariff_id)).strip() or tariff_id
     spec: dict = {"id": tariff_id, "label": label, "type": tariff_type}
     _normalize_dach_fields(raw, spec)
+    spec["supplier_id"] = resolve_supplier_id(raw, tariff_id=tariff_id, label=label)
     if tariff_type == "fixed":
         if "k_push_cent" not in raw:
             raise ValueError(
@@ -172,13 +206,12 @@ def _export_tariff_spec(raw: dict, index: int) -> dict:
                 f"export_tariffs[{index}] ('{tariff_id}'): monthly_rates fehlt."
             )
         spec["monthly_rates"] = validate_fixed_monthly_feed_in_rates(rates)
-    elif tariff_type == "dynamic_epex":
-        _copy_awattar_export_fields(raw, spec)
     elif tariff_type in {"spot_hourly", "ex_post_spot"}:
         if "land" not in spec:
             raise ValueError(
                 f"export_tariffs[{index}] ('{tariff_id}'): land fehlt für {tariff_type}."
             )
+        _copy_spot_export_fee_fields(raw, spec)
     return spec
 
 
@@ -337,10 +370,6 @@ def resolve_export_tariff_into_settings(
     if tariff["type"] == "fixed":
         out["feed_in_mode"] = "fixed"
         out["k_push_cent"] = tariff["k_push_cent"]
-    elif tariff["type"] == "dynamic_epex":
-        out["feed_in_mode"] = "dynamic_epex"
-        # Placeholder for Config/FeedInSettings; price comes from EPEX + fee fields.
-        out["k_push_cent"] = float(out.get("k_push_cent", 0.0) or 0.0)
     elif tariff["type"] in {"spot_hourly", "ex_post_spot"}:
         out["feed_in_mode"] = "dynamic_epex"
         out["k_push_cent"] = float(out.get("k_push_cent", 0.0) or 0.0)
@@ -358,9 +387,3 @@ def resolve_export_tariff_into_settings(
                 validated = validate_fixed_monthly_feed_in_rates(rates)
             monthly_rates_holder["_monthly_fixed_tariffs"] = validated
     return out
-
-
-def slugify_tariff_id(*parts: str) -> str:
-    raw = "_".join(str(part).strip().lower() for part in parts if str(part).strip())
-    slug = re.sub(r"[^a-z0-9]+", "_", raw).strip("_")
-    return slug[:80] or "tariff"

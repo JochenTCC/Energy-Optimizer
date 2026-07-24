@@ -1,11 +1,72 @@
 """Grundlast-Berechnung und Untergrenze (2 % des Jahresverbrauchs)."""
 from __future__ import annotations
 
+from collections import defaultdict
+from datetime import datetime
+
 from house_config.consumption_csv import consumer_uses_profile_csv
 
 BASELOAD_MIN_FRACTION = 0.02
 # When trimming floor to match Ist vs Modell, never go below this share of Jahresverbrauch.
 BASELOAD_TRIM_MIN_FRACTION = 0.01
+
+BASELOAD_DIST_EQUAL = "equal"
+BASELOAD_DIST_MONTHLY = "monthly"
+BASELOAD_DIST_VALUES = frozenset({BASELOAD_DIST_EQUAL, BASELOAD_DIST_MONTHLY})
+
+
+def normalize_baseload_distribution(raw: object) -> str:
+    value = str(raw or BASELOAD_DIST_EQUAL).strip().lower()
+    return value if value in BASELOAD_DIST_VALUES else BASELOAD_DIST_EQUAL
+
+
+def baseload_month_key(ts_raw: str | datetime) -> str:
+    if isinstance(ts_raw, datetime):
+        return f"{ts_raw.year}-{ts_raw.month:02d}"
+    ts = datetime.fromisoformat(str(ts_raw).replace(" ", "T", 1)[:19])
+    return f"{ts.year}-{ts.month:02d}"
+
+
+def monthly_aligned_baseload_kw(
+    timestamps: list[str],
+    ist_kw: list[float],
+    consumer_kw: list[float],
+) -> list[float]:
+    """Per-month residual baseload (kW): max(0, Ist_m − Cons_m) / hours_in_m."""
+    n = len(timestamps)
+    if n != len(ist_kw) or n != len(consumer_kw):
+        raise ValueError(
+            f"Length mismatch: timestamps={n}, ist_kw={len(ist_kw)}, "
+            f"consumer_kw={len(consumer_kw)}"
+        )
+    if n == 0:
+        return []
+    ist_sum: dict[str, float] = defaultdict(float)
+    cons_sum: dict[str, float] = defaultdict(float)
+    hours: dict[str, int] = defaultdict(int)
+    keys = [baseload_month_key(ts) for ts in timestamps]
+    for key, ist, cons in zip(keys, ist_kw, consumer_kw):
+        ist_sum[key] += float(ist)
+        cons_sum[key] += float(cons)
+        hours[key] += 1
+    month_kw = {
+        key: max(0.0, ist_sum[key] - cons_sum[key]) / hours[key]
+        for key in hours
+    }
+    return [month_kw[key] for key in keys]
+
+
+def monthly_baseload_kw_by_month(
+    timestamps: list[str],
+    ist_kw: list[float],
+    consumer_kw: list[float],
+) -> dict[str, float]:
+    """YYYY-MM → constant baseload kW for that month."""
+    series = monthly_aligned_baseload_kw(timestamps, ist_kw, consumer_kw)
+    return {
+        baseload_month_key(ts): float(kw)
+        for ts, kw in zip(timestamps, series)
+    }
 
 
 def _config_ready_for_open_meteo() -> bool:

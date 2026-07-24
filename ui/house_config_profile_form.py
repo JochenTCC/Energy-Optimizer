@@ -635,6 +635,9 @@ def _seed_profile_widget_state(
     if existing:
         label = str(existing.get("label", "Mein Haushalt"))
         annual_kwh = float(existing.get("annual_kwh", 4500.0))
+        land = str(existing.get("land") or "AT").strip().upper()
+        if land not in {"AT", "DE", "CH"}:
+            land = "AT"
         latitude = float(existing.get("latitude", 48.2))
         longitude = float(existing.get("longitude", 11.0))
         default_pv_tilt = int(existing.get("default_pv_tilt", 25))
@@ -642,12 +645,14 @@ def _seed_profile_widget_state(
     else:
         label = allocate_unique_label("Mein Haushalt", siblings or [])
         annual_kwh = 4500.0
+        land = "AT"
         latitude = 48.2
         longitude = 11.0
         default_pv_tilt = 25
         default_pv_azimuth = 0
     st.session_state[_scoped_key(session_scope, "house_profile_label")] = label
     st.session_state[_scoped_key(session_scope, "house_annual_kwh")] = annual_kwh
+    st.session_state[_scoped_key(session_scope, "house_profile_land")] = land
     st.session_state[_scoped_key(session_scope, "house_profile_latitude")] = latitude
     st.session_state[_scoped_key(session_scope, "house_profile_longitude")] = longitude
     st.session_state[_scoped_key(session_scope, "house_profile_default_pv_tilt")] = default_pv_tilt
@@ -885,18 +890,30 @@ def _inject_profile_geo(
 
 def _render_location_fields(*, session_scope: str) -> dict:
     st.subheader("Standort")
-    col_a, col_b = st.columns(2)
-    with col_a:
+    land_key = _scoped_key(session_scope, "house_profile_land")
+    if land_key not in st.session_state:
+        st.session_state[land_key] = "AT"
+    elif st.session_state[land_key] not in {"AT", "DE", "CH"}:
+        st.session_state[land_key] = "AT"
+    col_lat, col_lon, col_land = st.columns(3)
+    with col_lat:
         latitude = labeled_number_input(
             "Breitengrad",
             format="%.4f",
             key=_scoped_key(session_scope, "house_profile_latitude"),
         )
-    with col_b:
+    with col_lon:
         longitude = labeled_number_input(
             "Längengrad",
             format="%.4f",
             key=_scoped_key(session_scope, "house_profile_longitude"),
+        )
+    with col_land:
+        land = st.selectbox(
+            "Land",
+            options=["AT", "DE", "CH"],
+            key=land_key,
+            help="Land für Tariffilter im Szenarienkonfigurator (Bezug/Einspeise).",
         )
     timezone_name = "Europe/Vienna"
     try:
@@ -924,6 +941,7 @@ def _render_location_fields(*, session_scope: str) -> dict:
             key=_scoped_key(session_scope, "house_profile_default_pv_azimuth"),
         )
     return {
+        "land": str(land),
         "latitude": float(latitude),
         "longitude": float(longitude),
         "timezone_name": timezone_name,
@@ -1552,6 +1570,7 @@ def _render_consumption_csv_section(
     from house_config.profile_csv_policy import (
         controllable_generics,
         se_uses_meter_residual_baseload,
+        se_uses_monthly_baseload,
     )
 
     render_historical_csv_section(
@@ -1567,6 +1586,10 @@ def _render_consumption_csv_section(
             f"house_profile_csv_path_{preview_id}",
             existing.get("total_profile_csv", ""),
         ),
+        "baseload_distribution": st.session_state.get(
+            f"house_profile_baseload_dist_{preview_id}",
+            existing.get("baseload_distribution", "equal"),
+        ),
         "consumers": resolved,
     }
     if str(probe.get("total_profile_csv", "") or "").strip():
@@ -1574,6 +1597,11 @@ def _render_consumption_csv_section(
             st.caption(
                 "SE-Basislast: **Pfad B** (stündlicher Meter-Rest aus Gesamt-CSV "
                 "nach Abzug instrumentierter Verbraucher-CSVs)."
+            )
+        elif se_uses_monthly_baseload(probe):
+            st.caption(
+                "SE-Basislast: **Pfad A / Monats-Rest** (pro Monat Ist − Modellverbraucher; "
+                "plus Rollen-Overlays). Pfad B nur wenn alle Gesteuert/Manual ein aktives CSV haben."
             )
         else:
             missing = [
@@ -1585,7 +1613,13 @@ def _render_consumption_csv_section(
                 st.caption(
                     "SE-Basislast: **Pfad A** (flache `baseload_kwh`). "
                     "Für Meter-Rest (Pfad B) brauchen alle Gesteuert/Manual "
-                    f"ein aktives CSV: {', '.join(missing)}."
+                    f"ein aktives CSV: {', '.join(missing)}. "
+                    "Oder **Monats-Rest** wählen, wenn die Monatsform besser passt."
+                )
+            else:
+                st.caption(
+                    "SE-Basislast: **Pfad A** (flache `baseload_kwh`). "
+                    "Optional **Monats-Rest** für monatsweise Anpassung an die Gesamt-CSV."
                 )
 
 
@@ -1627,6 +1661,9 @@ def _perform_house_profile_save(
                 "battery_profile_csv": hist.get("battery_profile_csv", ""),
                 "grid_profile_csv": hist.get("grid_profile_csv", ""),
                 "historical_csv_source": hist["historical_csv_source"],
+                "baseload_distribution": hist.get(
+                    "baseload_distribution", "equal"
+                ),
             }
         )
     except ValueError as exc:
@@ -1679,6 +1716,7 @@ def _render_house_profile_save(
         "id": profile_id,
         "label": label.strip() or profile_id,
         "annual_kwh": float(annual_kwh),
+        "land": location.get("land", "AT"),
         "latitude": location["latitude"],
         "longitude": location["longitude"],
         "default_pv_tilt": location["default_pv_tilt"],
@@ -1689,6 +1727,7 @@ def _render_house_profile_save(
         "battery_profile_csv": hist.get("battery_profile_csv", ""),
         "grid_profile_csv": hist.get("grid_profile_csv", ""),
         "historical_csv_source": hist["historical_csv_source"],
+        "baseload_distribution": hist.get("baseload_distribution", "equal"),
     }
 
     def _save() -> None:

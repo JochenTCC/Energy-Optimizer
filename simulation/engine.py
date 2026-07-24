@@ -99,10 +99,34 @@ class PlausibilityReport:
 class HistoricalDataCache:
     """Lädt Loxone-Verbrauchs-, Flex- und PV-Daten einmalig für tagweise Simulation."""
 
-    def __init__(self, cons_data_path: str | None = None) -> None:
+    def __init__(
+        self,
+        cons_data_path: str | None = None,
+        *,
+        season_mirror_window: tuple | None = None,
+    ) -> None:
         self._cons_data_path = cons_data_path
+        self._season_mirror_window = season_mirror_window
         self._consumption_df: pd.DataFrame | None = None
         self._pv_series: pd.Series | None = None
+
+    def _maybe_season_mirror(self, cons_df: pd.DataFrame) -> pd.DataFrame:
+        from data.cons_data_season_mirror import (
+            is_season_mirror_enabled,
+            season_mirror_cons_dataframe,
+            wall_clock_simulation_window,
+        )
+
+        if not is_season_mirror_enabled():
+            return cons_df
+        window = self._season_mirror_window
+        if window is None:
+            window = wall_clock_simulation_window()
+        return season_mirror_cons_dataframe(
+            cons_df,
+            target_start=window[0],
+            target_end=window[1],
+        )
 
     def load(self) -> None:
         if self._consumption_df is not None:
@@ -116,19 +140,22 @@ class HistoricalDataCache:
                 raise ValueError(
                     f"Backtesting benötigt cons_data unter {self._cons_data_path!r}."
                 )
+            cons_df = self._maybe_season_mirror(cons_df)
             df = profile_manager._cons_data_to_profile_dataframe(cons_df)
             self._consumption_df = df
             self._pv_series = cons_df["pv_kw"]
             return
 
-        df = profile_manager.load_cons_data_profile_dataframe()
-        if df is None or df.empty:
+        from data import cons_data_store
+
+        cons_df = cons_data_store.load_cons_data()
+        if cons_df.empty:
             raise ValueError(
                 "Backtesting benötigt cons_data_hourly.csv (z. B. via scripts/generate_cons_data.py)."
             )
-
-        self._consumption_df = df
-        self._pv_series = profile_manager.load_cons_data_pv_series()
+        cons_df = self._maybe_season_mirror(cons_df)
+        self._consumption_df = profile_manager._cons_data_to_profile_dataframe(cons_df)
+        self._pv_series = cons_df["pv_kw"]
 
     def get_window_consumption(
         self,
@@ -422,12 +449,15 @@ def build_historical_matrix_for_slots(
         house_profile_baseload_overlay,
         meter_residual_baseload_kw,
         milp_flex_thermal_annual_ids,
+        monthly_residual_baseload_kw,
         profile_flat_baseload_kw,
         resolve_consumption_source,
         resolve_profile_spec_flex_targets,
     )
-    from house_config.profile_csv_policy import se_uses_meter_residual_baseload
-
+    from house_config.profile_csv_policy import (
+        se_uses_meter_residual_baseload,
+        se_uses_monthly_baseload,
+    )
     consumption_source = resolve_consumption_source(scenario_params)
     profile = (scenario_params or {}).get("_house_profile")
     flexible_consumers = None
@@ -468,6 +498,13 @@ def build_historical_matrix_for_slots(
         )
         if se_uses_meter_residual_baseload(profile):
             residual, residual_clipped_hours = meter_residual_baseload_kw(
+                profile,
+                slot_datetimes,
+                climate=climate,
+            )
+            baseload_kw = [round(base + extra, 3) for base, extra in zip(residual, overlay)]
+        elif se_uses_monthly_baseload(profile):
+            residual = monthly_residual_baseload_kw(
                 profile,
                 slot_datetimes,
                 climate=climate,

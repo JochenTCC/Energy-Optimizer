@@ -156,21 +156,17 @@ def save_cons_data(df: pd.DataFrame, path: str | None = None, *, apply_retention
 
     meta_path = path.replace(".csv", METADATA_SUFFIX) if path.endswith(".csv") else path + METADATA_SUFFIX
     from data.cons_data_house_profile import (
+        current_cons_data_synthesis_fingerprint,
         expected_cons_data_consumer_ids,
-        house_profile_cons_data_fingerprint,
-        resolve_runtime_house_profile,
     )
 
-    profile = resolve_runtime_house_profile()
     meta = stamp_payload(
         {
             "output_file": path,
             "retention_months": get_retention_months(),
             "consumer_ids": expected_cons_data_consumer_ids()
             or _consumer_ids_from_dataframe(df),
-            "house_profile_fingerprint": (
-                house_profile_cons_data_fingerprint(profile) if profile else None
-            ),
+            "house_profile_fingerprint": current_cons_data_synthesis_fingerprint(),
             "date_range": {"min": str(df.index.min()), "max": str(df.index.max())},
             "row_count": len(df),
             "source_counts": df["source"].value_counts().to_dict() if not df.empty else {},
@@ -275,11 +271,8 @@ def load_cons_data_meta(path: str | None = None) -> dict | None:
 
 
 def cons_data_consumer_match_reason(path: str | None = None) -> str | None:
-    """None wenn consumer_ids und Hausprofil passen; sonst Grund-Code."""
-    from data.cons_data_house_profile import (
-        house_profile_cons_data_fingerprint,
-        resolve_runtime_house_profile,
-    )
+    """None wenn consumer_ids und Synthese-Fingerprint passen; sonst Grund-Code."""
+    from data.cons_data_house_profile import current_cons_data_synthesis_fingerprint
 
     meta = load_cons_data_meta(path)
     if meta is None:
@@ -291,11 +284,10 @@ def cons_data_consumer_match_reason(path: str | None = None) -> str | None:
     stored_sorted = sorted(str(item) for item in stored)
     if stored_sorted != current:
         return "id_mismatch"
-    profile = resolve_runtime_house_profile()
-    if profile is not None:
-        current_fp = house_profile_cons_data_fingerprint(profile)
+    current_fp = current_cons_data_synthesis_fingerprint()
+    if current_fp is not None:
         stored_fp = meta.get("house_profile_fingerprint")
-        if stored_fp is not None and str(stored_fp) != current_fp:
+        if stored_fp is None or str(stored_fp) != current_fp:
             return "profile_mismatch"
     return None
 

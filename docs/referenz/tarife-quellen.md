@@ -1,6 +1,6 @@
 # Tarife und Preise nachrechnen
 
-Anleitung für Anwender:innen, die im **Szenarioeditor** oder **Szenario-Explorer** verstehen wollen, wie Earnie Bezugs- und Einspeisepreise sowie die ungefähren Monatskosten bildet. Sprache der Anwenderdoku: Deutsch; Identifier, URLs und JSON-Keys unverändert.
+Anleitung für Anwender:innen, die im **Szenarienkonfigurator** oder **Szenario-Explorer** verstehen wollen, wie Earnie Bezugs- und Einspeisepreise sowie die ungefähren Monatskosten bildet. Sprache der Anwenderdoku: Deutsch; Identifier, URLs und JSON-Keys unverändert.
 
 Verwandt: [Preise & aWATTar](../konfiguration/preise.md) (Konfiguration/Typen) · [OeMAG und Referenzmarktwert](oemag-referenzmarktwert.md)
 
@@ -14,7 +14,7 @@ Verwandt: [Preise & aWATTar](../konfiguration/preise.md) (Konfiguration/Typen) �
 | **Monatsgebühr** (`monthly_fee_eur`, Näherung) | **nein** | **ja** (nach Aggregation) |
 | Vollständige Netz-Grundpreise, Messstellengebühr, Abgabenstack der Rechnung | nein | nein |
 
-Earnie liefert **gute-genug-€** für Vergleiche und Demos — **keine** Abrechnung gegen echte Stromrechnungen. Katalogwerte können unvollständig oder veraltet sein; bitte die Parameter im Szenarioeditor prüfen.
+Earnie liefert **gute-genug-€** für Vergleiche und Demos — **keine** Abrechnung gegen echte Stromrechnungen. Katalogwerte können unvollständig oder veraltet sein; bitte die Parameter im Szenarienkonfigurator prüfen.
 
 ## 2. Bezugspreis Schritt für Schritt
 
@@ -67,9 +67,9 @@ Details zu Typen und JSON: [Preise & aWATTar](../konfiguration/preise.md).
 ## 4. Monatsgebühr in den SE-Gesamtkosten
 
 - Feld im Katalog: `monthly_fee_eur` (optional; fehlt = 0).
+- Pflichtfeld **`supplier_id`** (Stromlieferant-Slug): gleiche Anbieter bei Bezug und Einspeise teilen sich **eine** Monatsgebühr (`max` der beiden Werte), unterschiedliche Anbieter werden **addiert**.
 - **Netto oder brutto** wie beim Tarif: gleiche Basis wie `prices_include_vat` (netto, wenn Preise ohne USt geführt werden).
-- Pro Szenario: Monatsgebühr Bezug + Monatsgebühr Einspeise (falls gesetzt).
-- Pro **Kalendermonat** im SE-Zeitraum (monatsweise aus `cons_data`): **eine volle** Monatsgebühr — keine anteilige Kürzung.
+- Pro **Kalendermonat** im SE-Zeitraum (monatsweise aus `cons_data`): **eine volle** Monatsgebühr je Anbieter-Gruppe — keine anteilige Kürzung.
 - Jahres-/Gesamtwert: Summe der Monatsgebühren über alle Monate + Summe der Stunden-Energiekosten.
 - **Nicht** in Live-MILP, **nicht** in den stündlichen `sim_cost`-Kurven.
 
@@ -77,12 +77,13 @@ In der UI: Szenario-Explorer → Gesamtkosten und Monatliche Stromkosten (Hinwei
 
 ## 5. Katalogparameter prüfen
 
-Im Szenarioeditor erscheint nach Tarifwahl eine **read-only-Vorschau** (Land, Aufschläge, USt-Flag, ggf. Monatsgebühr ca.).
+Im Szenarienkonfigurator erscheint nach Tarifwahl eine **read-only-Vorschau** (Land, `supplier_id`, Aufschläge, USt-Flag, ggf. Monatsgebühr ca.).
 
 Prüfen Sie insbesondere:
 
 - Stimmen Aufschlag und USt-Flag mit dem Tarifblatt des Anbieters überein?
 - Ist eine Monatsgebühr hinterlegt, die Sie erwarten — oder fehlt sie (dann 0 in der SE-Rechnung)?
+- Bei gleichem Anbieter (z. B. aWATTar Bezug + SUNNY): erscheint die Gebühr nur **einmal**?
 - Es gibt **keine Garantie** für Vollständigkeit oder Aktualität des Katalogs.
 
 Nachrechnen der Formeln: diese Seite. Technisches Mapping: [preise.md](../konfiguration/preise.md).
@@ -95,7 +96,7 @@ Nachrechnen der Formeln: diese Seite. Technisches Mapping: [preise.md](../konfig
 | ------ | ------ | --------------- |
 | **Offizielle EPEX** SFTP / MATS API | Kostenpflichtig ([Market Data Services](https://www.epexspot.com/en/marketdataservices), [EEX Webshop](https://webshop.eex-group.com/epex-spot-public-market-data)) | **Nicht** angebunden |
 | **Energy-Charts** `GET /price?bzn=…` | Kostenlos; Fraunhofer ISE, CC BY 4.0 ([api.energy-charts.info](https://api.energy-charts.info/)) | **Primäre** Day-Ahead-Quelle für AT, DE-LU, CH |
-| **aWATTar** `api.awattar.at` / `.de` | Kostenlos, Fair Use | Fallback (AT) bzw. optional (DE); Tarif-Typ `awattar` |
+| **aWATTar** `api.awattar.at` / `.de` | Kostenlos, Fair Use | Fallback (AT) bzw. optional (DE); Katalog-Tarife als `spot_hourly` (API-URL aus `land`) |
 | **ENTSO-E Transparency** | Token erforderlich | Optional später |
 | **APG** markt.apg.at | Öffentliche Charts | Nur manuelle Referenz |
 

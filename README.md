@@ -60,7 +60,7 @@ Details: [Betrieb](docs/einrichtung/betrieb.md)
 ### Oberfläche (Weboberfläche über [Streamlit](https://streamlit.io/))
 
 - **Monitor** (mit vollem Optimierungs-Horizont) — Energiefluss, SOC-Verlauf der Batterie, Verbraucherverhalten, Lade-Kontrolle der Batterie von Earnie
-- **Hauskonfigurator / Szenarieneditor** — Umfangreiche Konfiguration des Hauses mit allen Verbrauchern zur Planung und Szenario-Exploration
+- **Hauskonfigurator / Szenarienkonfigurator** — Umfangreiche Konfiguration des Hauses mit allen Verbrauchern zur Planung und Szenario-Exploration
 - **Manuelle Geräte** — Laufzeiten mithilfe von Earnie planen und Empfehlungen annehmen
 - **Szenario-Explorer** — Szenarien vergleichen (Was-Wäre-Wenn Analysen)
 - **Analyse Verbrauch & Kosten** — Verbrauch/Herkunft/Kosten aus dem Produktiv-Log; Swimspa autonom vs. Earnie
@@ -99,7 +99,7 @@ Optional: [Greenfield Dev-Stack](docs/einrichtung/greenfield-dev-stack.md) (Erst
 | **Handbuch**           | [Benutzer-Handbuch Earnie](docs/user-manual/Benutzer-Handbuch-Earnie.md)                                                                                                                                         |
 | **Einrichtung**        | [Loxone-Anbindung](docs/einrichtung/loxone-anbindung.md) · [Betrieb](docs/einrichtung/betrieb.md) · [Container](docs/einrichtung/container.md) · [Proxmox LXC](docs/einrichtung/proxmox-lxc.md)                                                                   |
 | **Konfiguration**      | [Überblick](docs/konfiguration/ueberblick.md) · [PV & Batterie](docs/konfiguration/batterie-pv.md) · [Flexible Verbraucher](docs/konfiguration/flexible-verbraucher.md) · [Preise](docs/konfiguration/preise.md) |
-| **Benutzeroberfläche** | [Betriebsmodi](docs/ui/betriebsmodi.md) · [Charts](docs/ui/charts.md) · [Loxone-Kommunikation](docs/ui/loxone-kommunikation.md)                                                                                  |
+| **Benutzeroberfläche** | [Betriebsmodi](docs/ui/betriebsmodi.md) · [Charts](docs/ui/charts.md) · [Loxone-Com](docs/ui/loxone-kommunikation.md)                                                                                  |
 | **Referenz**           | [Loxone-Signale](docs/referenz/loxone-signale.md)                                                                                                                                                                |
 
 

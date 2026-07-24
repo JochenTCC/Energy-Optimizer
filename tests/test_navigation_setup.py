@@ -1,4 +1,4 @@
-# tests/test_navigation_setup.py
+﻿# tests/test_navigation_setup.py
 """Tests für eingeschränkte Navigation nach Minimal-Bootstrap."""
 from __future__ import annotations
 
@@ -78,7 +78,7 @@ def test_restricted_navigation_shows_only_setup_pages(tmp_path, monkeypatch):
     assert titles == [
         "Hauskonfigurator",
         "Optimierer-Dienst",
-        "Loxone-Kommunikation",
+        "Loxone-Com",
     ]
 
 
@@ -128,9 +128,9 @@ def test_scenario_editor_after_house_config_ready(tmp_path, monkeypatch):
 
     assert titles == [
         "Hauskonfigurator",
-        "Szenarieneditor",
+        "Szenarienkonfigurator",
         "Optimierer-Dienst",
-        "Loxone-Kommunikation",
+        "Loxone-Com",
     ]
     assert "Szenario-Explorer" not in titles
     assert "Live-Konfiguration" not in titles
@@ -169,7 +169,7 @@ def test_scenario_explorer_visible_when_planning_ready(tmp_path, monkeypatch):
     _write(
         config_dir / "tariffs.json",
         {
-            "import_tariffs": [{"id": "imp", "label": "Import", "type": "awattar"}],
+            "import_tariffs": [{"id": "imp", "label": "Import", "type": "spot_hourly", "land": "AT"}],
             "export_tariffs": [
                 {"id": "exp", "label": "Export", "type": "fixed", "k_push_cent": 3.7}
             ],

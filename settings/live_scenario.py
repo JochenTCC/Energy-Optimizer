@@ -204,10 +204,11 @@ def get_backtesting_scenarios(
     *,
     resolve_settings: Callable[[dict], dict],
 ) -> dict[str, dict]:
-    """Alle aufgelösten Szenarien aus backtesting_scenarios.json."""
+    """Aufgelöste Szenarien für SE (enabled fehlt oder true; disabled ausgelassen)."""
     return {
         scenario["id"]: resolve_settings(scenario["settings"])
         for scenario in scenarios
+        if scenario.get("enabled", True) is not False
     }
 
 

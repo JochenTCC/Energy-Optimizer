@@ -1,4 +1,4 @@
-"""Loxone-Kommunikation: Live-Lese- und Schreib-Debug für die Streamlit-UI."""
+"""Loxone-Com: Live-Lese- und Schreib-Debug für die Streamlit-UI."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -138,7 +138,7 @@ def render_live_reads_section() -> None:
 
 
 def render_last_writes_section(main_state: dict | None) -> None:
-    st.subheader("Letzte Schreibvorgänge")
+    st.subheader("Live-Schreiben")
 
     silent_now = config.is_loxone_silent_mode()
     silent_run = bool((main_state or {}).get("loxone_silent_mode"))

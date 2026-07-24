@@ -169,6 +169,7 @@ def test_house_profile_without_consumers():
     )
     profile = doc["profiles"]["minimal"]
     assert profile["consumers"] == []
+    assert profile["land"] == "AT"
     assert profile["baseload_kwh"] == pytest.approx(3000.0, rel=1e-3)
 
 
@@ -212,6 +213,38 @@ def test_trim_baseload_floor_to_match_ist():
         )
 
 
+def test_monthly_aligned_baseload_kw_fits_each_month():
+    from house_config.baseload import monthly_aligned_baseload_kw
+
+    # 2 h in Jan, 2 h in Feb. Ist high in Jan, low in Feb; consumers mid.
+    timestamps = [
+        "2025-01-01 00:00:00",
+        "2025-01-01 01:00:00",
+        "2025-02-01 00:00:00",
+        "2025-02-01 01:00:00",
+    ]
+    ist_kw = [3.0, 3.0, 0.5, 0.5]
+    consumer_kw = [1.0, 1.0, 1.0, 1.0]
+    series = monthly_aligned_baseload_kw(timestamps, ist_kw, consumer_kw)
+    # Jan: max(0, 6−2)/2 = 2.0 kW; Feb: max(0, 1−2)/2 = 0
+    assert series == pytest.approx([2.0, 2.0, 0.0, 0.0])
+    assert sum(consumer_kw[:2]) + sum(series[:2]) == pytest.approx(sum(ist_kw[:2]))
+    # Overshoot month: baseload 0 → stack stays at consumer sum
+    assert sum(consumer_kw[2:]) + sum(series[2:]) == pytest.approx(sum(consumer_kw[2:]))
+    # Flat annual residual would differ from monthly shape
+    annual_residual = max(0.0, sum(ist_kw) - sum(consumer_kw))
+    flat_kw = annual_residual / len(timestamps)
+    assert series != pytest.approx([flat_kw] * len(timestamps))
+
+
+def test_monthly_aligned_baseload_kw_length_mismatch():
+    from house_config.baseload import monthly_aligned_baseload_kw
+
+    with pytest.raises(ValueError, match="Length mismatch"):
+        monthly_aligned_baseload_kw(["2025-01-01 00:00:00"], [1.0], [1.0, 2.0])
+    assert monthly_aligned_baseload_kw([], [], []) == []
+
+
 def test_consumer_annual_kwh_flat_thermal():
     consumer = {
         "type": "thermal_annual",
@@ -244,7 +277,7 @@ def test_dach_tariffs_catalog():
     doc = load_tariffs_document(str(root / "share" / "config" / "tariffs.json"))
     assert doc.get("catalog_as_of") == "2026"
     assert len(doc["import_tariffs"]) == 34
-    assert len(doc["export_tariffs"]) == 15
+    assert len(doc["export_tariffs"]) == 16
     assert "awattar_at" in doc["import_tariffs"]
     assert "at_vkw_strom_dynamisch" in doc["import_tariffs"]
     assert "dynamic_epex" in doc["export_tariffs"]
@@ -306,12 +339,18 @@ def test_awattar_tariff_spec_includes_surcharges():
     root = Path(__file__).resolve().parents[1]
     doc = load_tariffs_document(str(root / "share" / "config" / "tariffs.json"))
     awattar = doc["import_tariffs"]["awattar_at"]
+    assert awattar["type"] == "spot_hourly"
     assert awattar["settlement_fee_cent_kwh"] == pytest.approx(1.5)
     assert awattar["markup_percent"] == pytest.approx(3.0)
     assert awattar["vat_percent"] == pytest.approx(20.0)
     assert awattar.get("prices_include_vat") is False
     dynamic = doc["export_tariffs"]["dynamic_epex"]
+    assert dynamic["type"] == "spot_hourly"
     assert dynamic["feed_in_fee_factor"] == pytest.approx(0.19)
+    assert dynamic["settlement_fee_cent_kwh"] == pytest.approx(0.0)
+    assert dynamic["monthly_fee_eur"] == pytest.approx(4.79)
+    assert awattar["supplier_id"] == "awattar_at"
+    assert dynamic["supplier_id"] == "awattar_at"
 
 
 def test_export_tariff_id_alias_awattar_sunny_float():
@@ -322,7 +361,9 @@ def test_export_tariff_id_alias_awattar_sunny_float():
             "dynamic_epex": {
                 "id": "dynamic_epex",
                 "label": "aWATTar SUNNY SPOT",
-                "type": "dynamic_epex",
+                "type": "spot_hourly",
+                "land": "AT",
+                "feed_in_fee_factor": 0.19,
             }
         }
     }
@@ -333,6 +374,7 @@ def test_export_tariff_id_alias_awattar_sunny_float():
     assert resolved["feed_in_mode"] == "dynamic_epex"
     assert resolved["k_push_cent"] == pytest.approx(0.0)
     assert resolved["_export_tariff_spec"]["id"] == "dynamic_epex"
+    assert resolved["_export_tariff_spec"]["type"] == "spot_hourly"
 
 
 def test_tariff_spec_resolution_de_spot_ch_fix():

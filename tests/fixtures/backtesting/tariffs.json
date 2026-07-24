@@ -97,12 +97,13 @@
         {
             "id": "awattar_at",
             "label": "aWATTar Österreich",
-            "type": "awattar",
+            "type": "spot_hourly",
             "land": "AT",
             "settlement_fee_cent_kwh": 1.5,
             "markup_percent": 3.0,
             "prices_include_vat": false,
-            "vat_percent": 20.0
+            "vat_percent": 20.0,
+            "supplier_id": "awattar_at"
         },
         {
             "id": "de_spot_test",
@@ -113,13 +114,15 @@
             "settlement_fee_cent_kwh": 2.25,
             "markup_percent": 3.0,
             "prices_include_vat": false,
-            "vat_percent": 19.0
+            "vat_percent": 19.0,
+            "supplier_id": "de_spot_test"
         },
         {
             "id": "fixed_25ct",
             "label": "Fix 25 ct/kWh Bezug",
             "type": "fixed_cent",
-            "fix_cent_kwh": 25.0
+            "fix_cent_kwh": 25.0,
+            "supplier_id": "fix_25_ct_kwh_bezug"
         }
     ],
     "export_tariffs": [
@@ -127,13 +130,15 @@
             "id": "fixed_37ct",
             "label": "Fix 3,7 ct/kWh Einspeise",
             "type": "fixed",
-            "k_push_cent": 3.7
+            "k_push_cent": 3.7,
+            "supplier_id": "fix_3_7_ct_kwh_einspeise"
         },
         {
             "id": "fixed_35ct",
             "label": "Fix 3,5 ct/kWh",
             "type": "fixed",
-            "k_push_cent": 3.5
+            "k_push_cent": 3.5,
+            "supplier_id": "fix_3_5_ct_kwh"
         },
         {
             "id": "ch_fix_test",
@@ -143,7 +148,8 @@
             "currency": "CHF",
             "k_push_cent": 12.5,
             "prices_include_vat": true,
-            "vat_percent": 0.0
+            "vat_percent": 0.0,
+            "supplier_id": "ch_fix_test"
         },
         {
             "id": "monthly_test",
@@ -165,7 +171,8 @@
                     "month": 12,
                     "tariff_cent_kwh": 8.0
                 }
-            ]
+            ],
+            "supplier_id": "monatliche_testwerte"
         }
     ],
     "earnie_data_model": 3,

@@ -97,7 +97,7 @@ def render_cloud_demo_intro() -> None:
         "- E-Auto: Für Ihr E-Auto\n"
         "- Temperatur: Für Pool oder andere beheizbare Geräte\n"
         "- Allgemein: Für sonstige Geräte\n\n"
-        "Danach können Sie im **Szenarien-Editor** die Komponeneten zu Szenarien kombinieren - mit verschiedenen Tarifen\n"
+        "Danach können Sie im **Szenarienkonfigurator** die Komponeneten zu Szenarien kombinieren - mit verschiedenen Tarifen\n"
         "Im **Szenarien-Explorer** können Sie die Szenarien testen und optimieren.\n\n"
         "Ihre Eingaben gelten nur für **diese Browser-Sitzung** und werden nicht "
         "mit anderen Besuchern geteilt. Sie können die Daten mit **Konfiguration Speichern / laden** lokal sichern und zu einem späteren Zeitpunkt hier wieder verwenden.\n\n"

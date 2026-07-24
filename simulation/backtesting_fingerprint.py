@@ -10,10 +10,7 @@ _FINGERPRINT_TARIFF_KEYS = frozenset({
     "_export_tariff_spec",
     "_monthly_fixed_tariffs",
 })
-_AWATTAR_PRICING_KEYS = (
-    "fix_aufschlag_cent",
-    "netzverlust_faktor",
-    "mwst_austria_faktor",
+_SPOT_EXPORT_FEE_KEYS = (
     "feed_in_fee_factor",
     "feed_in_fix_cent",
 )
@@ -37,47 +34,41 @@ def _canonical_scenario_settings(settings: dict) -> dict:
     })
 
 
-def _awattar_pricing_from_specs(settings: dict) -> dict:
+def _spot_export_fee_from_specs(settings: dict) -> dict:
     payload: dict[str, Any] = {}
-    import_spec = settings.get("_import_tariff_spec") or {}
     export_spec = settings.get("_export_tariff_spec") or {}
-    for key in _AWATTAR_PRICING_KEYS:
-        if key in import_spec:
-            payload[key] = import_spec[key]
-        elif key in export_spec:
+    for key in _SPOT_EXPORT_FEE_KEYS:
+        if key in export_spec:
             payload[key] = export_spec[key]
     return _json_safe(payload)
 
 
-def _scenario_needs_awattar_pricing(settings: dict) -> bool:
-    import_spec = settings.get("_import_tariff_spec") or {}
+def _scenario_needs_spot_export_fees(settings: dict) -> bool:
     export_spec = settings.get("_export_tariff_spec") or {}
-    import_type = str(
-        import_spec.get("type", settings.get("import_tariff_type", ""))
-    ).lower()
-    export_type = str(export_spec.get("type", "")).lower()
-    return import_type == "awattar" or export_type == "dynamic_epex"
+    if str(export_spec.get("type", "")).lower() not in {"spot_hourly", "ex_post_spot"}:
+        return False
+    return any(key in export_spec for key in _SPOT_EXPORT_FEE_KEYS)
 
 
-def _needs_awattar_pricing(resolved_settings_by_id: dict[str, dict]) -> bool:
+def _needs_spot_export_fees(resolved_settings_by_id: dict[str, dict]) -> bool:
     return any(
-        _scenario_needs_awattar_pricing(settings)
+        _scenario_needs_spot_export_fees(settings)
         for settings in resolved_settings_by_id.values()
     )
 
 
-def _merged_awattar_pricing(resolved_settings_by_id: dict[str, dict]) -> dict:
+def _merged_spot_export_fees(resolved_settings_by_id: dict[str, dict]) -> dict:
     merged: dict[str, Any] = {}
     for settings in resolved_settings_by_id.values():
-        if not _scenario_needs_awattar_pricing(settings):
+        if not _scenario_needs_spot_export_fees(settings):
             continue
-        block = _awattar_pricing_from_specs(settings)
+        block = _spot_export_fee_from_specs(settings)
         for key, value in block.items():
             if key not in merged:
                 merged[key] = value
             elif merged[key] != value:
                 raise ValueError(
-                    f"Widersprüchliche aWATTar-Preisfelder zwischen Szenarien: '{key}'."
+                    f"Widersprüchliche Spot-Export-Preisfelder zwischen Szenarien: '{key}'."
                 )
     return merged
 
@@ -98,12 +89,20 @@ def compute_backtesting_fingerprint(
             if sid in resolved_settings_by_id
         },
     }
+    # Keep payload key name for cache compatibility with older fingerprints.
     if awattar_pricing:
         payload["awattar_pricing"] = awattar_pricing
     if period:
         payload["period"] = {
             key: period[key]
-            for key in ("start", "end", "horizon_mode", "price_strategy", "windows")
+            for key in (
+                "start",
+                "end",
+                "horizon_mode",
+                "price_strategy",
+                "windows",
+                "season_mirror_to_last_month",
+            )
             if key in period
         }
     raw = json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str)
@@ -112,16 +111,19 @@ def compute_backtesting_fingerprint(
 
 def fingerprint_for_current_config(*, period: dict | None = None) -> str:
     import config
+    from data.cons_data_season_mirror import is_season_mirror_enabled
 
     scenarios = config.get_backtesting_scenarios()
     awattar_pricing = (
-        _merged_awattar_pricing(scenarios)
-        if _needs_awattar_pricing(scenarios)
+        _merged_spot_export_fees(scenarios)
+        if _needs_spot_export_fees(scenarios)
         else None
     )
+    period_payload = dict(period) if period else {}
+    period_payload["season_mirror_to_last_month"] = is_season_mirror_enabled()
     return compute_backtesting_fingerprint(
         list(scenarios.keys()),
         scenarios,
-        period=period,
+        period=period_payload,
         awattar_pricing=awattar_pricing or None,
     )

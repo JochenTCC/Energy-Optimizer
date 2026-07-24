@@ -12,20 +12,25 @@ from ui.consumption_display import ConsumptionDisplayMode, render_consumption_di
 import config
 from house_config.scenario_resolution import DEFAULT_LIVE_SCENARIO_ID
 
-_MATCH_OK = "Passt zur aktuellen Konfiguration (Verbraucher-IDs und Hausprofil)."
-_MATCH_MISSING_META = "Prüfung nicht möglich (keine Meta-Datei)."
+_MATCH_OK = "Passt zur aktuellen Konfiguration (Verbraucher-IDs und Synthese-Parameter)."
+_MATCH_MISSING_META = (
+    "Prüfung nicht möglich (keine Meta-Datei) — bitte Verbrauchsdaten neu generieren."
+)
 _MATCH_ID_MISMATCH = (
     "Verbraucher-IDs in den gespeicherten Daten weichen von der aktuellen "
     "Konfiguration ab — bitte neu generieren."
 )
 _MATCH_PROFILE_MISMATCH = (
-    "Hausprofil-Parameter wurden seit der letzten Generierung geändert — "
+    "Synthese-Parameter (Hausprofil/PV) wurden seit der letzten Generierung geändert — "
     "bitte Verbrauchsdaten neu generieren."
 )
 
 
 def cons_data_ready() -> bool:
-    return cons_data_store.is_cons_data_populated()
+    """True nur wenn CSV befüllt und Meta zur aktuellen Synthese passt."""
+    if not cons_data_store.is_cons_data_populated():
+        return False
+    return cons_data_store.cons_data_consumer_match_reason() is None
 
 
 def _format_match_status(reason: str | None) -> tuple[str, str]:
@@ -46,7 +51,7 @@ def render_cons_data_section() -> bool:
     st.caption(cons_data_section_caption())
     render_time_range_help(key="backtesting_time_ranges_cons_data")
 
-    populated = cons_data_ready()
+    populated = cons_data_store.is_cons_data_populated()
     if not populated:
         st.warning(
             "Keine gültigen Verbrauchsdaten vorhanden. "

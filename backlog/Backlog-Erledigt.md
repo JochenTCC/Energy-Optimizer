@@ -3,6 +3,41 @@
 Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes → [Backlog-Bugfixes.md](Backlog-Bugfixes.md).
 
 
+### SE / SK polish (Backlog L22–30) (2026-07-24)
+
+- [x] HK Standort: Breitengrad / Längengrad / Land in one row
+- [x] Rename Szenarieneditor → **Szenarienkonfigurator** (SK; user-facing; routes unchanged)
+- [x] Verbrauchsdaten: synthesis fingerprint (profile + PV_KWP); hard-block SE runs on mismatch; no blanket meta invalidate on every HK save
+- [x] Season-Mirror checkbox above Planungshorizont (`season_mirror_to_last_month`); remap by calendar month to wall-clock last 12 months
+- [x] Scenario `enabled` for SE; SK checkbox; full SE log stale on toggle
+
+
+### Mandatory Land + supplier_id monthly fees (2026-07-24)
+
+- [x] House profile `land` (AT/DE/CH) in HK Standort; soft-default AT; SE Land filter mandatory (no Alle), seeded from profile
+- [x] Required `supplier_id` on all tariffs (schema + catalogs); SE monthly fee once per supplier (`max` within group, sum across)
+- [x] Docs: `preise.md`, `ueberblick.md`, `tarife-quellen.md`; tests for fees / land / catalog pair
+
+
+### aWATTar SUNNY Spot catalog check (2026-07-24)
+
+- [x] Confirmed official SUNNY Spot 60 min = EPEX − 19% × |EPEX| (no flat 1 ct/kWh); catalog id `dynamic_epex` already used `feed_in_fee_factor` 0.19
+- [x] Added `monthly_fee_eur` 4.79 and corrected notes; env seeds overwritten from share
+
+
+### Basislast Jahres-/Monats-Rest (Gesamtverbräuche + SE path A) (2026-07-24)
+
+- [x] Radio in HK Gesamtverbräuche: **Jahres-Rest gleichmäßig** vs **Monats-Rest je Monat** (`baseload_distribution` on house profile)
+- [x] Monats-Rest also used for SE path A when Gesamt-CSV present; path B (all controllable have CSV) unchanged
+- [x] Docs: `verbrauchs-csv.md`, Handbuch, `scenario-explorer-consumption.md`
+
+
+### UI polish (2026-07-24)
+
+- [x] **Loxone-Com** (rename from Loxone-Kommunikation): Live-Lesen / Live-Schreiben at top of page; Anlagen-Merker + Event-Trigger chapter titles with edit fields in expanders; HK-style Entfernen beside Event-Trigger expanders; German docs / doc_links updated
+- [x] **Szenarieneditor:** disable `— neu —` when `EARNIE_UI_MODES` lacks `scenario_explorer`; Land / Bezug Typ / Einspeise Typ in one row; Bezugstarif / Einspeisetarif and tariff parameters in matching columns (top-left empty)
+
+
 ### Pre-release 2.3.0-alpha.3 (2026-07-23)
 
 - [x] Pre-release `2.3.0-alpha.3` for SCC / community test (GHCR `:<version>` only; alpha compose pinned)
@@ -17,6 +52,7 @@ Archive of completed work. Open todos → [Backlog.md](Backlog.md) · Bugfixes �
 
 ### Energieflussmonitor → Hausprofil blueprint research (2026-07-23)
 
+- [x] Add Energieflussmonitor Baustein and Zähler to own Loxone Config to test csv-data-export (closed with research outcome below)
 - [x] Research whether own Loxone Energieflussmonitor + Zähler setup can blueprint Verbraucher-Konfiguration in Hausprofil (incl. CSVs)
   - **A (process blueprint):** yes — map Netz/Erzeuger/Speicher/Verbraucher/Rest → `grid_profile_csv` / `pv_profile_csv` / `battery_profile_csv` / consumer `profile_csv` + Basislast residual; plan `.cursor/plans/energieflussmonitor_hausprofil_blueprint_a.plan.md`
   - **C (auto-create consumers + CSV attach):** not officially feasible now (no structure export) — deferred under Version **2.4** MCP item in [Backlog.md](Backlog.md)

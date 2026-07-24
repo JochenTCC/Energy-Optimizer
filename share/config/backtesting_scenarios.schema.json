@@ -72,6 +72,10 @@
           "type": "string",
           "description": "Anzeigename in der UI."
         },
+        "enabled": {
+          "type": "boolean",
+          "description": "Wenn false, wird das Szenario im Szenario-Explorer nicht berechnet. Standard true wenn fehlend."
+        },
         "settings": {
           "type": "object",
           "description": "Parameter-Override (flache Felder oder Referenzen auf Entitäten). Standort/Zeitzone kommen aus dem Hausprofil (house_profile_id), nicht aus settings.",

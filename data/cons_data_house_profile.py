@@ -114,20 +114,38 @@ def _house_profile_consumer_ids(profile: dict) -> list[str]:
     ]
 
 
-def house_profile_cons_data_fingerprint(profile: dict) -> str:
-    """Stabiler Hash über alle für cons_data-Synthese relevanten Profilfelder."""
+def house_profile_cons_data_fingerprint(
+    profile: dict,
+    *,
+    pv_kwp: float | None = None,
+) -> str:
+    """Stabiler Hash über alle für cons_data-Synthese relevanten Felder."""
     payload = {
         "id": profile.get("id"),
         "annual_kwh": profile.get("annual_kwh"),
+        "baseload_kwh": profile.get("baseload_kwh"),
+        "baseload_distribution": profile.get("baseload_distribution"),
         "latitude": profile.get("latitude"),
         "longitude": profile.get("longitude"),
+        "timezone_name": profile.get("timezone_name"),
         "default_pv_tilt": profile.get("default_pv_tilt"),
         "default_pv_azimuth": profile.get("default_pv_azimuth"),
         "total_profile_csv": profile.get("total_profile_csv"),
         "consumers": profile.get("consumers", []),
     }
+    if pv_kwp is not None:
+        payload["pv_kwp"] = round(float(pv_kwp), 6)
     encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str)
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def current_cons_data_synthesis_fingerprint() -> str | None:
+    """Fingerprint des aktiven Hausprofils inkl. Live-PV_KWP; None ohne Profil."""
+    profile = resolve_runtime_house_profile()
+    if profile is None:
+        return None
+    kwp = float(config.get("PV_KWP", cast=float) or 0.0)
+    return house_profile_cons_data_fingerprint(profile, pv_kwp=kwp)
 
 
 def expected_cons_data_consumer_ids() -> list[str]:

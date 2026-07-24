@@ -129,28 +129,45 @@ def test_parameter_rows_fixed_cent() -> None:
     assert "Abwicklungsgebühr" not in rows
 
 
-def test_parameter_rows_awattar() -> None:
+def test_parameter_rows_spot_hourly_import() -> None:
     rows = dict(
         tariff_parameter_rows(
             {
-                "type": "awattar",
+                "type": "spot_hourly",
                 "land": "AT",
                 "settlement_fee_cent_kwh": 1.5,
                 "markup_percent": 3,
                 "prices_include_vat": True,
                 "vat_percent": 20,
-                "fix_aufschlag_cent": 1.44,
             },
             kind="import",
         )
     )
-    assert rows["Typ"].startswith("aWATTar")
+    assert rows["Typ"] == "Spot stündlich"
     assert rows["Abwicklungsgebühr"] == "1.50 Cent/kWh"
     assert rows["Aufschlag"] == "3 %"
     assert rows["Preise inkl. USt"] == "ja"
     assert rows["USt"] == "20 %"
-    assert rows["Fix-Aufschlag"] == "1.44 Cent/kWh"
+    assert "Fix-Aufschlag" not in rows
     assert "Arbeitspreis" not in rows
+
+
+def test_parameter_rows_spot_export_with_fee_factor() -> None:
+    rows = dict(
+        tariff_parameter_rows(
+            {
+                "type": "spot_hourly",
+                "land": "AT",
+                "settlement_fee_cent_kwh": 0.0,
+                "feed_in_fee_factor": 0.19,
+                "feed_in_fix_cent": 0.0,
+            },
+            kind="export",
+        )
+    )
+    assert rows["Typ"] == "Spot stündlich"
+    assert rows["Einspeise-Gebührenfaktor"] == "0.19"
+    assert rows["Einspeise-Fix"] == "0 Cent/kWh"
 
 
 def test_parameter_rows_export_fixed() -> None:
@@ -187,3 +204,10 @@ def test_parameter_rows_omits_missing_optional() -> None:
     rows = dict(tariff_parameter_rows({"type": "spot_hourly"}, kind="import"))
     assert rows["Typ"] == "Spot stündlich"
     assert set(rows) == {"Typ"}
+
+
+def test_filter_land_always_restricts() -> None:
+    """Mandatory Land filter: concrete land excludes other countries."""
+    result = filter_tariffs(_SAMPLE, land="DE")
+    assert [item["id"] for item in result] == ["de_spot"]
+    assert filter_tariffs(_SAMPLE, land=None)  # still allowed at helper level

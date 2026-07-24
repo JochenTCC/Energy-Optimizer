@@ -1,4 +1,4 @@
-# tests/test_offline_demo_seed.py
+﻿# tests/test_offline_demo_seed.py
 """Offline demo seed: fill empty live-scenario refs when EARNIE_OFFLINE=1."""
 from __future__ import annotations
 
@@ -107,7 +107,7 @@ def _prepare_cloud_like(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path
         config_dir / "tariffs.json",
         {
             "import_tariffs": [
-                {"id": "awattar_at", "label": "aWATTar", "type": "awattar"},
+                {"id": "awattar_at", "label": "aWATTar", "type": "spot_hourly", "land": "AT"},
             ],
             "export_tariffs": [
                 {"id": "fixed_37ct", "label": "Fix", "type": "fixed", "k_push_cent": 3.7},

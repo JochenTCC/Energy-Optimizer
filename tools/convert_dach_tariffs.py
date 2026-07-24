@@ -12,15 +12,17 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from house_config.tariffs_store import slugify_tariff_id
+from house_config.tariffs_store import resolve_supplier_id, slugify_tariff_id
 
 LEGACY_IMPORT_IDS = {
-    ("aWATTar", "HOURLY", "AT"): ("awattar_at", "awattar"),
+    ("aWATTar", "HOURLY", "AT"): ("awattar_at", "spot_hourly"),
 }
+# Stable catalog id for aWATTar SUNNY SPOT; type is always spot_hourly.
 LEGACY_EXPORT_IDS = {
     ("aWATTar", "SUNNY", "AT"): "dynamic_epex",
     ("aWATTar", "SUNNY SPOT", "AT"): "dynamic_epex",
 }
+SUNNY_SPOT_FEE_FACTOR = 0.19
 
 
 def _catalog_as_of(meta: dict) -> str:
@@ -48,11 +50,8 @@ def _import_type(entry: dict) -> str:
 
 
 def _export_type(entry: dict) -> str:
-    legacy = LEGACY_EXPORT_IDS.get(
-        (entry["stromlieferant"], entry["tarifname"], entry["land"])
-    )
-    if legacy:
-        return legacy
+    if (entry["stromlieferant"], entry["tarifname"], entry["land"]) in LEGACY_EXPORT_IDS:
+        return "spot_hourly"
     if entry["tarif_typ"] == "monthly_float":
         return "monthly_table"
     if entry["tarif_typ"] == "fix":
@@ -73,8 +72,8 @@ def _tariff_id(entry: dict, *, export: bool) -> str:
         legacy_export = LEGACY_EXPORT_IDS.get(
             (entry["stromlieferant"], entry["tarifname"], entry["land"])
         )
-        if legacy_export == "dynamic_epex":
-            return "dynamic_epex"
+        if legacy_export:
+            return legacy_export
     return slugify_tariff_id(
         entry["land"],
         entry["stromlieferant"],
@@ -99,25 +98,31 @@ def _common_fields(entry: dict) -> dict:
 
 def convert_import(entry: dict) -> dict:
     tariff_type = _import_type(entry)
+    tariff_id = _tariff_id(entry, export=False)
+    label = f"{entry['stromlieferant']} — {entry['tarifname']}"
     item: dict = {
-        "id": _tariff_id(entry, export=False),
-        "label": f"{entry['stromlieferant']} — {entry['tarifname']}",
+        "id": tariff_id,
+        "label": label,
         "type": tariff_type,
         **_common_fields(entry),
     }
+    item["supplier_id"] = resolve_supplier_id(item, tariff_id=tariff_id, label=label)
     if tariff_type == "fixed_cent":
-        item["fix_cent_kwh"] = float(entry["arbeitspreis_kwh_cent"])
+        item["price_cent_kwh"] = float(entry["arbeitspreis_kwh_cent"])
     return item
 
 
 def convert_export(entry: dict) -> dict:
     tariff_type = _export_type(entry)
+    tariff_id = _tariff_id(entry, export=True)
+    label = f"{entry['stromlieferant']} — {entry['tarifname']}"
     item: dict = {
-        "id": _tariff_id(entry, export=True),
-        "label": f"{entry['stromlieferant']} — {entry['tarifname']}",
+        "id": tariff_id,
+        "label": label,
         "type": tariff_type,
         **_common_fields(entry),
     }
+    item["supplier_id"] = resolve_supplier_id(item, tariff_id=tariff_id, label=label)
     if tariff_type == "fixed":
         item["k_push_cent"] = float(entry["arbeitspreis_kwh_cent"])
     elif tariff_type == "monthly_table" and entry.get("tarif_typ") == "monthly_float":
@@ -126,6 +131,11 @@ def convert_export(entry: dict) -> dict:
             str(item.get("notes") or "")
             + " (monthly_table: monthly_rates im Katalog pflegen; DACH-Quelle hatte monthly_float)."
         ).strip()
+    elif item["id"] == "dynamic_epex" and str(entry.get("tarifname", "")).upper() == "SUNNY SPOT":
+        # Preserve legacy 19% |EPEX| haircut; do not also apply DACH settlement fee.
+        item["settlement_fee_cent_kwh"] = 0.0
+        item["feed_in_fee_factor"] = SUNNY_SPOT_FEE_FACTOR
+        item["feed_in_fix_cent"] = 0.0
     return item
 
 

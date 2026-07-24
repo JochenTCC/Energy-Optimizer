@@ -1,4 +1,4 @@
-# tests/test_setup_readiness.py
+﻿# tests/test_setup_readiness.py
 """Tests für Greenfield-Onboarding und UI-Freischaltung."""
 from __future__ import annotations
 
@@ -183,7 +183,7 @@ def test_planning_ready_unlocks_scenario_explorer(tmp_path, monkeypatch):
     _write(
         config_dir / "tariffs.json",
         {
-            "import_tariffs": [{"id": "imp", "label": "Import", "type": "awattar"}],
+            "import_tariffs": [{"id": "imp", "label": "Import", "type": "spot_hourly", "land": "AT"}],
             "export_tariffs": [
                 {"id": "exp", "label": "Export", "type": "fixed", "k_push_cent": 3.7}
             ],
@@ -251,7 +251,7 @@ def test_loxone_sidebar_deferred_after_planning_unlock(tmp_path, monkeypatch):
     _write(
         config_dir / "tariffs.json",
         {
-            "import_tariffs": [{"id": "imp", "label": "Import", "type": "awattar"}],
+            "import_tariffs": [{"id": "imp", "label": "Import", "type": "spot_hourly", "land": "AT"}],
             "export_tariffs": [
                 {"id": "exp", "label": "Export", "type": "fixed", "k_push_cent": 3.7}
             ],

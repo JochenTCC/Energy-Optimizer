@@ -27,7 +27,7 @@ Im Browser: `http://localhost:8502`
 1. **Bootstrap** — Entrypoint legt fehlende Dateien an (`python -m scripts.bootstrap_runtime`, siehe [Container](container.md)). `config.json` und die Planungs-Dateien starten **minimal** (leere Kataloge, keine Earnie-Beispieldaten).
 2. **UI: Loxone-Zugang** — Formular aus [`ui/setup_dotenv.py`](../../ui/setup_dotenv.py); Platzhalter in `config/.env` reichen nicht.
 3. **Dummy-Zugangsdaten** — Für Greenfield ohne echte Miniserver-Anbindung z. B. IP `192.168.178.99`, beliebiger Benutzer/Passwort eintragen und **Speichern**.
-4. **Planungs-Konfiguration** — Navigationsabschnitte **Konfiguration** (Hauskonfigurator, nach Freischaltung Szenarieneditor und Szenario-Explorer) und **Daemon Control** (Optimierer-Dienst, Loxone-Kommunikation). Im Hauskonfigurator: **Hausprofil**, **PV-Anlagen**, **Batterien**. Im Szenarieneditor: Live-Szenario und Varianten (Entitäts-Referenzen). Sidebar zeigt fehlende Schritte. Während der Planung erscheint **kein** Config-Drift-Hinweis zu `flexible_consumers` aus `config.example.json`.
+4. **Planungs-Konfiguration** — Navigationsabschnitte **Konfiguration** (Hauskonfigurator, nach Freischaltung Szenarienkonfigurator und Szenario-Explorer) und **Daemon Control** (Optimierer-Dienst, Loxone-Com). Im Hauskonfigurator: **Hausprofil**, **PV-Anlagen**, **Batterien**. Im Szenarienkonfigurator: Live-Szenario und Varianten (Entitäts-Referenzen). Sidebar zeigt fehlende Schritte. Während der Planung erscheint **kein** Config-Drift-Hinweis zu `flexible_consumers` aus `config.example.json`.
 5. **Szenario-Explorer** — Nach vollständiger Planungs-Konfiguration erscheint die Szenario-Explorer-Seite unter **Konfiguration**.
 6. **Daemon** — `main.py` startet mit der UI (`EARNIE_AUTO_START_MAIN=1`); Loxone-Startup-Prüfung ist deaktiviert (`EARNIE_VERIFY_LOXONE_ON_START=0`).
 
@@ -55,7 +55,7 @@ Nach **Speichern** in der Ersteinrichtung:
 |---------|-----------|
 | `greenfield/config/.env` | Echte IPv4 + Benutzer + Passwort (keine Platzhalter) |
 | Worker-Log | `greenfield/runtime/earnie.log` — kein Abbruch wegen fehlender `.env` |
-| UI | Nur Hauskonfigurator (+ Szenarieneditor nach Hausprofil) + Optimierer-Dienst (Daemon Control); Sidebar-Hinweis zu fehlenden Schritten |
+| UI | Nur Hauskonfigurator (+ Szenarienkonfigurator nach Hausprofil) + Optimierer-Dienst (Daemon Control); Sidebar-Hinweis zu fehlenden Schritten |
 
 ```powershell
 docker compose --project-directory . -f docker/compose/greenfield.yml logs -f earnie
@@ -66,7 +66,7 @@ docker compose --project-directory . -f docker/compose/greenfield.yml logs -f ea
 Mit abgeschlossener Ersteinrichtung und vollständiger Planungs-Konfiguration:
 
 1. **Hauskonfigurator** — Tabs Hausprofil (thermischer Verbraucher „Haus Wärme“, auto-IDs), PV, Batterien; Grundlast-Vorschau prüfen.
-2. **Szenarieneditor** — Live-Szenario und Entitäts-Referenzen speichern; optionale Varianten.
+2. **Szenarienkonfigurator** — Live-Szenario und Entitäts-Referenzen speichern; optionale Varianten.
 3. **Szenario-Explorer** — Seite erscheint nach Freischaltung; Planung starten.
 
 `EARNIE_UI_MODES=sunset2sunset,scenario_explorer,live_environment` — Sunset-2-Sunset ist seit **1.26.0 P0** für Live-Pfad-Smoke freigeschaltet (zusammen mit Szenario-Explorer und Daemon Control). In `docker/compose/greenfield.yml` gesetzt.
@@ -83,7 +83,7 @@ Ziel: Greenfield nutzt **`live_scenario_id`** + Live-Szenario in `backtesting_sc
 |---------|---------|-----------|
 | 1. Config | `greenfield/config/config.json` | `live_scenario_id: live`, **kein** Block `runtime_settings` |
 | 2. Live-Szenario | `greenfield/config/backtesting_scenarios.json` → Szenario `live` | Entitäts-IDs: `battery_id`, `import_tariff_id`, `export_tariff_id`, `house_profile_id`, optional `pv_system_ids` — Geo/Zeitzone aus `house_profiles.json` |
-| 3. Entitäts-Auflösung | Konfiguration → Szenarieneditor (Live-Szenario) | Entitäts-IDs verweisen auf PV-, Batterie- und Tarifparameter aus `components.json`, `tariffs.json` |
+| 3. Entitäts-Auflösung | Konfiguration → Szenarienkonfigurator (Live-Szenario) | Entitäts-IDs verweisen auf PV-, Batterie- und Tarifparameter aus `components.json`, `tariffs.json` |
 | 3. Live-Zyklus | `docker compose --project-directory . -f docker/compose/greenfield.yml logs -f earnie` | `main.py` durchläuft mindestens einen Optimierungszyklus ohne Config-Fehler |
 | 4. UI Sunset-2-Sunset | Seite **Cockpit** | Aufgelöste Werte aus dem Live-Szenario — keine Sidebar-Edits für PV/Batterie/Tarife |
 | 5. Szenario-Explorer-Parität | Gleiche Tarif-IDs, gleiches Zeitfenster | Import/Export-cent/kWh identisch zu Live (Detail-Paritätstest folgt in **1.26.0 P3**) |

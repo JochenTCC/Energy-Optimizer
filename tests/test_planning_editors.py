@@ -1,4 +1,4 @@
-"""Tests für Planungs-Editoren und ID-Generierung (1.24.e)."""
+﻿"""Tests für Planungs-Editoren und ID-Generierung (1.24.e)."""
 from __future__ import annotations
 
 import json
@@ -490,7 +490,7 @@ def test_planning_ready_with_selected_tariffs(tmp_path, monkeypatch):
         json.dumps(
             {
                 "import_tariffs": [
-                    {"id": "imp", "label": "Import", "type": "awattar"},
+                    {"id": "imp", "label": "Import", "type": "spot_hourly", "land": "AT"},
                 ],
                 "export_tariffs": [
                     {"id": "exp", "label": "Export", "type": "fixed", "k_push_cent": 3.7},

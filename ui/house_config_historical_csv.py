@@ -28,6 +28,13 @@ _SOURCE_LABELS = {
 }
 _VALID_SOURCES = frozenset(_SOURCE_LABELS)
 
+_DIST_EQUAL = "equal"
+_DIST_MONTHLY = "monthly"
+_DIST_LABELS = {
+    _DIST_EQUAL: "Jahres-Rest gleichmäßig",
+    _DIST_MONTHLY: "Monats-Rest je Monat",
+}
+
 
 def session_keys(preview_id: str) -> dict[str, str]:
     return {
@@ -36,10 +43,13 @@ def session_keys(preview_id: str) -> dict[str, str]:
         "pv": f"house_profile_pv_csv_path_{preview_id}",
         "battery": f"house_profile_battery_csv_path_{preview_id}",
         "grid": f"house_profile_grid_csv_path_{preview_id}",
+        "baseload_dist": f"house_profile_baseload_dist_{preview_id}",
     }
 
 
 def init_historical_csv_session(preview_id: str, existing: dict) -> None:
+    from house_config.baseload import normalize_baseload_distribution
+
     keys = session_keys(preview_id)
     if keys["source"] not in st.session_state:
         raw = str(existing.get("historical_csv_source", "") or "").strip().lower()
@@ -60,10 +70,16 @@ def init_historical_csv_session(preview_id: str, existing: dict) -> None:
         st.session_state[keys["grid"]] = str(
             existing.get("grid_profile_csv", "") or ""
         ).strip()
+    if keys["baseload_dist"] not in st.session_state:
+        st.session_state[keys["baseload_dist"]] = normalize_baseload_distribution(
+            existing.get("baseload_distribution")
+        )
 
 
 def historical_csv_save_fields(preview_id: str, existing: dict) -> dict[str, str]:
     """Fields to persist on house-profile save."""
+    from house_config.baseload import normalize_baseload_distribution
+
     keys = session_keys(preview_id)
     return {
         "total_profile_csv": st.session_state.get(
@@ -80,6 +96,12 @@ def historical_csv_save_fields(preview_id: str, existing: dict) -> dict[str, str
         ),
         "historical_csv_source": st.session_state.get(
             keys["source"], existing.get("historical_csv_source", _SOURCE_SEPARATE)
+        ),
+        "baseload_distribution": normalize_baseload_distribution(
+            st.session_state.get(
+                keys["baseload_dist"],
+                existing.get("baseload_distribution"),
+            )
         ),
     }
 
@@ -616,6 +638,72 @@ def _render_energiemonitor_mode(preview_id: str, keys: dict[str, str]) -> None:
         st.rerun()
 
 
+def _hourly_consumer_sum(consumer_series: dict[str, list[float]]) -> list[float]:
+    if not consumer_series:
+        return []
+    length = len(next(iter(consumer_series.values())))
+    totals = [0.0] * length
+    for series in consumer_series.values():
+        for index, value in enumerate(series):
+            totals[index] += float(value)
+    return totals
+
+
+def _baseload_display_equal(probe, *, annual_kwh: float, resolved: list[dict]):
+    """Flat annual residual baseload for Ist-vs-Modell charts."""
+    from dataclasses import replace
+
+    from data.consumption_profiles import MODELED_PROFILE_HOURS_PER_YEAR
+    from house_config.baseload import trim_baseload_floor_to_match_ist
+    from ui.consumption_display.aggregation import (
+        annual_kwh_actual,
+        annual_kwh_from_bundle,
+    )
+
+    trimmed = trim_baseload_floor_to_match_ist(
+        float(annual_kwh),
+        resolved,
+        annual_kwh_actual(probe),
+        model_consumer_kwh=annual_kwh_from_bundle(probe),
+    )
+    baseload_kw = float(trimmed["baseload_kwh"]) / MODELED_PROFILE_HOURS_PER_YEAR
+    caption = (
+        f"Grundlast an Ist angepasst: {trimmed['baseload_kwh']:.0f} kWh/a "
+        f"(Ziel Ist {trimmed['ist_annual_kwh']:.0f} kWh; "
+        f"effektive Untergrenze {100.0 * trimmed['floor_fraction']:.2f} %, "
+        f"mindestens 1 %)."
+    )
+    return (
+        replace(probe, baseload=[baseload_kw] * len(probe.timestamps)),
+        float(trimmed["baseload_kwh"]),
+        caption,
+    )
+
+
+def _baseload_display_monthly(probe, series: list[tuple[str, float]]):
+    """Per-month residual baseload for Ist-vs-Modell charts."""
+    from dataclasses import replace
+
+    from house_config.baseload import monthly_aligned_baseload_kw
+
+    ist_kw = list(probe.actual_total or [float(kw) for _, kw in series])
+    consumer_kw = _hourly_consumer_sum(probe.consumer_series)
+    if not consumer_kw:
+        consumer_kw = [0.0] * len(probe.timestamps)
+    baseload_series = monthly_aligned_baseload_kw(
+        probe.timestamps,
+        ist_kw,
+        consumer_kw,
+    )
+    display_bl_kwh = sum(baseload_series)
+    caption = (
+        f"Monats-Rest-Grundlast: {display_bl_kwh:.0f} kWh "
+        f"(Summe der Monatsreste; keine 1 %-Untergrenze; "
+        f"Monate mit Verbrauchern > Ist ohne Basislast)."
+    )
+    return replace(probe, baseload=baseload_series), display_bl_kwh, caption
+
+
 def _render_ist_vs_modell(
     *,
     active_path: str,
@@ -627,23 +715,14 @@ def _render_ist_vs_modell(
     csv_series: list[tuple[str, float]] | None = None,
     reset_extra: str = "",
 ) -> None:
-    from house_config.baseload import trim_baseload_floor_to_match_ist
     from house_config.consumption_csv import (
         load_hourly_profile_csv,
         normalize_profile_csv_file,
     )
     from ui.consumption_display import ConsumptionDisplayMode, render_consumption_display
     from ui.consumption_display.adapters import bundle_from_csv_validation
-    from ui.consumption_display.aggregation import (
-        annual_kwh_actual,
-        annual_kwh_from_bundle,
-    )
 
     try:
-        from dataclasses import replace
-
-        from data.consumption_profiles import MODELED_PROFILE_HOURS_PER_YEAR
-
         profile_total_path = (
             active_path if not active_path.startswith("bilanz:") else ""
         )
@@ -662,40 +741,48 @@ def _render_ist_vs_modell(
             except ValueError:
                 series = normalize_profile_csv_file(active_path)
 
-        zero_bl_profile = {**modeled_profile, "baseload_kwh": 0.0}
-        probe = bundle_from_csv_validation(series, zero_bl_profile)
-        ist_annual = annual_kwh_actual(probe)
-        model_consumers = annual_kwh_from_bundle(probe)
-        trimmed = trim_baseload_floor_to_match_ist(
-            float(annual_kwh),
-            resolved,
-            ist_annual,
-            model_consumer_kwh=model_consumers,
+        probe = bundle_from_csv_validation(
+            series,
+            {**modeled_profile, "baseload_kwh": 0.0},
         )
-        baseload_kw = float(trimmed["baseload_kwh"]) / MODELED_PROFILE_HOURS_PER_YEAR
-        display_bundle = replace(
-            probe,
-            baseload=[baseload_kw] * len(probe.timestamps),
+        dist_mode = st.radio(
+            "Basislast-Verteilung",
+            options=[_DIST_EQUAL, _DIST_MONTHLY],
+            format_func=lambda value: _DIST_LABELS[value],
+            key=f"house_profile_baseload_dist_{preview_id}",
+            horizontal=True,
+            help=(
+                "Jahres-Rest: konstante Grundlast (SE-Pfad A flat). "
+                "Monats-Rest: pro Kalendermonat Ist − Verbraucher (≥ 0) — "
+                "gilt für Gesamtverbräuche-Charts und SE-Pfad A, wenn eine "
+                "Gesamt-CSV vorhanden ist. SE-Pfad B (alle Gesteuert/Manual "
+                "mit CSV) bleibt der stündliche Meter-Rest."
+            ),
         )
-        st.caption(
-            f"Grundlast an Ist angepasst: {trimmed['baseload_kwh']:.0f} kWh/a "
-            f"(Ziel Ist {trimmed['ist_annual_kwh']:.0f} kWh; "
-            f"effektive Untergrenze {100.0 * trimmed['floor_fraction']:.2f} %, "
-            f"mindestens 1 %)."
-        )
+        if dist_mode == _DIST_MONTHLY:
+            display_bundle, display_bl_kwh, caption = _baseload_display_monthly(
+                probe, series
+            )
+        else:
+            display_bundle, display_bl_kwh, caption = _baseload_display_equal(
+                probe,
+                annual_kwh=annual_kwh,
+                resolved=resolved,
+            )
+        st.caption(caption)
         render_consumption_display(
             ConsumptionDisplayMode.CSV_VALIDATION,
             key_prefix=f"house_profile_csv_{preview_id}",
             profile={
                 **modeled_profile,
-                "baseload_kwh": trimmed["baseload_kwh"],
+                "baseload_kwh": display_bl_kwh,
             },
             csv_series=series,
             annual_kwh=float(annual_kwh),
             bundle=display_bundle,
             reset_token=(
-                f"{active_path}:{pv_path}:{trimmed['baseload_kwh']:.3f}:"
-                f"{trimmed['ist_annual_kwh']:.3f}:{reset_extra}"
+                f"{active_path}:{pv_path}:{dist_mode}:{display_bl_kwh:.3f}:"
+                f"{reset_extra}"
             ),
         )
     except (ValueError, OSError) as exc:

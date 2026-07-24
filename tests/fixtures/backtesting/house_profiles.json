@@ -4,6 +4,7 @@
             "id": "test_home",
             "label": "Test-Haushalt 4000 kWh/a",
             "annual_kwh": 4000,
+            "land": "AT",
             "latitude": 47.4,
             "longitude": 9.7,
             "default_pv_tilt": 25,

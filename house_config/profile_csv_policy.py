@@ -47,7 +47,8 @@ def _total_profile_csv_resolvable(house_profile: dict) -> bool:
 def se_uses_meter_residual_baseload(house_profile: dict) -> bool:
     """Path B: Gesamt-CSV present and every controllable generic has active CSV.
 
-    Otherwise path A (flat baseload_kwh/8760 + role overlays).
+    Otherwise path A (flat baseload_kwh/8760 + role overlays), or monthly
+    residual when ``baseload_distribution=monthly``.
     """
     if not _total_profile_csv_resolvable(house_profile):
         return False
@@ -56,3 +57,19 @@ def se_uses_meter_residual_baseload(house_profile: dict) -> bool:
         # No flex/manual: residual still useful when Gesamt-CSV exists.
         return True
     return all(consumer_uses_profile_csv(c) for c in controllable)
+
+
+def se_uses_monthly_baseload(house_profile: dict) -> bool:
+    """Path A monthly: Monats-Rest when not B and Gesamt-CSV is resolvable."""
+    from house_config.baseload import (
+        BASELOAD_DIST_MONTHLY,
+        normalize_baseload_distribution,
+    )
+
+    if se_uses_meter_residual_baseload(house_profile):
+        return False
+    if normalize_baseload_distribution(
+        house_profile.get("baseload_distribution")
+    ) != BASELOAD_DIST_MONTHLY:
+        return False
+    return _total_profile_csv_resolvable(house_profile)

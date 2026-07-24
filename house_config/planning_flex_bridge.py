@@ -39,6 +39,54 @@ def profile_flat_baseload_kw(house_profile: dict) -> float:
     return float(house_profile.get("baseload_kwh", 0.0) or 0.0) / 8760.0
 
 
+def monthly_residual_baseload_kw(
+    house_profile: dict,
+    slot_datetimes: list[datetime],
+    *,
+    climate: ModeledClimateContext | None = None,
+) -> list[float]:
+    """Path A monthly: per-month Ist − Σ model consumers, mapped onto slots.
+
+    Months missing from Gesamt-CSV fall back to flat ``baseload_kwh/8760``.
+    """
+    from house_config.baseload import (
+        baseload_month_key,
+        monthly_baseload_kw_by_month,
+    )
+    from house_config.consumption_csv import load_hourly_profile_csv
+    from data.consumption_profiles import modeled_consumer_kw_at_datetime
+
+    csv_path = str(house_profile.get("total_profile_csv", "") or "").strip()
+    if not csv_path:
+        raise ValueError("monthly residual requires total_profile_csv")
+    rows = list(load_hourly_profile_csv(csv_path))
+    if not rows:
+        flat = profile_flat_baseload_kw(house_profile)
+        return [round(flat, 6)] * len(slot_datetimes)
+    timestamps = [ts for ts, _ in rows]
+    ist_kw = [float(kw) for _, kw in rows]
+    consumers = list(house_profile.get("consumers", []))
+    consumer_kw = [
+        sum(
+            float(
+                modeled_consumer_kw_at_datetime(
+                    consumer,
+                    datetime.strptime(ts, "%Y-%m-%d %H:%M:%S"),
+                    climate=climate,
+                )
+                or 0.0
+            )
+            for consumer in consumers
+        )
+        for ts in timestamps
+    ]
+    month_map = monthly_baseload_kw_by_month(timestamps, ist_kw, consumer_kw)
+    flat = profile_flat_baseload_kw(house_profile)
+    return [
+        round(month_map.get(baseload_month_key(slot_dt), flat), 6)
+        for slot_dt in slot_datetimes
+    ]
+
 def _house_generic_consumers(house_profile: dict) -> list[dict]:
     """Generic consumers with a schedule, or known+CSV (schedule optional)."""
     out: list[dict] = []
@@ -731,17 +779,25 @@ def profile_reference_hourly_load(
 ) -> list[float]:
     """Stündlicher Referenz-Gesamtlast (kW) aus Hausprofil-Default-Schedules."""
     from data.consumption_profiles import modeled_consumer_kw_at_datetime
+    from house_config.profile_csv_policy import se_uses_monthly_baseload
 
-    flat_kw = profile_flat_baseload_kw(house_profile)
+    if se_uses_monthly_baseload(house_profile):
+        baseload_series = monthly_residual_baseload_kw(
+            house_profile,
+            slot_datetimes,
+            climate=climate,
+        )
+    else:
+        flat_kw = profile_flat_baseload_kw(house_profile)
+        baseload_series = [flat_kw] * len(slot_datetimes)
     loads: list[float] = []
-    for slot_dt in slot_datetimes:
+    for slot_dt, base_kw in zip(slot_datetimes, baseload_series):
         flex_sum = sum(
             modeled_consumer_kw_at_datetime(consumer, slot_dt, climate=climate)
             for consumer in house_profile.get("consumers", [])
         )
-        loads.append(round(flat_kw + flex_sum, 3))
+        loads.append(round(base_kw + flex_sum, 3))
     return loads
-
 
 def tariff_reference_fingerprint(scenario_params: dict | None) -> tuple:
     """Vergleichsschlüssel für Referenz-Tarife (Import/Export)."""

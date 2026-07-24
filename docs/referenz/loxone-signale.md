@@ -23,7 +23,7 @@ Prüfung aller konfigurierten Signale:
 | SwimSpa-Filter (Bridge) | optional `swimspa_filter_bindings` am `thermal_rc`-Verbraucher (sonst Bridge-Defaults) | `loxone_target_hours_name`, Filter-`power_name` / `enable_name`, `filter_schedule.loxone.*` |
 | Generic (known/manual) | Hausprofil | optional `loxone_inputs.power_name` |
 
-Bearbeitung in der UI: Verbraucher-Merker im **Hauskonfigurator**; Anlagen-Merker und Event-Trigger unter **Daemon Control → Loxone-Kommunikation**.
+Bearbeitung in der UI: Verbraucher-Merker im **Hauskonfigurator**; Anlagen-Merker und Event-Trigger unter **Daemon Control → Loxone-Com**.
 
 ## Zentrale Signale (`loxone_blocks`)
 
@@ -140,6 +140,6 @@ Außerplanmäßige Optimierungsläufe in `main.py` (zwischen den Viertelstunden)
 | Optimierung | MILP über 24 h (15-Min-Slots intern) |
 | Schreiben | Ziel-SOC, Lade-/Entladeleistung, Steuerbefehl, Freigaben je Slot |
 
-Die App **liest** dieselben Live-Werte für Anzeige; **schreibt** keine Steuersignale. Konfigurationsänderungen erfolgen über die Planungs- und Echtzeit-Seiten (Hauskonfigurator, Szenarieneditor, Manuelle Geräte).
+Die App **liest** dieselben Live-Werte für Anzeige; **schreibt** keine Steuersignale. Konfigurationsänderungen erfolgen über die Planungs- und Echtzeit-Seiten (Hauskonfigurator, Szenarienkonfigurator, Manuelle Geräte).
 
 Weitere Details: [Loxone-Anbindung](../einrichtung/loxone-anbindung.md).

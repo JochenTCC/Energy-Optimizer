@@ -6,6 +6,7 @@ from ui.scenario_form_helpers import (
     NEW_SCENARIO_OPTION,
     build_scenario_settings,
     default_label_index,
+    default_scenario_pick,
     lookup_entity_id,
     new_scenario_template,
     normalize_scenario_form_snapshot,
@@ -14,6 +15,7 @@ from ui.scenario_form_helpers import (
     read_scenario_form_snapshot,
     resolve_scenario_id,
     scenario_form_is_dirty,
+    scenario_new_option,
     scenario_session_scope,
     scoped_widget_key,
     store_scenario_form_baseline,
@@ -87,6 +89,55 @@ def test_default_label_index_missing_returns_zero():
 def test_scenario_session_scope_new_uses_placeholder():
     assert scenario_session_scope(NEW_SCENARIO_OPTION, is_new=True) == "__new__"
     assert scenario_session_scope("live", is_new=False) == "live"
+
+
+def test_scenario_new_option_gated():
+    assert scenario_new_option(allow_new=True) == NEW_SCENARIO_OPTION
+    assert scenario_new_option(allow_new=False) is None
+
+
+def test_default_scenario_pick_prefers_live():
+    assert (
+        default_scenario_pick(
+            live_id="live",
+            scenario_ids=["other", "live"],
+            allow_new=False,
+        )
+        == "live"
+    )
+
+
+def test_default_scenario_pick_without_live_uses_first_when_new_disabled():
+    assert (
+        default_scenario_pick(
+            live_id="missing",
+            scenario_ids=["a", "b"],
+            allow_new=False,
+        )
+        == "a"
+    )
+
+
+def test_default_scenario_pick_empty_allows_new_when_enabled():
+    assert (
+        default_scenario_pick(
+            live_id="live",
+            scenario_ids=[],
+            allow_new=True,
+        )
+        == NEW_SCENARIO_OPTION
+    )
+
+
+def test_default_scenario_pick_empty_without_new_keeps_live_id():
+    assert (
+        default_scenario_pick(
+            live_id="live",
+            scenario_ids=[],
+            allow_new=False,
+        )
+        == "live"
+    )
 
 
 def test_new_scenario_template_clones_live_settings():
@@ -298,8 +349,23 @@ def test_normalize_scenario_form_snapshot_keeps_label_and_settings():
     snapshot = normalize_scenario_form_snapshot(
         {"id": "variant_a", "label": "Variante A", "settings": {"battery_id": "bat1"}},
     )
-    assert snapshot == {"label": "Variante A", "settings": {"battery_id": "bat1"}}
+    assert snapshot == {
+        "label": "Variante A",
+        "enabled": True,
+        "settings": {"battery_id": "bat1"},
+    }
     assert "id" not in snapshot
+
+
+def test_normalize_scenario_form_snapshot_keeps_enabled_false():
+    snapshot = normalize_scenario_form_snapshot(
+        {
+            "label": "Off",
+            "enabled": False,
+            "settings": {"battery_id": "bat1"},
+        },
+    )
+    assert snapshot["enabled"] is False
 
 
 def test_ordered_user_scenario_ids_live_first_then_label_alpha():

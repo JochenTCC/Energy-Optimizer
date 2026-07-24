@@ -15,6 +15,27 @@ EMPTY_PLACEHOLDER_PREFIX = "— noch keine"
 NEW_SCENARIO_OPTION = "— neu —"
 
 
+def scenario_new_option(*, allow_new: bool) -> str | None:
+    """Return ``— neu —`` when creating scenarios is allowed, else None."""
+    return NEW_SCENARIO_OPTION if allow_new else None
+
+
+def default_scenario_pick(
+    *,
+    live_id: str,
+    scenario_ids: list[str],
+    allow_new: bool,
+) -> str:
+    """Default Szenario select value; never ``— neu —`` when ``allow_new`` is False."""
+    if live_id in scenario_ids:
+        return live_id
+    if scenario_ids:
+        return scenario_ids[0]
+    if allow_new:
+        return NEW_SCENARIO_OPTION
+    return live_id
+
+
 def ordered_user_scenario_ids(
     scenario_ids: Iterable[str],
     *,
@@ -257,9 +278,10 @@ def new_scenario_template(live_id: str, scenarios: list[dict]) -> dict:
     if live:
         return {
             "label": label,
+            "enabled": True,
             "settings": dict(live.get("settings", {})),
         }
-    return {"label": label, "settings": {}}
+    return {"label": label, "enabled": True, "settings": {}}
 
 
 def resolve_scenario_id(
@@ -326,6 +348,7 @@ def normalize_scenario_form_snapshot(scenario: dict) -> dict:
     )
     return {
         "label": str(scenario.get("label", "") or "").strip(),
+        "enabled": scenario.get("enabled", True) is not False,
         "settings": settings,
     }
 
@@ -377,6 +400,9 @@ def read_scenario_form_snapshot(
     return normalize_scenario_form_snapshot(
         {
             "label": draft_label,
+            "enabled": bool(
+                session_state.get(scoped_widget_key(session_scope, "scenario_enabled"), True)
+            ),
             "settings": settings,
         },
     )
@@ -424,17 +450,22 @@ def render_entity_selectbox(
     allow_none: bool = False,
     key: str,
     current_id: str | None = None,
+    container=None,
 ) -> str | None:
     """Selectbox für Entitäten; bei leerer Liste deaktivierter Platzhalter, Rückgabe None."""
+    root = container if container is not None else None
     labels, mapping = options_for_entities(items, allow_none=allow_none)
     if not labels:
         placeholder = f"{EMPTY_PLACEHOLDER_PREFIX} {label.lower()} —"
-        labeled_selectbox(
-            label,
-            options=[placeholder],
-            disabled=True,
-            key=key,
-        )
+        if root is not None:
+            root.selectbox(label, options=[placeholder], disabled=True, key=key)
+        else:
+            labeled_selectbox(
+                label,
+                options=[placeholder],
+                disabled=True,
+                key=key,
+            )
         return None
     if key in st.session_state:
         rematched = _rematch_entity_option(str(st.session_state[key]), labels, mapping)
@@ -442,6 +473,15 @@ def render_entity_selectbox(
             del st.session_state[key]
         elif rematched != st.session_state[key]:
             st.session_state[key] = rematched
+    if root is not None:
+        if key in st.session_state:
+            return root.selectbox(label, options=labels, key=key)
+        return root.selectbox(
+            label,
+            options=labels,
+            index=default_label_index(labels, current_id, mapping),
+            key=key,
+        )
     if key in st.session_state:
         return labeled_selectbox(
             label,

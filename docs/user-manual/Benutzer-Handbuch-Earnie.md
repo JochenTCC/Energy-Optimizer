@@ -100,7 +100,7 @@ Ziel dieser Phase: Ihr Haus so abbilden, dass Earnie **Vergleichsszenarien** rec
 Empfohlene Reihenfolge:
 
 1. Hauskonfigurator (Haus, Verbraucher, PV, Speicher)  
-2. Szenarieneditor (Varianten: mit/ohne Speicher, anderer Tarif, …)  
+2. Szenarienkonfigurator (Varianten: mit/ohne Speicher, anderer Tarif, …)  
 3. Live-Szenario zuweisen (welche Entitäten „gelten“ als Basis)  
 4. Szenario-Explorer: Verbrauch generieren, Rechnung starten, Ergebnisse lesen  
 
@@ -120,9 +120,9 @@ Ein **Hausprofil** beschreibt Standort und „Wer lebt / was verbraucht hier“:
 
 Legen Sie zuerst ein Profil an und ergänzen Sie danach die Geräte. Ohne Standort und sinnvolles Profil sind Jahresvergleiche wenig aussagekräftig. Je mehr Freiheiten sie Earnie beim Verschieben der Aktivierung der verschiedenen Verbraucher geben, umso höher sind die Einsparungspotenziale.
 
-Optional: **Historische Jahresprofile (CSV)** — Gesamtverbrauch (direkt oder als **Bilanz** aus PV + Batterie + Netz), optional PV und Verbraucher — für Ist-vs-Modell und realistischere Explorer-Rechnungen. Pro Verbraucher: Checkbox **„Von Basis-Last abziehen“** steuert, ob die CSV-Last die Synthese ersetzt und von der Basislast abgezogen wird (Rollen: Bekannt / Gesteuert / Manuelles Gerät — siehe [Historische Verbrauchs-CSV](../konfiguration/verbrauchs-csv.md)).
+Optional: **Historische Jahresprofile (CSV)** — Gesamtverbrauch (direkt oder als **Bilanz** aus PV + Batterie + Netz), optional PV und Verbraucher — für Ist-vs-Modell und realistischere Explorer-Rechnungen. Pro Verbraucher: Checkbox **„Von Basis-Last abziehen“** steuert, ob die CSV-Last die Synthese ersetzt und von der Basislast abgezogen wird (Rollen: Bekannt / Gesteuert / Manuelles Gerät — siehe [Historische Verbrauchs-CSV](../konfiguration/verbrauchs-csv.md)). Unter **Gesamtverbräuche** können Sie die Basislast als **Jahres-Rest gleichmäßig** oder **Monats-Rest je Monat** wählen — letzteres gilt auch für den Szenario-Explorer (Pfad A), solange nicht alle steuerbaren Verbraucher ein CSV haben (Pfad B).
 
-Änderungen im Hauskonfigurator und Szenarieneditor werden **automatisch gespeichert**. Komplette Config-Pakete (ZIP) exportieren/importieren Sie in der Sidebar unter **„Konfiguration speichern / laden“** — siehe [Speichern / Laden](../konfiguration/speichern-laden.md).
+Änderungen im Hauskonfigurator und Szenarienkonfigurator werden **automatisch gespeichert**. Komplette Config-Pakete (ZIP) exportieren/importieren Sie in der Sidebar unter **„Konfiguration speichern / laden“** — siehe [Speichern / Laden](../konfiguration/speichern-laden.md).
 
 #### Haus-Wärme
 
@@ -191,9 +191,10 @@ Unter Batterien:
 
 Im Live-Betrieb steuert Earnie Ziel-SOC und Lade-/Entlade-Sollwerte über das Smarthome-System; die konkrete Wechselrichter-Logik bleibt in der Hausautomation.
 
-### Szenarien-Editor
+<a id="szenarien-editor"></a>
+### Szenarienkonfigurator
 
-Unter **Konfiguration → Szenarieneditor** bauen Sie **Varianten** Ihres Haushalts, ohne den Live-Betrieb zu ändern.
+Unter **Konfiguration → Szenarienkonfigurator** bauen Sie **Varianten** Ihres Haushalts, ohne den Live-Betrieb zu ändern.
 
 Ein Szenario verknüpft typischerweise:
 
@@ -208,7 +209,7 @@ Beispiele für Vergleiche:
 - Fixpreis vs. Spot-Tarif  
 - ohne Batterie, aber mit PV  
 
-Das **Live-Szenario** (meist ID `live`) ist die Basis für den späteren Produktivbetrieb. Weitere Szenarien dienen der Analyse im Szenario-Explorer.
+Das **Live-Szenario** (meist ID `live`) ist die Basis für den späteren Produktivbetrieb. Weitere Szenarien dienen der Analyse im Szenario-Explorer. Pro Szenario können Sie **Aktiv für Szenario-Explorer** setzen; deaktivierte Varianten werden in der Explorer-Rechnung übersprungen (vorhandene Ergebnisse werden dadurch ungültig).
 
 Tarife wählen Sie aus dem Tarifkatalog (Bezug/Einspeise). Nach der Auswahl zeigt der Editor die **Katalogparameter** des gewählten Tarifs (read-only). Bitte prüfen Sie diese Werte — es gibt **keine Garantie** für Vollständigkeit oder Aktualität. **Monatliche Fixkosten** (Grundgebühr o. Ä.) fließen als **Näherung** in die Gesamt- und Monatskosten des Szenario-Explorers ein, nicht in die Live-Optimierung. Nachrechnen: [Tarife und Preise nachrechnen](../referenz/tarife-quellen.md). Technik: [Preise & aWATTar](../konfiguration/preise.md).
 
@@ -233,9 +234,11 @@ Vor oder beim Start einer Explorer-Rechnung brauchen Sie eine belastbare **Lastg
 - aus dem **Hausprofil** (Zeitpläne / thermische Modelle / Flex-Fenster), und/oder  
 - aus historischen Verbrauchsdaten, falls vorhanden  
 
-Im Explorer bzw. zugehörigen Schritten können Sie Verbrauchsverläufe erzeugen und prüfen (Plausibilität, Monatsprofile). Stimmen Größenordnung und Tagesgang nicht, zuerst Profil und Geräte korrigieren — sonst sind Kostenvergleiche irreführend.
+Im Explorer bzw. zugehörigen Schritten können Sie Verbrauchsverläufe erzeugen und prüfen (Plausibilität, Monatsprofile). Stimmen Größenordnung und Tagesgang nicht, zuerst Profil und Geräte korrigieren — sonst sind Kostenvergleiche irreführend. Wenn sich Synthese-Parameter (Hausprofil/PV) geändert haben, müssen die Verbrauchsdaten **neu generiert** werden — sonst bleibt der Start der Rechnung gesperrt.
 
 #### Szenario-Explorer ausführen
+
+Optional: Checkbox **Verbrauchsdaten auf letzten Kalendermonat spiegeln (aktuelle Tarife)** — die Verbrauchsmuster werden nach Kalendermonat auf die letzten 12 vollständigen Monate (Wanduhr) gelegt, damit Spot-/Tarifpreise aktuell sind; die CSV auf der Festplatte bleibt unverändert. Auswahl wird in `scenario_explorer_conf` gespeichert.
 
 1. Gewünschte Szenarien und Zeitraum (Monate) wählen.  
 2. Rechnung starten (kann je nach Umfang länger dauern).  
@@ -292,35 +295,35 @@ Wenn die Was-wäre-wenn-Analyse überzeugt, folgt die Anbindung an die Smarthome
    - E-Auto: angesteckt, Fertig-Zeit, Rest-SOC, Kapazität, …  
    Konkrete Beispielnamen und Config-Schlüssel: [Loxone-Signale](../referenz/loxone-signale.md). Zentrale Merker unter `loxone_blocks` in `config.json`; Verbraucher-Merker im Hausprofil (`house_profiles.json`) bzw. Legacy in `flexible_consumers[]`.  
 3. Optional **FTP-Verbrauchslog** für historische Offline-Daten (`loxone_blocks.log_filename`, Miniserver-Ordner `log/`) — siehe [Loxone-Anbindung](../einrichtung/loxone-anbindung.md#ftp-verbrauchslog). Für Jahresprofile im Hauskonfigurator nutzen Sie eher CSV-Upload / Energiemonitor ([Verbrauchs-CSV](../konfiguration/verbrauchs-csv.md)).  
-4. Namen in Earnie hinterlegen (Hauskonfigurator / Szenarieneditor) — **exakt** wie im Smarthome-System.  
+4. Namen in Earnie hinterlegen (Hauskonfigurator / Szenarienkonfigurator) — **exakt** wie im Smarthome-System.  
 
 Earnie liest Smarthome-Werte oft als Text mit Einheit (z. B. `3.5 kW`) ein; die Einheit wird ignoriert.
 
 Signalübersicht: [Loxone-Signale](../referenz/loxone-signale.md) · Anbindung: [Loxone-Anbindung](../einrichtung/loxone-anbindung.md).
 
-### Live-Szenario (Szenarieneditor)
+### Live-Szenario (Szenarienkonfigurator)
 
-Unter **Konfiguration → Szenarieneditor**:
+Unter **Konfiguration → Szenarienkonfigurator**:
 
 - welches Szenario **live** gilt (`live_scenario_id` in `config.json`, Standard: `live`)  
 - welche Entitäten (Hausprofil, Batterie, PV, Tarife) daran hängen  
 
-Die **Bezeichnung** des Live-Szenarios ist fest (nicht umbenennbar / nicht löschbar). Entitäts-Referenzen und Kataloge ändern Sie im Szenarieneditor bzw. Hauskonfigurator.
+Die **Bezeichnung** des Live-Szenarios ist fest (nicht umbenennbar / nicht löschbar). Entitäts-Referenzen und Kataloge ändern Sie im Szenarienkonfigurator bzw. Hauskonfigurator.
 
 Damit nutzen Live-Optimierung und Szenario-Explorer dieselbe Auflösungslogik.
 
-### Loxone-Kommunikation
+### Loxone-Com
 
-Unter **Daemon Control → Loxone-Kommunikation** (Debug / Abnahme):
+Unter **Daemon Control → Loxone-Com** (Debug / Abnahme):
 
 - **Live-Lesen:** alle konfigurierten Merker werden periodisch vom Smarthome System eingelesen.  
-- **Letzte Schreibvorgänge:** was `main.py` zuletzt gesendet hat (Erfolg ja/nein)  
+- **Live-Schreiben:** was `main.py` zuletzt gesendet hat (Erfolg ja/nein)  
 - **Silent-Modus:** Earnie berechnet und zeigt Sollwerte, **schreibt aber nicht** an die Smarthome Steuerung — sinnvoll für Tests
 - **Live-Modus:** Schreiben aktiv — erst nach erfolgreicher Lesekontrolle umschalten  
 
 Prüfungen auch per Skript: `python -m scripts.verify_loxone_setup`.
 
-Cutover-Checkliste: Lesen OK → Schreiben Erfolg → Monitor/Sankey plausibel. Details: [Loxone-Kommunikation](../ui/loxone-kommunikation.md).
+Cutover-Checkliste: Lesen OK → Schreiben Erfolg → Monitor/Sankey plausibel. Details: [Loxone-Com](../ui/loxone-kommunikation.md).
 
 ---
 
@@ -411,10 +414,10 @@ Unter **Live-Cockpit → Analyse Verbrauch & Kosten** (nur wenn der UI-Modus `li
 
 1. Installieren (Docker/Greenfield) und UI öffnen  
 2. Hauskonfigurator: Profil, Wärme, Auto, Pool, Geräte, PV, Batterie  
-3. Szenarieneditor: Live-Szenario + Vergleichsvarianten  
+3. Szenarienkonfigurator: Live-Szenario + Vergleichsvarianten  
 4. Szenario-Explorer: Verbrauch prüfen, Rechnung, Ergebnisse bewerten  
 5. Loxone vorbereiten und Zugang speichern  
-6. Live-Szenario im Szenarieneditor + Loxone-Kommunikation (Silent → Live)  
+6. Live-Szenario im Szenarienkonfigurator + Loxone-Com (Silent → Live)  
 7. Daemon dauerhaft laufen lassen, Monitor beobachten, Feintuning  
 
 Bei Unklarheiten in der Konfiguration: Hover-Hilfe in `config.json` (Schema) und die Kapitel unter [docs/README.md](../README.md).

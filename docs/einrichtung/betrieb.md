@@ -15,7 +15,7 @@ Nur `main.py` steuert die Anlage (Loxone-Schreibvorgänge). Die App **zeigt** de
 
 **Lokal (venv / VS Code):** `main.py` und Streamlit können getrennt laufen. Auto-Start ist aus, solange `EARNIE_AUTO_START_MAIN` nicht auf `1` steht — so bleibt Debugging von `main.py` exklusiv.
 
-Konfiguration wird über die Planungs- und Echtzeit-Seiten geschrieben (Hauskonfigurator, Szenarieneditor, Manuelle Geräte). Hausbezogene Persistenz lokal bzw. im privaten Repo: [Private Haus-Config](private-env.md).
+Konfiguration wird über die Planungs- und Echtzeit-Seiten geschrieben (Hauskonfigurator, Szenarienkonfigurator, Manuelle Geräte). Hausbezogene Persistenz lokal bzw. im privaten Repo: [Private Haus-Config](private-env.md).
 
 ## Optimierungs-Takt
 

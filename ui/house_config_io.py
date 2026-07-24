@@ -1,4 +1,4 @@
-"""Persistenz-Hilfen für Hauskonfigurator und Szenarieneditor."""
+"""Persistenz-Hilfen für Hauskonfigurator und Szenarienkonfigurator."""
 from __future__ import annotations
 
 import json
@@ -116,9 +116,6 @@ def upsert_house_profile(profile: dict) -> None:
     profiles = [p for p in profiles if p.get("id") != profile["id"]]
     profiles.append(profile)
     save_house_profiles_document(path, {"profiles": profiles})
-    from data import cons_data_store
-
-    cons_data_store.invalidate_cons_data_meta()
 
 
 def _stable_upload_csv_name(

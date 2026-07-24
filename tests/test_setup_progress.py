@@ -66,7 +66,7 @@ def test_render_deferred_loxone_sidebar_shows_hint_when_credentials_ready(monkey
     setup_progress.render_deferred_loxone_sidebar()
 
     assert sidebar.calls == [("Loxone-Zugang (Live / Silent-Modus)", False)]
-    assert any("Loxone-Kommunikation" in msg for msg in caption_calls)
+    assert any("Loxone-Com" in msg for msg in caption_calls)
 
 
 def test_render_setup_progress_notice_does_not_gate_loxone_sidebar(monkeypatch):

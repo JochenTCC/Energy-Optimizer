@@ -93,13 +93,20 @@ Optional: Abgleich Ist vs. Modell und Grundlage für die Rest-Grundlast, wenn Ve
 
 Die Kennzahlen **Ist-Jahresverbrauch** und **Modell-Jahresverbrauch** beziehen sich auf die **letzten 8760 Stunden** der CSV (ca. 12 Monate), auch wenn die Datei länger ist. Monats- und Wochencharts nutzen weiterhin die gesamte Zeitreihe.
 
-Im Abgleich **Ist vs. Modell** ist die gestapelte Modell-Basislast die konfigurierte Grundlast (`baseload_kwh`, gleichmäßig), nicht der Meter-Rest nach Abzug der Verbraucher-CSVs.
+Im Abgleich **Ist vs. Modell** (Hauskonfigurator, Abschnitt **Gesamtverbräuche**)
+kann die Modell-Basislast gewählt werden (`baseload_distribution` am Hausprofil):
 
-Zusätzlich wird die Grundlast so **an den Ist-Jahresverbrauch angepasst**, dass Modell ≈ Ist: Idealwert = Ist − Verbraucher-Summe (letzte 8760 h). Die Untergrenze dabei ist mindestens **1 %** des konfigurierten Jahresverbrauchs (nicht die Standard-2 %-Floor).
+| Modus | Verhalten |
+| ----- | --------- |
+| **Jahres-Rest gleichmäßig** (`equal`, Standard) | Eine konstante Grundlast aus dem Jahres-Rest Ist − Verbraucher (letzte 8760 h), Untergrenze mindestens **1 %** des konfigurierten Jahresverbrauchs (Chart). SE-Pfad A: flache `baseload_kwh/8760`. |
+| **Monats-Rest je Monat** (`monthly`) | Pro Kalendermonat `max(0, Ist − Verbraucher)`; Stunden in dem Monat erhalten den Rest gleichmäßig. Keine 1 %-Untergrenze im Chart. Monate mit Verbrauchern > Ist bleiben ohne Basislast. **Gilt für Charts und SE-Pfad A**, wenn eine Gesamt-CSV vorhanden ist. |
 
+**SE-Pfad B** (Gesamt-CSV und alle Gesteuert/Manual mit aktivem CSV) bleibt der stündliche Meter-Rest — `baseload_distribution` ändert Pfad B nicht.
+
+Die Chart-Modell-Basislast ist damit **nicht** der stündliche Meter-Rest (Pfad B), sondern der gewählte Jahres- oder Monats-Rest plus gestapelte Verbraucher.
 ## PV-Ertrag (`pv_profile_csv`)
 
-Optionaler Jahres-PV-Ertrag als Summe über alle PV-Anlagen. Im Szenarieneditor kann pro Szenario gewählt werden, ob der Szenario-Explorer dieses Profil statt PV aus Wetterdaten (Open-Meteo) für die Berechnung nutzt. Dafür muss die PV-CSV mindestens ca. **12 Monate** abdecken — kürzere Importe bleiben sichtbar im Hauskonfigurator, werden im SE aber **nicht** verwendet (Fallback Open-Meteo). In den Verbrauchs-Charts erscheint importiertes PV zusätzlich als **punktierte** Linie.
+Optionaler Jahres-PV-Ertrag als Summe über alle PV-Anlagen. Im Szenarienkonfigurator kann pro Szenario gewählt werden, ob der Szenario-Explorer dieses Profil statt PV aus Wetterdaten (Open-Meteo) für die Berechnung nutzt. Dafür muss die PV-CSV mindestens ca. **12 Monate** abdecken — kürzere Importe bleiben sichtbar im Hauskonfigurator, werden im SE aber **nicht** verwendet (Fallback Open-Meteo). In den Verbrauchs-Charts erscheint importiertes PV zusätzlich als **punktierte** Linie.
 
 ## Verbraucher-CSV (`profile_csv` + `use_profile_csv`)
 
@@ -117,9 +124,9 @@ Pro Verbraucher:
 | Gesteuert | Abzug von Basislast | CSV-Energie über Horizont als MILP-Ziel; Timing optimieren | CSV ignorieren, Schedule |
 | Manuelles Gerät | Abzug von Basislast | wie Gesteuert | Nutzer-Tagesplan wenn aktiv; sonst weder CSV noch Default-Schedule |
 
-**SE-Basislast:** Pfad **B** (stündlicher Meter-Rest), wenn Gesamt-CSV vorhanden und alle Gesteuert/Manual ein aktives CSV haben; sonst Pfad **A** (flache `baseload_kwh/8760`).
+**SE-Basislast:** Pfad **B** (stündlicher Meter-Rest), wenn Gesamt-CSV vorhanden und alle Gesteuert/Manual ein aktives CSV haben; sonst Pfad **A**. Unter A: bei `baseload_distribution=monthly` monatsweise Ist − Modellverbraucher, sonst flache `baseload_kwh/8760`.
 
-Synthetische `cons_data_hourly.csv` nutzt die konfigurierte Grundlast (`baseload_kwh / 8760`), außer SE läuft mit Pfad B.
+Synthetische `cons_data_hourly.csv` nutzt die konfigurierte Grundlast (`baseload_kwh / 8760`), außer SE läuft mit Pfad B (oder Pfad A Monats-Rest aus dem Hausprofil).
 
 ### Digitale Ein/Aus-Signale (0/1)
 

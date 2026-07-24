@@ -1,4 +1,4 @@
-"""Loxone-Kommunikation: Debug-Seite für Live-Lesen und Schreib-Nachverfolgung."""
+"""Loxone-Com: Debug-Seite für Live-Lesen und Live-Schreiben."""
 from __future__ import annotations
 
 import streamlit as st
@@ -41,12 +41,12 @@ def _render_cockpit_locked_notice() -> None:
 
 def render() -> None:
     render_page_title_with_help(
-        "🔗 Loxone-Kommunikation",
+        "🔗 Loxone-Com",
         _LOXONE_DEBUG_HELP,
         key="loxone_debug_help",
         page_docs_key="loxone-debug",
     )
     st.caption(f"Konfiguration: `{config.CONFIG.config_path}`")
     _render_cockpit_locked_notice()
-    render_marker_config_editors()
     render_loxone_debug_block()
+    render_marker_config_editors()

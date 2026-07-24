@@ -28,31 +28,82 @@ def render_loxone_blocks_form() -> None:
         "Rollen für Batterie, PV, Netz und Steuerbefehl. "
         "Werte = Merkernamen im Loxone Miniserver."
     )
-    data = load_main_config()
-    blocks = dict(data.get("loxone_blocks") or {})
-    edited: dict[str, str] = {}
-    for role, label in LOXONE_BLOCKS_FIELDS:
-        edited[role] = render_marker_text(
-            label,
-            blocks.get(role, ""),
-            key=f"lm_blocks_{role}",
-        )
-    if st.button("Anlagen-Merker speichern", key="lm_blocks_save"):
-        payload = dict(data)
-        payload["loxone_blocks"] = {
-            role: edited.get(role, str(blocks.get(role, "")))
-            for role, _label in LOXONE_BLOCKS_FIELDS
-        }
-        save_main_config(payload)
-        st.success("Anlagen-Merker gespeichert.")
-        st.rerun()
+    with st.expander("Merker bearbeiten", expanded=False):
+        data = load_main_config()
+        blocks = dict(data.get("loxone_blocks") or {})
+        edited: dict[str, str] = {}
+        for role, label in LOXONE_BLOCKS_FIELDS:
+            edited[role] = render_marker_text(
+                label,
+                blocks.get(role, ""),
+                key=f"lm_blocks_{role}",
+            )
+        if st.button("Anlagen-Merker speichern", key="lm_blocks_save"):
+            payload = dict(data)
+            payload["loxone_blocks"] = {
+                role: edited.get(role, str(blocks.get(role, "")))
+                for role, _label in LOXONE_BLOCKS_FIELDS
+            }
+            save_main_config(payload)
+            st.success("Anlagen-Merker gespeichert.")
+            st.rerun()
+
+
+def _render_trigger_body(trigger: dict, index: int) -> dict:
+    trig_id = labeled_text_input(
+        "ID",
+        value=str(trigger.get("id", "")),
+        key=f"lm_trig_id_{index}",
+        ratios=WIDE_LABEL_RATIOS,
+    )
+    loxone_name = render_marker_text(
+        "Smarthome-Merker",
+        trigger.get("loxone_name", ""),
+        key=f"lm_trig_name_{index}",
+    )
+    signal_type = labeled_selectbox(
+        "signal_type",
+        options=list(_SIGNAL_TYPES),
+        index=max(
+            0,
+            _SIGNAL_TYPES.index(str(trigger.get("signal_type", "binary")))
+            if str(trigger.get("signal_type", "binary")) in _SIGNAL_TYPES
+            else 0,
+        ),
+        key=f"lm_trig_type_{index}",
+    )
+    on_change = labeled_selectbox(
+        "on_change",
+        options=list(_ON_CHANGE_OPTIONS),
+        index=max(
+            0,
+            _ON_CHANGE_OPTIONS.index(str(trigger.get("on_change", "any")))
+            if str(trigger.get("on_change", "any")) in _ON_CHANGE_OPTIONS
+            else 0,
+        ),
+        key=f"lm_trig_chg_{index}",
+    )
+    label = labeled_text_input(
+        "Label",
+        value=str(trigger.get("label", "")),
+        key=f"lm_trig_label_{index}",
+        ratios=WIDE_LABEL_RATIOS,
+    )
+    return {
+        "id": str(trig_id).strip(),
+        "loxone_name": loxone_name,
+        "signal_type": signal_type,
+        "on_change": on_change,
+        "label": str(label).strip(),
+    }
 
 
 def render_event_triggers_form() -> None:
     """Edit system.event_triggers list."""
     st.subheader("Event-Trigger")
     st.caption(
-        "Smarthome-Merker, deren Änderung einen außerplanmäßigen Optimierungslauf auslöst."
+        "Smarthome-Merker, deren Änderung einen außerplanmäßigen "
+        "Optimierungslauf auslöst."
     )
     data = load_main_config()
     system = dict(data.get("system") or {})
@@ -85,60 +136,17 @@ def render_event_triggers_form() -> None:
     updated: list[dict] = []
     remove_index: int | None = None
     for index, trigger in enumerate(draft):
-        with st.expander(
-            f"Trigger {index + 1}: {trigger.get('id') or '—'}",
-            expanded=False,
-        ):
-            trig_id = labeled_text_input(
-                "ID",
-                value=str(trigger.get("id", "")),
-                key=f"lm_trig_id_{index}",
-                ratios=WIDE_LABEL_RATIOS,
-            )
-            loxone_name = render_marker_text(
-                "Smarthome-Merker",
-                trigger.get("loxone_name", ""),
-                key=f"lm_trig_name_{index}",
-            )
-            signal_type = labeled_selectbox(
-                "signal_type",
-                options=list(_SIGNAL_TYPES),
-                index=max(
-                    0,
-                    _SIGNAL_TYPES.index(str(trigger.get("signal_type", "binary")))
-                    if str(trigger.get("signal_type", "binary")) in _SIGNAL_TYPES
-                    else 0,
-                ),
-                key=f"lm_trig_type_{index}",
-            )
-            on_change = labeled_selectbox(
-                "on_change",
-                options=list(_ON_CHANGE_OPTIONS),
-                index=max(
-                    0,
-                    _ON_CHANGE_OPTIONS.index(str(trigger.get("on_change", "any")))
-                    if str(trigger.get("on_change", "any")) in _ON_CHANGE_OPTIONS
-                    else 0,
-                ),
-                key=f"lm_trig_chg_{index}",
-            )
-            label = labeled_text_input(
-                "Label",
-                value=str(trigger.get("label", "")),
-                key=f"lm_trig_label_{index}",
-                ratios=WIDE_LABEL_RATIOS,
-            )
+        exp_col, remove_col = st.columns([4, 1], vertical_alignment="top")
+        with remove_col:
             if st.button("Entfernen", key=f"lm_trig_rm_{index}"):
                 remove_index = index
-            updated.append(
-                {
-                    "id": str(trig_id).strip(),
-                    "loxone_name": loxone_name,
-                    "signal_type": signal_type,
-                    "on_change": on_change,
-                    "label": str(label).strip(),
-                }
-            )
+        with exp_col:
+            with st.expander(
+                f"Trigger {index + 1}: {trigger.get('id') or '—'}",
+                expanded=False,
+                key=f"lm_trig_exp_{index}",
+            ):
+                updated.append(_render_trigger_body(trigger, index))
 
     if remove_index is not None:
         del updated[remove_index]
@@ -172,8 +180,6 @@ def render_event_triggers_form() -> None:
 
 
 def render_marker_config_editors() -> None:
-    """Plant markers + event triggers above the live debug block."""
+    """Plant markers + event triggers below the live debug block."""
     render_loxone_blocks_form()
-    st.divider()
     render_event_triggers_form()
-    st.divider()

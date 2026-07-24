@@ -5,11 +5,11 @@ steuert, welche Seiten registriert werden: Live-Cockpit (Monitor, Manuelle Gerä
 braucht ``sunset2sunset``; Daemon Control braucht ``live_environment``;
 Szenario-Explorer und Preis-Prognose (Dev) folgen ihren Keys.
 Konfigurations-Seiten bleiben über Setup-Readiness gesteuert.
-Das Live-Szenario wird im Szenarieneditor gepflegt (``live_scenario_id``).
+Das Live-Szenario wird im Szenarienkonfigurator gepflegt (``live_scenario_id``).
 
 Nach Minimal-Bootstrap (Greenfield) sind bis zur vollständigen Planungs-
 Konfiguration nur Hauskonfigurator und ggf. Daemon Control sichtbar
-(Szenarieneditor nach Hausprofil). Danach wird Szenario-Explorer freigeschaltet;
+(Szenarienkonfigurator nach Hausprofil). Danach wird Szenario-Explorer freigeschaltet;
 Live-Cockpit erst nach vollständiger Loxone-Merker-Konfiguration und wenn
 ``sunset2sunset`` in EARNIE_UI_MODES steht.
 """
@@ -32,7 +32,7 @@ SECTION_ECHTZEIT = "Daemon Control"
 _VA_OFFLINE_NOTICE = (
     "Analyse Verbrauch & Kosten ist ohne Live-Verbindung zur Smarthome-Steuerung "
     "nicht verfügbar (EARNIE_OFFLINE oder unvollständiges Live-Szenario). "
-    "Bitte Live-Szenario im Szenarieneditor vervollständigen bzw. "
+    "Bitte Live-Szenario im Szenarienkonfigurator vervollständigen bzw. "
     "Offline-Modus deaktivieren."
 )
 
@@ -88,7 +88,7 @@ def _konfiguration_core_specs(*, house_config_default: bool) -> list[PageSpec]:
         specs.append(
             PageSpec(
                 page_scenario_editor.render,
-                "Szenarieneditor",
+                "Szenarienkonfigurator",
                 "🧪",
                 SECTION_KONFIGURATION,
                 "scenario-editor",
@@ -110,7 +110,7 @@ def _echtzeit_page_specs() -> list[PageSpec]:
         ),
         PageSpec(
             page_loxone_debug.render,
-            "Loxone-Kommunikation",
+            "Loxone-Com",
             "🔗",
             SECTION_ECHTZEIT,
             "loxone-debug",

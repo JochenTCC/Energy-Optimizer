@@ -2,53 +2,55 @@
 
 **Nachrechnen für Anwender:** [Tarife und Preise nachrechnen](../referenz/tarife-quellen.md) — Schritt-für-Schritt Bezugs-/Einspeisepreis und SE-Monatsgebühr.
 
-Live-Bezugspreise kommen über Tarif-Einträge vom Typ `awattar` (API AT/DE) oder über Spot-Tarife mit Day-Ahead-Marktpreis. Providerunabhängige EPEX-Daten für Planung/Backtesting kommen standardmäßig von **Energy-Charts** (AT/DE/CH); aWATTar bleibt Fallback bzw. Live-Typ `awattar`.
+Live-Bezugspreise kommen über Spot-Tarife (`spot_hourly` u. a.) mit Day-Ahead-Marktpreis. Providerunabhängige EPEX-Daten für Planung/Backtesting kommen standardmäßig von **Energy-Charts** (AT/DE/CH); aWATTar bleibt API-Fallback. Die aWATTar-API-URL wird aus `import_tariff_id` → `land` abgeleitet (nicht aus dem Tarif-`type`).
 
 Quellen und rechtliche Anker: [Tarife und Preise nachrechnen](../referenz/tarife-quellen.md), [OeMAG & Referenzmarktwert](../referenz/oemag-referenzmarktwert.md).
 
-**Monatsgebühr (`monthly_fee_eur`):** optionale Näherung in EUR/Monat am Tarif (netto/brutto wie `prices_include_vat`). Wird nur in den **Szenario-Explorer**-Gesamt-/Monatskosten addiert (eine volle Gebühr pro Kalendermonat), nicht in Live-MILP und nicht in stündlichen `sim_cost`.
+**Monatsgebühr (`monthly_fee_eur`):** optionale Näherung in EUR/Monat am Tarif (netto/brutto wie `prices_include_vat`). Wird nur in den **Szenario-Explorer**-Gesamt-/Monatskosten addiert (eine volle Gebühr pro Kalendermonat), nicht in Live-MILP und nicht in stündlichen `sim_cost`. Pflichtfeld **`supplier_id`**: gleiche Anbieter → Gebühr einmal (`max`), unterschiedliche Anbieter → Summe.
+
+**Land am Hausprofil:** Im Hauskonfigurator (Standort) wird `land` (`AT`/`DE`/`CH`) gespeichert. Der Szenarienkonfigurator-Filter **Land** ist Pflicht (kein „Alle“) und wird aus dem gewählten Hausprofil vorbelegt.
 
 ## Bezugspreis (Live)
 
-Live-Optimierung löst die `import_tariff_id` des Live-Szenarios gegen `earnie_env/config/tariffs.json` auf (Seed aus öffentlichem [`share/config/tariffs.json`](../../share/config/tariffs.json)). Bei Typ `awattar` gelten dieselben Aufschläge wie bei Spot-Tarifen **am Tarif-Eintrag** (`settlement_fee_cent_kwh`, `markup_percent`, `vat_percent` / `prices_include_vat`).
+Live-Optimierung löst die `import_tariff_id` des Live-Szenarios gegen `earnie_env/config/tariffs.json` auf (Seed aus öffentlichem [`share/config/tariffs.json`](../../share/config/tariffs.json)). Aufschläge stehen **am Tarif-Eintrag** (`settlement_fee_cent_kwh`, `markup_percent`, `vat_percent` / `prices_include_vat`).
 
-Stundenpreise für Typ `awattar` kommen von der aWATTar-API; die URL wird aus `import_tariff_id` → `land` abgeleitet (AT → `api.awattar.at`, DE → `api.awattar.de`). Berechnung des **Bezugspreises in Cent/kWh**:
+Marktpreise (Live) kommen je nach Provider von Energy-Charts bzw. der aWATTar-API; die aWATTar-URL aus `land` (AT → `api.awattar.at`, DE → `api.awattar.de`). Berechnung des **Bezugspreises in Cent/kWh**:
 
 ```
-(Marktpreis (API) × (1 + markup_percent/100) + settlement_fee_cent_kwh)
+(Marktpreis × (1 + markup_percent/100) + settlement_fee_cent_kwh)
   × (1 + vat_percent/100)   falls prices_include_vat = false
 ```
 
 
-| Feld (Tarif `awattar` in tariffs.json) | Bedeutung                                   |
-| -------------------------------------- | ------------------------------------------- |
-| `settlement_fee_cent_kwh`              | Fixer Aufschlag Netz/Gebühren in Cent/kWh   |
-| `markup_percent`                       | Prozentualer Aufschlag (z. B. 3 ≈ Netzverlust) |
-| `vat_percent` / `prices_include_vat`   | USt (z. B. 20 % bei `prices_include_vat=false`) |
+| Feld (Spot-Import in tariffs.json) | Bedeutung                                   |
+| ---------------------------------- | ------------------------------------------- |
+| `settlement_fee_cent_kwh`          | Fixer Aufschlag Netz/Gebühren in Cent/kWh   |
+| `markup_percent`                   | Prozentualer Aufschlag (z. B. 3 ≈ Netzverlust) |
+| `vat_percent` / `prices_include_vat` | USt (z. B. 20 % bei `prices_include_vat=false`) |
 
 
 
 
 ## Einspeisevergütung (Live)
 
-Live-Optimierung löst die `export_tariff_id` des Live-Szenarios auf. Bei Typ `fixed` kommt `k_push_cent` aus dem Tarif-Eintrag in `tariffs.json`. Geändert wird die Tarif-Referenz im Live-Szenario im **Szenarieneditor**.
+Live-Optimierung löst die `export_tariff_id` des Live-Szenarios auf. Bei Typ `fixed` kommt `k_push_cent` aus dem Tarif-Eintrag in `tariffs.json`. Geändert wird die Tarif-Referenz im Live-Szenario im **Szenarienkonfigurator**.
 
 **Hinweis:** Vergütung kann sich ändern (z. B. monatlich). Tarif in `tariffs.json` bzw. gewählte `export_tariff_id` aktuell halten.
 
 ## Planung & Backtesting (ab 1.24.f)
 
-Der veröffentlichte Katalog liegt in [`share/config/tariffs.json`](../../share/config/tariffs.json) mit Root-Feld `catalog_as_of`. Zur Laufzeit nutzt Earnie `earnie_env/config/tariffs.json` (Bootstrap kopiert den Katalog bei Bedarf). Szenarien in `backtesting_scenarios.json` referenzieren `import_tariff_id` und `export_tariff_id`.
+Der veröffentlichte Katalog liegt in [`share/config/tariffs.json`](../../share/config/tariffs.json) mit Root-Feld `catalog_as_of`. Zur Laufzeit nutzt Earnie `earnie_env/config/tariffs.json` (Bootstrap kopiert den Katalog bei Bedarf aus share). Szenarien in `backtesting_scenarios.json` referenzieren `import_tariff_id` und `export_tariff_id`.
 
 ### Import-Typen
 
 
 | Typ              | Bedeutung                                                                                             |
 | ---------------- | ----------------------------------------------------------------------------------------------------- |
-| `awattar`        | Aufschläge am Tarif-Eintrag in `tariffs.json`; API-URL aus `land`                                     |
 | `fixed_cent`     | Fixer Arbeitspreis (`fix_cent_kwh`)                                                                   |
 | `spot_hourly`    | EPEX × (1 + `markup_percent`%) + `settlement_fee_cent_kwh` (+ optional `netzentgelt_cent_kwh` für DE) |
 | `ex_post_spot`   | Wie Spot; Kennzeichnung ex-post-Abrechnung                                                            |
 | `monthly_market` | Wie Spot; Kennzeichnung Monatsmarkt                                                                   |
+| `monthly_table`  | Monatstabelle Bezug (`monthly_rates`)                                                                 |
 
 
 
@@ -56,13 +58,14 @@ Der veröffentlichte Katalog liegt in [`share/config/tariffs.json`](../../share/
 ### Export-Typen
 
 
-| Typ                            | Bedeutung                                                                  |
-| ------------------------------ | -------------------------------------------------------------------------- |
-| `fixed`                        | Konstante Vergütung (`k_push_cent`)                                        |
-| `dynamic_epex`                 | EPEX − `feed_in_fee_factor` × |EPEX| + `feed_in_fix_cent` aus Export-Tarif |
-| `spot_hourly` / `ex_post_spot` | EPEX − `settlement_fee_cent_kwh`                                           |
-| `monthly_table`                | Monatskonstante Vergütung (`monthly_rates` am Tarif)                       |
+| Typ                            | Bedeutung                                                                 |
+| ------------------------------ | ------------------------------------------------------------------------- |
+| `fixed`                        | Konstante Vergütung (`k_push_cent`)                                       |
+| `spot_hourly` / `ex_post_spot` | EPEX − `feed_in_fee_factor` × \|EPEX\| − `settlement_fee_cent_kwh` + `feed_in_fix_cent` (Faktor/Fix optional, Standard 0) |
+| `monthly_table`                | Monatskonstante Vergütung (`monthly_rates` am Tarif)                      |
 
+
+Interner Runtime-`feed_in_mode` für stündliche EPEX-Einspeise bleibt `dynamic_epex` (nicht mit dem entfernten Katalog-`type` verwechseln). Beispiel mit Prozentabschlag: Katalog-id `dynamic_epex` (aWATTar SUNNY SPOT) als `spot_hourly` mit `feed_in_fee_factor: 0.19`.
 
 Berechnung: `[data/tariff_pricing.py](../../data/tariff_pricing.py)` (`import_cent_kwh`, `export_cent_kwh`). Die MILP-Matrix nutzt `k_act` (Bezug) und `k_push_act` (Einspeise) je Stunde.
 

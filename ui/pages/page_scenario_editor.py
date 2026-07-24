@@ -1,4 +1,4 @@
-"""Szenarieneditor: Live-Szenario und weitere Szenario-Explorer-Varianten."""
+"""Szenarienkonfigurator: Live-Szenario und weitere Szenario-Explorer-Varianten."""
 from __future__ import annotations
 
 import streamlit as st
@@ -7,9 +7,7 @@ import config
 from ui.doc_links import DocLink, markdown_doc_link
 from ui.help_hint import render_page_title_with_help
 from ui.form_layout import (
-    WIDE_LABEL_RATIOS,
     labeled_checkbox,
-    labeled_number_input,
     labeled_selectbox,
     labeled_text_input,
 )
@@ -40,6 +38,7 @@ from ui.scenario_form_helpers import (
     backtesting_scenarios_file_stamp,
     build_scenario_settings,
     clear_scoped_widget_keys,
+    default_scenario_pick,
     lookup_entity_id,
     new_scenario_template,
     ordered_user_scenario_ids,
@@ -49,6 +48,7 @@ from ui.scenario_form_helpers import (
     render_profile_geo_caption,
     resolve_scenario_id,
     scenario_form_is_dirty,
+    scenario_new_option,
     scenario_session_scope,
     scoped_widget_key,
     seed_entity_multiselect_state,
@@ -69,6 +69,12 @@ _SESSION_SELECT_PENDING_KEY = "scenario_select_pending"
 _SESSION_ACTIVE_SELECT_KEY = "scenario_editor_active_select"
 _SESSION_SWITCH_TARGET_KEY = "scenario_editor_switch_target"
 _SESSION_SWITCH_DISCARD_KEY = "scenario_editor_switch_discard"
+
+
+def _scenario_explorer_ui_enabled() -> bool:
+    from ui.mode_selector import get_enabled_ui_mode_keys
+
+    return "scenario_explorer" in get_enabled_ui_mode_keys()
 
 
 def _apply_pending_scenario_select() -> None:
@@ -134,6 +140,9 @@ def _seed_scenario_widget_state(
     )
     st.session_state[scoped_widget_key(session_scope, "scenario_use_imported_pv")] = bool(
         settings.get("use_imported_pv")
+    )
+    st.session_state[scoped_widget_key(session_scope, "scenario_enabled")] = (
+        scenario.get("enabled", True) is not False
     )
 
 
@@ -202,8 +211,21 @@ def _resolve_scenario_selection(
     import_tariffs: list[dict],
     export_tariffs: list[dict],
 ) -> str:
-    default_pick = live_id if live_id in scenario_ids else NEW_SCENARIO_OPTION
+    allow_new = _scenario_explorer_ui_enabled()
+    new_option = scenario_new_option(allow_new=allow_new)
+    default_pick = default_scenario_pick(
+        live_id=live_id,
+        scenario_ids=scenario_ids,
+        allow_new=allow_new,
+    )
     _ensure_active_scenario_select(default_pick)
+
+    active_now = st.session_state.get(_SESSION_ACTIVE_SELECT_KEY)
+    if not allow_new and active_now == NEW_SCENARIO_OPTION:
+        st.session_state[_SESSION_ACTIVE_SELECT_KEY] = default_pick
+        st.session_state["scenario_select"] = default_pick
+        st.session_state[_SESSION_SYNC_KEY] = None
+        st.rerun()
 
     if st.session_state.pop(_SESSION_SWITCH_DISCARD_KEY, False):
         target = st.session_state.pop(_SESSION_SWITCH_TARGET_KEY, None)
@@ -217,7 +239,7 @@ def _resolve_scenario_selection(
         sid: {"id": sid, "label": scenario_labels.get(sid, sid)} for sid in scenario_ids
     }
     options, id_by_display = label_select_choices(
-        scenario_map, scenario_ids, new_option=NEW_SCENARIO_OPTION
+        scenario_map, scenario_ids, new_option=new_option
     )
     refresh_label_select_display(
         select_key="scenario_select",
@@ -225,7 +247,7 @@ def _resolve_scenario_selection(
         entity_map=scenario_map,
         entity_ids=scenario_ids,
         id_by_display=id_by_display,
-        new_option=NEW_SCENARIO_OPTION,
+        new_option=new_option,
     )
 
     labeled_selectbox(
@@ -349,6 +371,15 @@ def _render_scenarios_tab() -> None:
     if is_live and existing:
         label = str(existing.get("label") or existing.get("id") or "").strip()
 
+    labeled_checkbox(
+        "Aktiv für Szenario-Explorer",
+        key=scoped_widget_key(session_scope, "scenario_enabled"),
+        help=(
+            "Deaktivierte Szenarien erscheinen nicht in der SE-Berechnung. "
+            "Änderungen machen vorhandene SE-Ergebnisse ungültig."
+        ),
+    )
+
     _, prof_map = options_for_entities(list(profiles.values()), allow_none=True)
     _, bat_map = options_for_entities(batteries, allow_none=True)
     _, pv_map = options_for_entities(pv_systems, allow_none=True)
@@ -367,6 +398,23 @@ def _render_scenarios_tab() -> None:
     selected_profile = profiles.get(selected_profile_id, {})
     if selected_profile:
         render_profile_geo_caption(selected_profile)
+
+    profile_land = str(selected_profile.get("land") or "AT").strip().upper()
+    if profile_land not in {"AT", "DE", "CH"}:
+        profile_land = "AT"
+    land_key = scoped_widget_key(session_scope, "scenario_tariff_land")
+    land_seed_key = scoped_widget_key(session_scope, "scenario_tariff_land_profile")
+    if (
+        land_seed_key not in st.session_state
+        or st.session_state.get(land_seed_key) != selected_profile_id
+    ):
+        st.session_state[land_key] = profile_land
+        st.session_state[land_seed_key] = selected_profile_id
+    if not selected_profile_id:
+        st.caption(
+            "Kein Hausprofil gewählt — Land-Filter Standard AT. "
+            "Bitte Land im Hauskonfigurator (Standort) setzen."
+        )
 
     battery_pick = render_entity_selectbox(
         "Batterie",
@@ -407,12 +455,15 @@ def _render_scenarios_tab() -> None:
         current_export_id = (
             lookup_entity_id(exp_map, st.session_state.get(export_key)) or current_export_id
         )
+
+    land_col, import_type_col, export_type_col = st.columns(3)
     shared_land = render_shared_land_filter(
-        key=scoped_widget_key(session_scope, "scenario_tariff_land"),
+        key=land_key,
         import_tariffs=import_tariffs,
         export_tariffs=export_tariffs,
+        default_land=profile_land,
+        container=land_col,
     )
-    st.caption("Filter Bezugstarife")
     filtered_imports = render_tariff_type_filter(
         key_prefix=scoped_widget_key(session_scope, "scenario_import_filter"),
         tariffs=import_tariffs,
@@ -420,8 +471,8 @@ def _render_scenarios_tab() -> None:
         land=shared_land,
         current_id=current_import_id,
         label_prefix="Bezug ",
+        container=import_type_col,
     )
-    st.caption("Filter Einspeisetarife")
     filtered_exports = render_tariff_type_filter(
         key_prefix=scoped_widget_key(session_scope, "scenario_export_filter"),
         tariffs=export_tariffs,
@@ -429,13 +480,17 @@ def _render_scenarios_tab() -> None:
         land=shared_land,
         current_id=current_export_id,
         label_prefix="Einspeise ",
+        container=export_type_col,
     )
+
+    _, import_pick_col, export_pick_col = st.columns(3)
     imp_pick = render_entity_selectbox(
         "Bezugstarif",
         filtered_imports,
         allow_none=True,
         key=import_key,
         current_id=current_import_id,
+        container=import_pick_col,
     )
     exp_pick = render_entity_selectbox(
         "Einspeisetarif",
@@ -443,20 +498,40 @@ def _render_scenarios_tab() -> None:
         allow_none=True,
         key=export_key,
         current_id=current_export_id,
+        container=export_pick_col,
     )
     selected_import = lookup_entity_id(imp_map, imp_pick)
     selected_export = lookup_entity_id(exp_map, exp_pick)
     import_tariff = None
     export_tariff = None
+    netzentgelt_override = None
+    _, import_param_col, export_param_col = st.columns(3)
     if selected_import:
         import_tariff = next(t for t in import_tariffs if t["id"] == selected_import)
         render_tariff_parameter_preview(
-            import_tariff, title="Bezugstarif-Parameter", kind="import"
+            import_tariff,
+            title="Bezugstarif-Parameter",
+            kind="import",
+            container=import_param_col,
         )
+        if import_tariff.get("land") == "DE" and import_tariff.get("type") in {
+            "spot_hourly",
+            "ex_post_spot",
+            "monthly_market",
+        }:
+            netzentgelt_override = import_param_col.number_input(
+                "Netzentgelt-Override (Cent/kWh, DE-Spot)",
+                min_value=0.0,
+                step=0.1,
+                key=scoped_widget_key(session_scope, "scenario_netzentgelt"),
+            )
     if selected_export:
         export_tariff = next(t for t in export_tariffs if t["id"] == selected_export)
         render_tariff_parameter_preview(
-            export_tariff, title="Einspeisetarif-Parameter", kind="export"
+            export_tariff,
+            title="Einspeisetarif-Parameter",
+            kind="export",
+            container=export_param_col,
         )
     if selected_import or selected_export:
         st.info(
@@ -467,21 +542,6 @@ def _render_scenarios_tab() -> None:
             f"Nachrechnen: "
             f"{markdown_doc_link(DocLink('Tarife und Preise nachrechnen', 'docs/referenz/tarife-quellen.md'))}."
         )
-
-    netzentgelt_override = None
-    if import_tariff is not None:
-        if import_tariff.get("land") == "DE" and import_tariff.get("type") in {
-            "spot_hourly",
-            "ex_post_spot",
-            "monthly_market",
-        }:
-            netzentgelt_override = labeled_number_input(
-                "Netzentgelt-Override (Cent/kWh, DE-Spot)",
-                min_value=0.0,
-                step=0.1,
-                ratios=WIDE_LABEL_RATIOS,
-                key=scoped_widget_key(session_scope, "scenario_netzentgelt"),
-            )
 
     from ui.auto_persist import auto_persist
 
@@ -517,6 +577,12 @@ def _render_scenarios_tab() -> None:
     payload = {
         "id": save_id,
         "label": str(label or "").strip() or save_id,
+        "enabled": bool(
+            st.session_state.get(
+                scoped_widget_key(session_scope, "scenario_enabled"),
+                True,
+            )
+        ),
         "settings": settings,
     }
 
@@ -558,7 +624,7 @@ def _render_scenarios_tab() -> None:
 
 def render() -> None:
     render_page_title_with_help(
-        "🧪 Szenarieneditor",
+        "🧪 Szenarienkonfigurator",
         _HELP,
         key="scenario_editor_help",
         page_docs_key="scenario-editor",

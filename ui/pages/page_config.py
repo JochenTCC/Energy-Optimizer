@@ -103,7 +103,7 @@ def render() -> None:
     path = resolve_config_json_path()
     st.caption(f"Datei: `{path}`")
     st.caption(
-        "Live-Szenario und Entitäts-Referenzen pflegen Sie im **Szenarieneditor**."
+        "Live-Szenario und Entitäts-Referenzen pflegen Sie im **Szenarienkonfigurator**."
     )
 
     st.subheader("Roh-JSON-Editor")

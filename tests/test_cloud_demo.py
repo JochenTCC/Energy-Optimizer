@@ -1,4 +1,4 @@
-# tests/test_cloud_demo.py
+﻿# tests/test_cloud_demo.py
 """Community Cloud per-session Greenfield (EARNIE_CLOUD_DEMO)."""
 from __future__ import annotations
 
@@ -49,7 +49,7 @@ def _minimal_share(tmp_path: Path) -> Path:
     _write_json(
         share_dir / "tariffs.example.json",
         {
-            "import_tariffs": [{"id": "awattar_at", "label": "aWATTar", "type": "awattar"}],
+            "import_tariffs": [{"id": "awattar_at", "label": "aWATTar", "type": "spot_hourly", "land": "AT"}],
             "export_tariffs": [
                 {
                     "id": "fixed_37ct",
@@ -61,7 +61,7 @@ def _minimal_share(tmp_path: Path) -> Path:
         },
     )
     _write_json(share_dir / "tariffs.json", {
-        "import_tariffs": [{"id": "awattar_at", "label": "aWATTar", "type": "awattar"}],
+        "import_tariffs": [{"id": "awattar_at", "label": "aWATTar", "type": "spot_hourly", "land": "AT"}],
         "export_tariffs": [
             {"id": "fixed_37ct", "label": "Fix Export", "type": "fixed", "k_push_cent": 3.7}
         ],
@@ -204,7 +204,7 @@ def test_bootstrap_under_cloud_session_skips_offline_seed(tmp_path, monkeypatch)
     _write_json(
         session / "config" / "tariffs.json",
         {
-            "import_tariffs": [{"id": "awattar_at", "type": "awattar"}],
+            "import_tariffs": [{"id": "awattar_at", "type": "spot_hourly", "land": "AT"}],
             "export_tariffs": [
                 {"id": "fixed_37ct", "type": "fixed", "k_push_cent": 3.7}
             ],

@@ -147,15 +147,11 @@ def _export_fee_fields(export_spec: dict | None) -> tuple[float, float]:
     if export_spec is None:
         return 0.0, 0.0
     export_type = str(export_spec.get("type", "")).strip().lower()
-    if export_type != FEED_IN_MODE_DYNAMIC_EPEX:
+    if export_type not in {"spot_hourly", "ex_post_spot"}:
         return 0.0, 0.0
-    if "feed_in_fee_factor" not in export_spec:
-        raise ValueError(
-            "Export-Tarif type 'dynamic_epex' erfordert feed_in_fee_factor in tariffs.json."
-        )
     return (
-        float(export_spec["feed_in_fee_factor"]),
-        float(export_spec.get("feed_in_fix_cent", 0.0)),
+        float(export_spec.get("feed_in_fee_factor", 0.0) or 0.0),
+        float(export_spec.get("feed_in_fix_cent", 0.0) or 0.0),
     )
 
 

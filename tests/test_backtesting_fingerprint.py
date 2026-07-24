@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from simulation.backtesting_fingerprint import (
-    _awattar_pricing_from_specs,
+    _spot_export_fee_from_specs,
     compute_backtesting_fingerprint,
 )
 
@@ -64,36 +64,35 @@ def test_fingerprint_includes_monthly_fixed_tariffs():
     assert fp_a != fp_b
 
 
-def test_fingerprint_includes_awattar_pricing_when_provided():
+def test_fingerprint_includes_spot_export_fees_when_provided():
     scenario = {
-        "import_tariff_type": "awattar",
-        "_import_tariff_spec": {
-            "id": "awattar_at",
-            "type": "awattar",
-            "fix_aufschlag_cent": 1.5,
-            "netzverlust_faktor": 1.03,
-            "mwst_austria_faktor": 1.2,
+        "import_tariff_type": "spot_hourly",
+        "_export_tariff_spec": {
+            "id": "dynamic_epex",
+            "type": "spot_hourly",
+            "feed_in_fee_factor": 0.19,
+            "feed_in_fix_cent": 0.0,
         },
     }
-    awattar_a = _awattar_pricing_from_specs(scenario)
-    awattar_b = _awattar_pricing_from_specs(
+    fees_a = _spot_export_fee_from_specs(scenario)
+    fees_b = _spot_export_fee_from_specs(
         {
             **scenario,
-            "_import_tariff_spec": {
-                **scenario["_import_tariff_spec"],
-                "fix_aufschlag_cent": 2.0,
+            "_export_tariff_spec": {
+                **scenario["_export_tariff_spec"],
+                "feed_in_fee_factor": 0.25,
             },
         }
     )
     fp_a = compute_backtesting_fingerprint(
         ["live"],
         {"live": scenario},
-        awattar_pricing=awattar_a,
+        awattar_pricing=fees_a,
     )
     fp_b = compute_backtesting_fingerprint(
         ["live"],
         {"live": scenario},
-        awattar_pricing=awattar_b,
+        awattar_pricing=fees_b,
     )
     assert fp_a != fp_b
 

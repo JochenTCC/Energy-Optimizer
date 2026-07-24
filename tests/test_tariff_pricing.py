@@ -70,9 +70,10 @@ def test_ch_fixed_export():
     assert export_cent_kwh(None, tariff) == pytest.approx(12.5)
 
 
-def test_awattar_import_uses_spot_surcharge_fields():
+def test_awattar_at_import_as_spot_hourly():
     tariff = {
-        "type": "awattar",
+        "type": "spot_hourly",
+        "land": "AT",
         "settlement_fee_cent_kwh": 1.5,
         "markup_percent": 3.0,
         "prices_include_vat": False,
@@ -98,14 +99,30 @@ def test_import_monthly_table_uses_slot_month():
     assert import_cent_kwh(99.0, tariff, slot_datetime=slot) == pytest.approx(18.0)
 
 
-def test_dynamic_epex_export_uses_tariff_spec():
+def test_spot_export_with_fee_factor_matches_sunny_spot():
     tariff = {
-        "type": "dynamic_epex",
+        "type": "spot_hourly",
+        "land": "AT",
+        "settlement_fee_cent_kwh": 0.0,
         "feed_in_fee_factor": 0.19,
         "feed_in_fix_cent": 0.0,
+        "prices_include_vat": True,
+        "vat_percent": 0.0,
     }
     # 10 - 0.19 * 10 = 8.1
     assert export_cent_kwh(10.0, tariff) == pytest.approx(8.1)
+
+
+def test_spot_export_fee_zero_plus_settlement():
+    tariff = {
+        "type": "spot_hourly",
+        "land": "AT",
+        "settlement_fee_cent_kwh": 1.2,
+        "feed_in_fee_factor": 0.0,
+        "prices_include_vat": True,
+        "vat_percent": 0.0,
+    }
+    assert export_cent_kwh(8.5, tariff) == pytest.approx(7.3)
 
 
 def test_de_spot_ch_fix_scenario_pricing():

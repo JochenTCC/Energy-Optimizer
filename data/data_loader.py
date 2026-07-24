@@ -41,10 +41,21 @@ def resolve_simulation_window(
     Start = first day of the month 11 months earlier (12 inclusive months),
     clipped to cons_data min. Day iteration stays chronological (oldest→newest).
 
+    When ``season_mirror_to_last_month`` is enabled, the window ends at the
+    wall-clock last complete month (consumption is remapped separately).
+
     ``range_mode`` is kept for call-site compatibility; bounds always use cons_data
     (``loxone_logs`` is no longer a separate path-pair mode).
     """
-    del range_mode  # API compat; bounds are always cons_data month-aligned
+    del range_mode  # API compat; bounds are always month-aligned
+    from data.cons_data_season_mirror import (
+        is_season_mirror_enabled,
+        wall_clock_simulation_window,
+    )
+
+    if is_season_mirror_enabled():
+        return wall_clock_simulation_window()
+
     from data.profile_manager import get_cons_data_date_bounds
 
     data_min, data_max = get_cons_data_date_bounds()

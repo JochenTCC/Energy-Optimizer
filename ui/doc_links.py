@@ -105,7 +105,7 @@ PAGE_DOCS: dict[str, PageDocs] = {
         ),
     ),
     "scenario-editor": PageDocs(
-        primary=_handbook("Szenarien-Editor (Benutzer-Handbuch)", "szenarien-editor"),
+        primary=_handbook("Szenarienkonfigurator (Benutzer-Handbuch)", "szenarien-editor"),
         secondaries=(
             DocLink(
                 "Tarife und Preise nachrechnen",
@@ -150,12 +150,12 @@ PAGE_DOCS: dict[str, PageDocs] = {
     ),
     "loxone-debug": PageDocs(
         primary=_handbook(
-            "Loxone-Kommunikation (Benutzer-Handbuch)",
-            "loxone-kommunikation",
+            "Loxone-Com (Benutzer-Handbuch)",
+            "loxone-com",
         ),
         secondaries=(
             DocLink(
-                "Loxone-Kommunikation (UI)",
+                "Loxone-Com (UI)",
                 "docs/ui/loxone-kommunikation.md",
             ),
         ),

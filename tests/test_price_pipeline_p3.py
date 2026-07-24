@@ -1,4 +1,4 @@
-"""Tests für 1.26.0 P3 — Live/Backtesting-Preisparität, P3a-Fenster, P3b-Thermal."""
+﻿"""Tests für 1.26.0 P3 — Live/Backtesting-Preisparität, P3a-Fenster, P3b-Thermal."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -37,12 +37,12 @@ def _resolved_awattar() -> dict:
     return {
         "_import_tariff_spec": {
             "id": "awattar_at",
-            "type": "awattar",
+            "type": "spot_hourly",
             **_AWATTAR_SURCHARGES,
         },
         "_export_tariff_spec": {
             "id": "dynamic_epex",
-            "type": "dynamic_epex",
+            "type": "spot_hourly",
             "feed_in_fee_factor": 0.19,
             "feed_in_fix_cent": 0.0,
         },

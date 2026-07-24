@@ -403,6 +403,10 @@
           "type": "string",
           "description": "Kennung für den SE-Zeitraum (last_12_months = 12 Kalendermonate ab letztem vollständigen cons_data-Monat rückwärts)."
         },
+        "season_mirror_to_last_month": {
+          "type": "boolean",
+          "description": "Wenn true: Verbrauchs-/PV-Muster aus cons_data nach Kalendermonat auf die letzten 12 vollständigen Wanduhr-Monate spiegeln, damit aktuelle Tarife/Spotpreise gelten. CSV auf Disk bleibt unverändert."
+        },
         "energy_charts_bzn": {
           "type": "string",
           "description": "Bidding Zone für Energy-Charts-CSV (z. B. DE-LU)."

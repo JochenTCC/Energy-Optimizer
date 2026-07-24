@@ -52,14 +52,30 @@ def test_dynamic_mode_requires_epex():
         resolve_k_push_act(None, settings)
 
 
-def test_feed_in_settings_from_dict_requires_fee_for_dynamic():
+def test_feed_in_settings_from_dict_reads_spot_export_fees():
     runtime = {
         "k_push_cent": 3.7,
         "feed_in_mode": "dynamic_epex",
-        "_export_tariff_spec": {"type": "dynamic_epex"},
+        "_export_tariff_spec": {
+            "type": "spot_hourly",
+            "feed_in_fee_factor": 0.19,
+            "feed_in_fix_cent": 0.0,
+        },
     }
-    with pytest.raises(ValueError, match="feed_in_fee_factor"):
-        feed_in_settings_from_dict(runtime)
+    settings = feed_in_settings_from_dict(runtime)
+    assert settings.fee_factor == pytest.approx(0.19)
+    assert settings.fix_cent == pytest.approx(0.0)
+
+
+def test_feed_in_settings_spot_without_fee_defaults_zero():
+    runtime = {
+        "k_push_cent": 3.7,
+        "feed_in_mode": "dynamic_epex",
+        "_export_tariff_spec": {"type": "spot_hourly"},
+    }
+    settings = feed_in_settings_from_dict(runtime)
+    assert settings.fee_factor == pytest.approx(0.0)
+    assert settings.fix_cent == pytest.approx(0.0)
 
 
 def test_enrich_matrix_feed_in_prices():

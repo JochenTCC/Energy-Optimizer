@@ -125,6 +125,16 @@ def resolve_backtesting_window(
     today = pd.Timestamp.now().normalize()
     end = min(end, today)
 
+    from data.cons_data_season_mirror import is_season_mirror_enabled
+
+    if is_season_mirror_enabled():
+        if start > end:
+            raise SystemExit(
+                "Kein gültiger Monatszeitraum für Season-Mirror "
+                "(Start nach Ende bzw. nach heute)."
+            )
+        return start, end
+
     lox_min, lox_max = profile_manager.get_cons_data_date_bounds()
     if lox_min is not None:
         start = max(start, pd.Timestamp(lox_min))
@@ -273,7 +283,10 @@ def _run_reference_worker(
 
     start = pd.Timestamp(start_iso)
     end = pd.Timestamp(end_iso)
-    cache = HistoricalDataCache()
+    from data.cons_data_season_mirror import is_season_mirror_enabled
+
+    mirror_window = (start, end) if is_season_mirror_enabled() else None
+    cache = HistoricalDataCache(season_mirror_window=mirror_window)
     cache.load()
     ref_settings = (
         config.get_backtesting_feed_in_settings(runtime_override=scenario_params)
@@ -323,7 +336,10 @@ def _run_scenario_worker(
 
     start = pd.Timestamp(start_iso)
     end = pd.Timestamp(end_iso)
-    cache = HistoricalDataCache()
+    from data.cons_data_season_mirror import is_season_mirror_enabled
+
+    mirror_window = (start, end) if is_season_mirror_enabled() else None
+    cache = HistoricalDataCache(season_mirror_window=mirror_window)
     cache.load()
     price_resources = load_price_resources(
         price_strategy,
@@ -703,7 +719,10 @@ def main(argv: list[str] | None = None):
             print(f"  Prognosemodell: {forecast_model_path}")
 
     print("Lade historische Verbrauchsdaten (Loxone-Logs)...")
-    cache = HistoricalDataCache()
+    from data.cons_data_season_mirror import is_season_mirror_enabled
+
+    mirror_window = (start, end) if is_season_mirror_enabled() else None
+    cache = HistoricalDataCache(season_mirror_window=mirror_window)
     cache.load()
     anchors = list_simulation_anchors(start, end, cache)
     if not anchors:
@@ -939,6 +958,7 @@ def main(argv: list[str] | None = None):
         "backtesting_year": BACKTESTING_YEAR,
         "price_source": price_source,
         "price_strategy": price_strategy,
+        "season_mirror_to_last_month": is_season_mirror_enabled(),
         "reference_by_scenario": reference_by_scenario,
         "live_scenario_id": live_scenario_id,
     }
