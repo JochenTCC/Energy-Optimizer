@@ -518,8 +518,8 @@
             "markup_percent": 0.0,
             "prices_include_vat": false,
             "vat_percent": 20.0,
-            "notes": "Vorarlberg (ohne Kleinwalsertal). EPEX Spot AT Day-Ahead + 1,20 ct netto; USt 20 %. Quelle: vkw.at/produkte/strom/strom-dynamisch",
-            "monthly_fee_eur": 3.0,
+            "notes": "Vorarlberg (ohne Kleinwalsertal). EPEX Spot AT Day-Ahead + 1,20 ct netto; USt 20 %. Monatsgebühr 3,60 € brutto (36 €/Jahr netto × 1,20). Quelle: vkw.at/produkte/strom/strom-dynamisch",
+            "monthly_fee_eur": 3.6,
             "supplier_id": "vkw"
         }
     ],

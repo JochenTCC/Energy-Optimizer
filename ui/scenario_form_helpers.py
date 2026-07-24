@@ -235,17 +235,22 @@ def render_entity_multiselect(
     *,
     key: str,
     current_ids: list[str] | None = None,
+    container=None,
 ) -> list[str]:
     """Multiselect for entities; returns selected display labels."""
+    root = container if container is not None else None
     labels, mapping = options_for_entities(items, allow_none=False)
     if not labels:
         placeholder = f"{EMPTY_PLACEHOLDER_PREFIX} {label.lower()} —"
-        labeled_multiselect(
-            label,
-            options=[placeholder],
-            disabled=True,
-            key=key,
-        )
+        if root is not None:
+            root.multiselect(label, options=[placeholder], disabled=True, key=key)
+        else:
+            labeled_multiselect(
+                label,
+                options=[placeholder],
+                disabled=True,
+                key=key,
+            )
         return []
     if key in st.session_state:
         rematched = [
@@ -256,6 +261,8 @@ def render_entity_multiselect(
         st.session_state[key] = rematched
     else:
         st.session_state[key] = labels_for_entity_ids(items, list(current_ids or []))
+    if root is not None:
+        return list(root.multiselect(label, options=labels, key=key) or [])
     return list(
         labeled_multiselect(
             label,

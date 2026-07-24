@@ -6,11 +6,7 @@ import streamlit as st
 import config
 from ui.doc_links import DocLink, markdown_doc_link
 from ui.help_hint import render_page_title_with_help
-from ui.form_layout import (
-    labeled_checkbox,
-    labeled_selectbox,
-    labeled_text_input,
-)
+from ui.form_layout import labeled_checkbox
 from ui.house_config_io import (
     delete_scenario,
     list_batteries,
@@ -292,7 +288,8 @@ def _resolve_scenario_selection(
         new_option=new_option,
     )
 
-    labeled_selectbox(
+    list_col, reorder_col = st.columns([5, 1], vertical_alignment="top")
+    list_col.radio(
         "Szenario",
         options=options,
         key="scenario_select",
@@ -301,6 +298,12 @@ def _resolve_scenario_selection(
     active = st.session_state[_SESSION_ACTIVE_SELECT_KEY]
 
     if requested == active and st.session_state.get(_SESSION_SWITCH_TARGET_KEY) is None:
+        _render_scenario_reorder_controls(
+            selected=active,
+            scenario_ids=scenario_ids,
+            live_id=live_id,
+            container=reorder_col,
+        )
         return active
 
     active_is_new = active == NEW_SCENARIO_OPTION
@@ -315,6 +318,12 @@ def _resolve_scenario_selection(
         export_tariffs=export_tariffs,
     )
     if dirty:
+        _render_scenario_reorder_controls(
+            selected=active,
+            scenario_ids=scenario_ids,
+            live_id=live_id,
+            container=reorder_col,
+        )
         switch_target = st.session_state.get(_SESSION_SWITCH_TARGET_KEY)
         if requested != active and switch_target != requested:
             st.session_state[_SESSION_SELECT_PENDING_KEY] = active
@@ -339,6 +348,12 @@ def _resolve_scenario_selection(
 
     st.session_state[_SESSION_ACTIVE_SELECT_KEY] = requested
     st.session_state.pop(_SESSION_SWITCH_TARGET_KEY, None)
+    _render_scenario_reorder_controls(
+        selected=requested,
+        scenario_ids=scenario_ids,
+        live_id=live_id,
+        container=reorder_col,
+    )
     return requested
 
 
@@ -347,17 +362,32 @@ def _render_scenario_reorder_controls(
     selected: str,
     scenario_ids: list[str],
     live_id: str,
+    container=None,
 ) -> None:
-    if selected == NEW_SCENARIO_OPTION:
-        return
+    root = container if container is not None else st
     non_live = [sid for sid in scenario_ids if sid != live_id]
-    if selected == live_id or selected not in non_live:
-        st.caption("Reihenfolge: Live bleibt oben; weitere Szenarien mit ↑/↓ sortieren.")
+    can_reorder = (
+        selected != NEW_SCENARIO_OPTION
+        and selected != live_id
+        and selected in non_live
+    )
+    root.caption("Live bleibt oben.")
+    if not can_reorder:
+        root.button(
+            "↑",
+            key="scenario_reorder_up",
+            disabled=True,
+            help="Szenario nach oben verschieben",
+        )
+        root.button(
+            "↓",
+            key="scenario_reorder_down",
+            disabled=True,
+            help="Szenario nach unten verschieben",
+        )
         return
     idx = non_live.index(selected)
-    st.caption("Reihenfolge im Szenario-Explorer (Live bleibt oben).")
-    col_up, col_down, _ = st.columns([1, 1, 6])
-    if col_up.button(
+    if root.button(
         "↑",
         key="scenario_reorder_up",
         disabled=idx <= 0,
@@ -373,7 +403,7 @@ def _render_scenario_reorder_controls(
         st.session_state[_SESSION_SELECT_PENDING_KEY] = selected
         st.session_state[_SESSION_FILE_STAMP_KEY] = backtesting_scenarios_file_stamp()
         st.rerun()
-    if col_down.button(
+    if root.button(
         "↓",
         key="scenario_reorder_down",
         disabled=idx >= len(non_live) - 1,
@@ -434,12 +464,6 @@ def _render_scenarios_tab() -> None:
         export_tariffs=export_tariffs,
     )
 
-    _render_scenario_reorder_controls(
-        selected=selected,
-        scenario_ids=scenario_ids,
-        live_id=live_id,
-    )
-
     is_new = selected == NEW_SCENARIO_OPTION
     existing = next((s for s in scenarios if s.get("id") == selected), None) if not is_new else None
     scenario_template = (
@@ -465,25 +489,29 @@ def _render_scenarios_tab() -> None:
         )
 
     is_live = bool(existing) and str(existing.get("id", "")).strip() == live_id
-    label = labeled_text_input(
+    label_key = scoped_widget_key(session_scope, "scenario_label")
+    enabled_key = scoped_widget_key(session_scope, "scenario_enabled")
+    own_ref_key = scoped_widget_key(session_scope, "scenario_own_reference")
+
+    label_col, enabled_col, own_ref_col = st.columns(3)
+    label = label_col.text_input(
         "Bezeichnung",
-        key=scoped_widget_key(session_scope, "scenario_label"),
+        key=label_key,
         disabled=is_live,
     )
     if is_live and existing:
         label = str(existing.get("label") or existing.get("id") or "").strip()
-
-    labeled_checkbox(
+    enabled_col.checkbox(
         "Aktiv für Szenario-Explorer",
-        key=scoped_widget_key(session_scope, "scenario_enabled"),
+        key=enabled_key,
         help=(
             "Deaktivierte Szenarien erscheinen nicht in der SE-Berechnung. "
             "Änderungen machen vorhandene SE-Ergebnisse ungültig."
         ),
     )
-    labeled_checkbox(
+    own_ref_col.checkbox(
         "Eigene Referenz ohne Optimierung",
-        key=scoped_widget_key(session_scope, "scenario_own_reference"),
+        key=own_ref_key,
         help=(
             "Berechnet eine eigene Nicht-Opt-Referenz (Tarif + PV) für dieses Szenario. "
             "Ohne gespeicherten Wert vorbelegt aus Earnies Heuristik "
@@ -501,16 +529,19 @@ def _render_scenarios_tab() -> None:
 
     required_lists_empty = not (import_tariffs and export_tariffs and profiles)
 
+    profile_col, battery_col, pv_col = st.columns(3)
     prof_pick = render_entity_selectbox(
         "Hausprofil",
         list(profiles.values()),
         allow_none=True,
         key=scoped_widget_key(session_scope, "scenario_profile"),
+        container=profile_col,
     )
     selected_profile_id = lookup_entity_id(prof_map, prof_pick)
     selected_profile = profiles.get(selected_profile_id, {})
     if selected_profile:
-        render_profile_geo_caption(selected_profile)
+        with profile_col:
+            render_profile_geo_caption(selected_profile)
 
     profile_land = str(selected_profile.get("land") or "AT").strip().upper()
     if profile_land not in {"AT", "DE", "CH"}:
@@ -524,21 +555,24 @@ def _render_scenarios_tab() -> None:
         st.session_state[land_key] = profile_land
         st.session_state[land_seed_key] = selected_profile_id
     if not selected_profile_id:
-        st.caption(
-            "Kein Hausprofil gewählt — Land-Filter Standard AT. "
-            "Bitte Land im Hauskonfigurator (Standort) setzen."
-        )
+        with profile_col:
+            st.caption(
+                "Kein Hausprofil gewählt — Land-Filter Standard AT. "
+                "Bitte Land im Hauskonfigurator (Standort) setzen."
+            )
 
     battery_pick = render_entity_selectbox(
         "Batterie",
         batteries,
         allow_none=True,
         key=scoped_widget_key(session_scope, "scenario_battery"),
+        container=battery_col,
     )
     pv_picks = render_entity_multiselect(
         "PV-Anlagen",
         pv_systems,
         key=scoped_widget_key(session_scope, "scenario_pv"),
+        container=pv_col,
     )
     has_pv_csv = bool(str(selected_profile.get("pv_profile_csv", "") or "").strip())
     if has_pv_csv:

@@ -131,7 +131,7 @@ Transparenz zur Katalogpflege: Abgleich öffentlicher Quellen mit `tariffs.json`
 | Katalog-ID | `monthly_fee_eur` | Basis | Quelle |
 | ---------- | ----------------- | ----- | ------ |
 | `awattar_at` | 4,79 | netto | [awattar.at/tariffs/hourly](https://www.awattar.at/tariffs/hourly) |
-| `at_vkw_strom_dynamisch` | 3,00 | netto | [vkw.at Strom Dynamisch](https://www.vkw.at/produkte/strom/strom-dynamisch) (36 €/Jahr netto) |
+| `at_vkw_strom_dynamisch` | 3,60 | brutto | [vkw.at Strom Dynamisch](https://www.vkw.at/produkte/strom/strom-dynamisch) (36 €/Jahr netto × 1,20 USt) |
 | `at_smartenergy_smartcontrol` | 2,99 | brutto | [smartenergy.at/smartcontrol](https://smartenergy.at/smartcontrol) |
 | `at_spotty_smart_active` | 2,40 | brutto | Spotty / Vergleichsportale (ca. 2,00 netto) |
 | `at_verbund_v_strom_spot` | 4,79 | brutto | Selectra / Verbund-Grundpreis (ca.) |
